@@ -474,12 +474,19 @@ var SB = {
   ensureGroup: function(){
     if (!SB.session || !SB.session.access_token) return Promise.resolve(null);
     if (S.serverGroupId) return Promise.resolve(S.serverGroupId);
-    return SB.rest('groups', 'POST', {name: 'Mi grupo', owner_id: S.serverId}, '', 'return=representation').then(function(res){
-      if (res.ok && res.data && res.data[0]) { S.serverGroupId = res.data[0].id; save(); return S.serverGroupId; }
-      return null;
+    /* id creado aquí y sin pedir la fila de vuelta: la política de lectura de groups exige ser miembro,
+       y el trigger que te agrega como miembro aún no es visible al devolver la fila (daría error 42501) */
+    var gid = SB.uuid();
+    return SB.rest('groups', 'POST', {id: gid, name: 'Mi grupo', owner_id: S.serverId}, '', 'return=minimal').then(function(res){
+      if (res.ok) { S.serverGroupId = gid; save(); return gid; }
+      SB.fail('grupo', res); return null;
     });
   },
   /* muestra (y registra en consola) por qué falló algo con el servidor, en vez de callarlo */
+  uuid: function(){
+    if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c){ var r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 3 | 8)).toString(16); });
+  },
   fail: function(where, res){
     var msg = res && res.data && (res.data.message || res.data.error || res.data.msg || res.data.error_description);
     var txt = 'Servidor (' + where + '): ' + (res && res.status ? res.status : 'sin conexión') + (msg ? ' - ' + msg : '');
@@ -495,8 +502,9 @@ var SB = {
     SB.inflight[ev.id] = SB.ensureGroup().then(function(gid){
       if (!gid) { SB.fail('grupo', {status: 0}); return null; }
       var starts = ev.date ? (ev.date + 'T' + (ev.time || '00:00') + ':00') : null;
-      return SB.rest('events', 'POST', {group_id: gid, owner_id: S.serverId, title: ev.name, place_text: ev.place || '', starts_at: starts}, '', 'return=representation').then(function(res){
-        if (res.ok && res.data && res.data[0]) { ev.serverId = res.data[0].id; save(); return ev.serverId; }
+      var eid = SB.uuid();
+      return SB.rest('events', 'POST', {id: eid, group_id: gid, owner_id: S.serverId, title: ev.name, place_text: ev.place || '', starts_at: starts}, '', 'return=minimal').then(function(res){
+        if (res.ok) { ev.serverId = eid; save(); return eid; }
         SB.fail('evento', res); return null;
       });
     }).catch(function(e){ SB.fail('evento', {status: 0, data: {message: String(e)}}); return null; })
