@@ -429,7 +429,7 @@ var I = {
 var SUPABASE_URL = 'https://tjsrwipyhrqsvqodrnta.supabase.co';
 var SUPABASE_KEY = 'sb_publishable_S766MO5MlKDHD8KKHu1uvQ_IqxZdSJJ';
 var SB = {
-  session: null,
+  session: null, inflight: {}, pending: false,
   call: function(path, body){
     return fetch(SUPABASE_URL + '/auth/v1/' + path, {
       method: 'POST',
@@ -479,32 +479,66 @@ var SB = {
       return null;
     });
   },
+  /* muestra (y registra en consola) por qué falló algo con el servidor, en vez de callarlo */
+  fail: function(where, res){
+    var msg = res && res.data && (res.data.message || res.data.error || res.data.msg || res.data.error_description);
+    var txt = 'Servidor (' + where + '): ' + (res && res.status ? res.status : 'sin conexión') + (msg ? ' - ' + msg : '');
+    try { console.error(txt, res); } catch (e) {}
+    try { toast(txt); } catch (e) {}
+    S.lastSyncError = txt; save();
+  },
   /* crea el evento también en el servidor; guarda ev.serverId para las fotos */
   syncEvent: function(ev){
-    if (!SB.session || !SB.session.access_token) return;
-    SB.ensureGroup().then(function(gid){
-      if (!gid) return;
+    if (!SB.session || !SB.session.access_token) return Promise.resolve(null);
+    if (ev.serverId) return Promise.resolve(ev.serverId);
+    if (SB.inflight[ev.id]) return SB.inflight[ev.id];
+    SB.inflight[ev.id] = SB.ensureGroup().then(function(gid){
+      if (!gid) { SB.fail('grupo', {status: 0}); return null; }
       var starts = ev.date ? (ev.date + 'T' + (ev.time || '00:00') + ':00') : null;
-      return SB.rest('events', 'POST', {group_id: gid, owner_id: S.serverId, title: ev.name, place_text: ev.place || '', starts_at: starts}, '', 'return=representation');
-    }).then(function(res){
-      if (res && res.ok && res.data && res.data[0]) { ev.serverId = res.data[0].id; save(); }
-    }).catch(function(){});
+      return SB.rest('events', 'POST', {group_id: gid, owner_id: S.serverId, title: ev.name, place_text: ev.place || '', starts_at: starts}, '', 'return=representation').then(function(res){
+        if (res.ok && res.data && res.data[0]) { ev.serverId = res.data[0].id; save(); return ev.serverId; }
+        SB.fail('evento', res); return null;
+      });
+    }).catch(function(e){ SB.fail('evento', {status: 0, data: {message: String(e)}}); return null; })
+      .then(function(id){ delete SB.inflight[ev.id]; return id; });
+    return SB.inflight[ev.id];
   },
-  /* sube la foto al servidor (Storage + fila en la tabla) */
+  /* sube la foto al servidor (Storage + fila en la tabla); si el evento aún no está en el servidor, lo crea primero */
   syncPhoto: function(ev, photo){
-    if (!SB.session || !SB.session.access_token || !ev.serverId) return;
-    try {
+    if (!SB.session || !SB.session.access_token || photo.synced) return Promise.resolve(false);
+    return SB.syncEvent(ev).then(function(eid){
+      if (!eid) return false;
       var bytes = dataToBytes(photo.data);
-      var path = 'event/' + ev.serverId + '/' + photo.id + '.jpg';
-      fetch(SUPABASE_URL + '/storage/v1/object/photos/' + path, {
+      var path = 'event/' + eid + '/' + photo.id + '.jpg';
+      return fetch(SUPABASE_URL + '/storage/v1/object/photos/' + path, {
         method: 'POST',
-        headers: {'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SB.session.access_token, 'Content-Type': 'image/jpeg'},
+        headers: {'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SB.session.access_token, 'Content-Type': 'image/jpeg', 'x-upsert': 'true'},
         body: bytes
       }).then(function(r){
-        if (!r.ok) return;
-        return SB.rest('photos', 'POST', {event_id: ev.serverId, author_id: S.serverId, storage_path: path}, '', 'return=minimal');
-      }).catch(function(){});
-    } catch (e) {}
+        return r.text().then(function(t){
+          var j = null; try { j = t ? JSON.parse(t) : null; } catch (e) {}
+          if (!r.ok) { SB.fail('foto (almacenamiento)', {status: r.status, data: j}); return false; }
+          return SB.rest('photos', 'POST', {event_id: eid, author_id: S.serverId, storage_path: path}, '', 'return=minimal').then(function(res){
+            if (!res.ok) { SB.fail('foto (tabla photos)', res); return false; }
+            photo.synced = true; save(); return true;
+          });
+        });
+      });
+    }).catch(function(e){ SB.fail('foto', {status: 0, data: {message: String(e)}}); return false; });
+  },
+  /* reintenta lo que quedó pendiente en este teléfono (eventos y fotos creados por el usuario) */
+  syncPending: function(){
+    if (!SB.session || !SB.session.access_token || !S.serverId || SB.pending) return Promise.resolve();
+    SB.pending = true;
+    var chain = Promise.resolve();
+    S.events.forEach(function(ev){
+      if (!ev.toSync && !ev.serverId) return;
+      chain = chain.then(function(){ return SB.syncEvent(ev); }).then(function(){
+        var ps = ev.photos.filter(function(p){ return p.pend && !p.synced; });
+        return ps.reduce(function(c, p){ return c.then(function(){ return SB.syncPhoto(ev, p); }); }, Promise.resolve());
+      });
+    });
+    return chain.then(function(){ SB.pending = false; }, function(){ SB.pending = false; });
   },
   /* mensajes de chat, de evento o del grupo */
   syncMessage: function(opts){
@@ -565,7 +599,7 @@ var SB = {
           var photoRows = r3[0].data || [];
           return Promise.all(photoRows.map(function(p){
             return SB.downloadPhoto(p.storage_path).then(function(data){
-              return {id: 'p_' + p.id, by: S.me, at: Date.parse(p.created_at) || Date.now(), data: data};
+              return {id: 'p_' + p.id, by: S.me, at: Date.parse(p.created_at) || Date.now(), data: data, synced: true};
             }).catch(function(){ return null; });
           })).then(function(photos){
             return {
@@ -583,11 +617,11 @@ var SB = {
     }).then(function(evs){
       (evs || []).forEach(function(nev){
         var existing = S.events.filter(function(e){ return e.serverId === nev.serverId; })[0];
-        if (existing) { existing.photos = nev.photos; existing.chat = nev.chat; existing.songs = nev.songs; Object.assign(existing, {name: nev.name, place: nev.place, date: nev.date, time: nev.time}); }
+        if (existing) { var keep = existing.photos.filter(function(p){ return p.pend && !p.synced; }); existing.photos = nev.photos.concat(keep); existing.chat = nev.chat; existing.songs = nev.songs; Object.assign(existing, {name: nev.name, place: nev.place, date: nev.date, time: nev.time}); }
         else S.events.push(nev);
       });
       save(); render(false);
-    }).catch(function(){});
+    }).catch(function(){}).then(function(){ return SB.syncPending(); });
   }
 };
 
@@ -824,7 +858,7 @@ function act(a, t){
         ui.editId = null; ui.sheet = null; renderSheet(); save(); render(); toast('Cambios guardados');
         break;
       }
-      ev = newEvent(data);
+      ev = newEvent(data); ev.toSync = true;
       S.events.push(ev); save();
       SB.syncEvent(ev);
       ui.sheet = null; renderSheet();
@@ -935,7 +969,7 @@ $('#file').addEventListener('change', function(e){
       if (!/^image\//.test(f.type)) return;
       var gp = (f.slice && f.slice(0, 262144).arrayBuffer) ? f.slice(0, 262144).arrayBuffer().then(exifGps, function(){ return null; }) : Promise.resolve(null);
       return Promise.all([readImage(f), gp]).then(function(r){
-        var np = {id: uid(), by: S.me, at: Date.now() + ok, data: r[0], geo: r[1] || null};
+        var np = {id: uid(), by: S.me, at: Date.now() + ok, data: r[0], geo: r[1] || null, pend: true};
         ev.photos.push(np);
         SB.syncPhoto(ev, np);
         if (r[1]) { geoCount++; if (!ev.geo) ev.geo = r[1]; }
@@ -3116,7 +3150,7 @@ Promise.race([load(), new Promise(function(r){ setTimeout(function(){ r(null); }
   ensureProfile(); ensureDemos();
   if (!S.me) { ui.acctPhoto = ''; ui.sheet = 'acct'; }
   render(false); renderSheet();
-  SB.restore(); /* recupera la sesión con el servidor si ya había una guardada */
+  SB.restore().then(function(ok){ if (ok) SB.syncPending(); }); /* recupera la sesión y reintenta lo pendiente */
   try {
     if (window.claude && window.claude.use) {
       window.claude.use('downloads').then(function(d){ if (d) { dl = d; render(); } }).catch(function(){});
