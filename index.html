@@ -220,6 +220,24 @@ main{padding:14px 0 130px}
 .cv-foot span{flex:1;height:1px;background:rgba(255,255,255,.25)}
 #cover :focus-visible{outline-color:#ffd166}
 
+/* Tutorial de bienvenida (una sola vez por dispositivo) */
+#tour{display:none}
+#tour.on{display:block;position:fixed;inset:0;z-index:71;overflow:hidden;color:#fff;transition:opacity .3s;
+  height:100vh;height:100dvh;min-height:-webkit-fill-available;
+  background:radial-gradient(120% 55% at 50% 0%,#4a1f9c 0%,transparent 62%),radial-gradient(70% 40% at 95% 58%,rgba(140,60,220,.35) 0%,transparent 70%),linear-gradient(180deg,#1b0a45 0%,#160838 45%,#0d0524 100%)}
+#tour.out{opacity:0}
+.tr{position:relative;min-height:100%;display:flex;flex-direction:column;max-width:440px;margin:0 auto;
+  padding:calc(env(safe-area-inset-top,0px) + 14px) 22px calc(env(safe-area-inset-bottom,0px) + 20px)}
+.tr-body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:14px}
+.tr-emoji{font-size:64px;line-height:1;filter:drop-shadow(0 6px 18px rgba(150,90,255,.4))}
+.tr-title{margin:0;font-size:23px;font-weight:800;letter-spacing:-.01em}
+.tr-text{margin:0;font-size:15px;line-height:1.5;color:rgba(255,255,255,.78);max-width:30ch}
+.tr-dots{display:flex;gap:7px;justify-content:center;margin:18px 0 4px}
+.tr-dot{width:7px;height:7px;border-radius:99px;background:rgba(255,255,255,.3);border:0;padding:0;transition:width .2s,background .2s}
+.tr-dot.on{background:#fff;width:20px}
+.tr-cta{min-height:54px;border-radius:99px;font-size:17px;font-weight:700;color:#fff;background:linear-gradient(90deg,#ff5fd0,#9b6bff 55%,#5b8cff);box-shadow:0 8px 26px rgba(150,90,255,.4);width:100%;margin-top:12px}
+#tour :focus-visible{outline-color:#ffd166}
+
 /* Plan del evento */
 .sheet{max-height:92vh;overflow-y:auto}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -389,6 +407,7 @@ details.loc summary{cursor:pointer;font-weight:700;color:var(--accent);padding:8
 <div id="ed"></div>
 <div id="pay"></div>
 <div id="cover"></div>
+<div id="tour"></div>
 <div id="toast" role="status" aria-live="polite"></div>
 <input type="file" id="file" accept="image/*" multiple hidden>
 <input type="file" id="pfile" accept="image/*" hidden>
@@ -954,7 +973,7 @@ function act(a, t){
 
 document.addEventListener('click', function(e){
   var t = e.target.closest('[data-act]');
-  if (t) { var a = t.dataset.act; if (a === 'story' || a.indexOf('st-') === 0) storyAct(a, t); else if (a.indexOf('cv-') === 0) coverAct(a); else if (a.indexOf('pl-') === 0) planAct(a, t); else if (a === 'hm') menuAct(t); else if (a.indexOf('gr-') === 0) groupAct(a, t); else if (a.indexOf('mu-') === 0) musicAct(a, t); else if (a.indexOf('pc-') === 0) placeAct(a, t); else if (a.indexOf('fo-') === 0) fotosAct(a, t); else if (a.indexOf('lg-') === 0) loginAct(a, t); else if (a.indexOf('ed-') === 0) edAct(a, t); else if (a.indexOf('ch-') === 0) chatAct(a, t); else if (a.indexOf('pay-') === 0) payAct(a); else if (a.indexOf('us-') === 0 || a.indexOf('lk-') === 0 || a === 'pf-followers' || a === 'pf-following') socialAct(a, t); else if (a.indexOf('pf-') === 0 || a.indexOf('ac-') === 0) profileAct(a, t); else act(a, t); }
+  if (t) { var a = t.dataset.act; if (a === 'story' || a.indexOf('st-') === 0) storyAct(a, t); else if (a.indexOf('cv-') === 0) coverAct(a); else if (a.indexOf('tr-') === 0) tourAct(a, t); else if (a.indexOf('pl-') === 0) planAct(a, t); else if (a === 'hm') menuAct(t); else if (a.indexOf('gr-') === 0) groupAct(a, t); else if (a.indexOf('mu-') === 0) musicAct(a, t); else if (a.indexOf('pc-') === 0) placeAct(a, t); else if (a.indexOf('fo-') === 0) fotosAct(a, t); else if (a.indexOf('lg-') === 0) loginAct(a, t); else if (a.indexOf('ed-') === 0) edAct(a, t); else if (a.indexOf('ch-') === 0) chatAct(a, t); else if (a.indexOf('pay-') === 0) payAct(a); else if (a.indexOf('us-') === 0 || a.indexOf('lk-') === 0 || a === 'pf-followers' || a === 'pf-following') socialAct(a, t); else if (a.indexOf('pf-') === 0 || a.indexOf('ac-') === 0) profileAct(a, t); else act(a, t); }
 });
 document.addEventListener('input', function(e){
   if (e.target.id === 'chatin') ui.draft = e.target.value;
@@ -1425,6 +1444,12 @@ function renderCover(){
 function coverAct(a){
   var go = a === 'cv-start' || a === 'cv-signup' || (a === 'cv-login' && S.me);
   if (!go) { toast('Todavía no hay una cuenta en este teléfono. Toca «Crear cuenta» para empezar.'); return; }
+  /* "Comenzar" muestra primero el tutorial de bienvenida (una sola vez por dispositivo);
+     "Iniciar sesión" y "Crear cuenta" van directo a su formulario, sin pasar por ahí. */
+  if (a === 'cv-start' && !S.tourSeen) { ui.tourStep = 0; ui.tourThen = a; tourOn = true; renderTour(); return; }
+  proceedAfterCover(a);
+}
+function proceedAfterCover(a){
   var el = $('#cover'); el.classList.add('out');
   setTimeout(function(){
     coverOn = false; renderCover();
@@ -1432,6 +1457,42 @@ function coverAct(a){
     ui.authed = true;
     if (a === 'cv-signup' && S.me) { ui.view = 'profile'; render(false); window.scrollTo(0, 0); }
   }, 350);
+}
+
+/* ---------- tutorial de bienvenida (una sola vez por dispositivo) ---------- */
+var TOUR_STEPS = [
+  {e: '🎉', t: 'Crea tu primer evento', d: 'Ponle nombre, fecha y lugar. En segundos tienes un espacio para tu fiesta.'},
+  {e: '👥', t: 'Invita a tus amigos', d: 'Comparte el código o el enlace del evento. Al entrar, ya son parte de él.'},
+  {e: '📸', t: 'Todos suben sus fotos', d: 'Cada quien sube las que tomó. Se guardan juntas, en un solo álbum del evento.'},
+  {e: '📤', t: 'Comparte o descarga el álbum', d: 'Bájalas a tu teléfono o compártelas directo a tus redes cuando quieras.'},
+  {e: '👤', t: 'Tu perfil', d: 'Ahí ves tus propios eventos, tus fotos, y quién te sigue.'}
+];
+var tourOn = false;
+function tourHTML(){
+  var n = TOUR_STEPS.length, i = ui.tourStep || 0, s = TOUR_STEPS[i];
+  return '<div class="tr">' +
+    '<div class="tr-body"><div class="tr-emoji" aria-hidden="true">' + s.e + '</div>' +
+    '<h2 class="tr-title">' + esc(s.t) + '</h2><p class="tr-text">' + esc(s.d) + '</p></div>' +
+    '<div class="tr-dots">' + TOUR_STEPS.map(function(_, k){ return '<button class="tr-dot' + (k === i ? ' on' : '') + '" data-act="tr-dot" data-i="' + k + '" aria-label="Paso ' + (k + 1) + ' de ' + n + '"></button>'; }).join('') + '</div>' +
+    '<button class="tr-cta" data-act="tr-next">' + (i === n - 1 ? 'Empezar' : 'Siguiente') + '</button></div>';
+}
+function renderTour(){
+  var el = $('#tour');
+  if (!tourOn) { el.className = ''; el.innerHTML = ''; document.body.style.overflow = (ui.lb || ui.story) ? 'hidden' : ''; return; }
+  el.className = 'on'; el.innerHTML = tourHTML(); document.body.style.overflow = 'hidden';
+}
+function tourAct(a, t){
+  if (a === 'tr-dot') { ui.tourStep = +t.dataset.i; renderTour(); return; }
+  if (a === 'tr-next' && (ui.tourStep || 0) < TOUR_STEPS.length - 1) { ui.tourStep = (ui.tourStep || 0) + 1; renderTour(); return; }
+  /* 'tr-next' en el último paso ("Empezar"): termina el tutorial, no vuelve a salir en este teléfono,
+     y sigue con lo que había quedado pendiente (abrir el formulario de cuenta) */
+  S.tourSeen = true; save();
+  var el = $('#tour'); el.classList.add('out');
+  setTimeout(function(){
+    tourOn = false; ui.tourStep = 0; renderTour();
+    var then = ui.tourThen; ui.tourThen = null;
+    if (then) proceedAfterCover(then);
+  }, 300);
 }
 
 /* ---------- eventos: plan, invitaciones y recordatorios ---------- */
