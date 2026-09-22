@@ -1433,7 +1433,9 @@ function coverHTML(){
     '<p class="cv-sub">Descubre eventos, conecta con amigos y vive experiencias inolvidables.</p>' +
     '<div class="cv-tiles" aria-hidden="true">' + CV_TILES.map(function(t){ return '<div class="cv-tile ' + t[2] + '">' + t[1] + '<span>' + t[0] + '</span></div>'; }).join('') + '</div>' +
     '<div class="cv-cta"><button class="cv-go" data-act="cv-start"><span>Comenzar</span>' + svg('<path d="M5 12h14M13 6l6 6-6 6"/>', 22) + '</button>' +
-    '<div class="cv-two"><button class="cv-ghost" data-act="cv-login">Iniciar sesión</button><button class="cv-ghost" data-act="cv-signup">Crear cuenta</button></div>' +
+    /* la primera vez solo se ve "Comenzar"; "Iniciar sesión" y "Crear cuenta" aparecen
+       al volver a esta misma portada, después del tutorial */
+    (S.tourSeen ? '<div class="cv-two"><button class="cv-ghost" data-act="cv-login">Iniciar sesión</button><button class="cv-ghost" data-act="cv-signup">Crear cuenta</button></div>' : '') +
     '<p class="cv-foot"><span></span>UN MUNDO MÁS DIVERTIDO JUNTOS<span></span></p></div></div>';
 }
 function renderCover(){
@@ -1446,7 +1448,7 @@ function coverAct(a){
   if (!go) { toast('Todavía no hay una cuenta en este teléfono. Toca «Crear cuenta» para empezar.'); return; }
   /* "Comenzar" muestra primero el tutorial de bienvenida (una sola vez por dispositivo);
      "Iniciar sesión" y "Crear cuenta" van directo a su formulario, sin pasar por ahí. */
-  if (a === 'cv-start' && !S.tourSeen) { ui.tourStep = 0; ui.tourThen = a; tourOn = true; renderTour(); return; }
+  if (a === 'cv-start' && !S.tourSeen) { ui.tourStep = 0; tourOn = true; renderTour(); return; }
   proceedAfterCover(a);
 }
 function proceedAfterCover(a){
@@ -1485,14 +1487,10 @@ function tourAct(a, t){
   if (a === 'tr-dot') { ui.tourStep = +t.dataset.i; renderTour(); return; }
   if (a === 'tr-next' && (ui.tourStep || 0) < TOUR_STEPS.length - 1) { ui.tourStep = (ui.tourStep || 0) + 1; renderTour(); return; }
   /* 'tr-next' en el último paso ("Empezar"): termina el tutorial, no vuelve a salir en este teléfono,
-     y sigue con lo que había quedado pendiente (abrir el formulario de cuenta) */
+     y vuelve a la misma portada, ahora con "Iniciar sesión" y "Crear cuenta" visibles */
   S.tourSeen = true; save();
   var el = $('#tour'); el.classList.add('out');
-  setTimeout(function(){
-    tourOn = false; ui.tourStep = 0; renderTour();
-    var then = ui.tourThen; ui.tourThen = null;
-    if (then) proceedAfterCover(then);
-  }, 300);
+  setTimeout(function(){ tourOn = false; ui.tourStep = 0; renderTour(); renderCover(); }, 300);
 }
 
 /* ---------- eventos: plan, invitaciones y recordatorios ---------- */
@@ -3228,7 +3226,13 @@ Promise.race([load(), new Promise(function(r){ setTimeout(function(){ r(null); }
   if (st && typeof st === 'object') S = Object.assign(S, st);
   ensureProfile(); ensureDemos();
   if (!S.me) { ui.acctPhoto = ''; ui.sheet = 'acct'; }
-  render(false); renderSheet();
+  else {
+    /* este teléfono ya tiene una cuenta: nada de portada ni de tutorial otra vez,
+       directo a iniciar sesión (con Face ID o Touch ID al frente, si ya lo activó) */
+    coverOn = false;
+    if (hasLock()) ui.sheet = 'login'; else ui.authed = true;
+  }
+  render(false); renderSheet(); renderCover();
   SB.restore().then(function(ok){ if (ok) SB.syncPending(); }); /* recupera la sesión y reintenta lo pendiente */
   try {
     if (window.claude && window.claude.use) {
