@@ -2481,6 +2481,7 @@ function acctSheet(){
     '<label>WhatsApp o teléfono (opcional)<input id="a-phone" class="inp" inputmode="tel" placeholder="502 5555 1234" autocomplete="tel" value="' + v('phone') + '"></label>' +
     '<label>Sobre ti (opcional)<input id="a-bio" class="inp" placeholder="Una frase corta" maxlength="100" autocomplete="off" value="' + v('bio') + '"></label>' +
     '<p class="muted small">Tu correo y tu teléfono solo los ves tú.</p>' +
+    (first ? '<p class="muted small">Al crear tu cuenta, aceptas los <a href="terms.html" target="_blank" rel="noopener">Términos de uso</a> y la <a href="privacy.html" target="_blank" rel="noopener">Política de privacidad</a>.</p>' : '') +
     '<button class="btn primary block" data-act="ac-save">' + (first ? 'Crear cuenta' : 'Guardar cambios') + '</button>' +
     (first ? '<button class="link" data-act="ac-prov" data-p="srvlogin">¿Ya tienes cuenta? Entrar</button>' : '<button class="link" data-act="close-sheet">Cancelar</button>') + '</div>';
 }
@@ -2527,7 +2528,7 @@ function profileHTML(name){
   return head + '<main class="wrap"><div class="pf-head">' + av(name, 84) + '<div class="pf-stats">' + stat(D.photos.length, 'Fotos') + stat(D.followers.length, 'Seguidores', 'pf-followers') + stat(D.following.length, 'Siguiendo', 'pf-following') + stat(D.likes, 'Me gusta') + '</div></div>' + info +
     '<nav class="tabs" style="margin-top:14px" role="tablist"><button class="tab' + (tab === 'fotos' ? ' on' : '') + '" data-act="pf-tab" data-tab="fotos">Fotos<small>' + D.photos.length + '</small></button><button class="tab' + (tab === 'eventos' ? ' on' : '') + '" data-act="pf-tab" data-tab="eventos">Eventos<small>' + D.evs.length + '</small></button></nav>' +
     '<div style="height:12px"></div>' + body +
-    (me ? purchasesBlock() + securityBlock() + '<div style="height:20px"></div><button class="link danger" data-act="pf-wipe">' + (ui.armed === 'wipe' ? 'Toca otra vez para borrar todo' : 'Borrar mi cuenta y mis datos de este teléfono') + '</button>' : '<p class="muted small" style="margin-top:20px">Este perfil se arma con lo que hay en tu teléfono.</p>') + '</main>';
+    (me ? purchasesBlock() + securityBlock() + legalBlock() + '<div style="height:20px"></div><button class="link danger" data-act="pf-wipe">' + (ui.armed === 'wipe' ? 'Toca otra vez para borrar todo' : 'Borrar mi cuenta y mis datos de este teléfono') + '</button>' : '<p class="muted small" style="margin-top:20px">Este perfil se arma con lo que hay en tu teléfono.</p>') + '</main>';
 }
 function profileView(){ return profileHTML(S.me); }
 function userView(){ return ui.user && ui.user !== S.me ? profileHTML(ui.user) : profileHTML(S.me); }
@@ -2791,6 +2792,14 @@ function securityBlock(){
     (pr.provider ? row('Cuenta de ' + (pr.provider === 'apple' ? 'Apple' : 'Google'), 'Conectada (prueba)', '') : '') +
     '</ul><p class="muted small">Es un candado para este teléfono. La verificación real, y entrar desde otro teléfono, llegan con el servidor.</p>' +
     (hasLock() ? '<button class="btn block" data-act="lg-out">Cerrar sesión</button>' : '');
+}
+function legalBlock(){
+  var lnk = 'style="color:inherit;text-decoration:none;display:block"';
+  return '<h3 class="pl-h">Ayuda y legal</h3><ul class="people sec">' +
+    '<li><a class="nm" ' + lnk + ' href="privacy.html" target="_blank" rel="noopener">Política de privacidad</a></li>' +
+    '<li><a class="nm" ' + lnk + ' href="terms.html" target="_blank" rel="noopener">Términos de uso</a></li>' +
+    '<li><a class="nm" ' + lnk + ' href="mailto:friendsparty@outlook.com">Escríbenos<small>friendsparty@outlook.com</small></a></li>' +
+    '</ul>';
 }
 
 /* acciones */
