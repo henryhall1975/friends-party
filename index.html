@@ -177,6 +177,8 @@ main{padding:14px 0 130px}
 
 /* Portada */
 #cover{display:none}
+/* pantalla completa real en iPhone (app instalada): 100vh cubre también la zona del indicador de inicio */
+#cover.on,#lb.on,#story.on,#ed.on{height:100vh;height:100dvh;min-height:-webkit-fill-available}
 #cover.on{display:block;position:fixed;inset:0;z-index:70;overflow-y:auto;overflow-x:hidden;color:#fff;transition:opacity .35s;
   background:radial-gradient(120% 55% at 50% 0%,#4a1f9c 0%,transparent 62%),radial-gradient(70% 40% at 95% 58%,rgba(140,60,220,.35) 0%,transparent 70%),linear-gradient(180deg,#1b0a45 0%,#160838 45%,#0d0524 100%)}
 #cover.out{opacity:0}
