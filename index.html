@@ -826,7 +826,7 @@ function eventView(){
 }
 function render(keep){
   var y = window.scrollY;
-  app.innerHTML = ui.view === 'home' ? home() : ui.view === 'invites' ? invitesView() : ui.view === 'music' ? musicView() : ui.view === 'places' ? placesView() : ui.view === 'place' ? placeView() : ui.view === 'fotos' ? fotosView() : ui.view === 'chats' ? chatsView() : ui.view === 'gchat' ? gchatView() : ui.view === 'profile' ? profileView() : ui.view === 'user' ? userView() : eventView();
+  app.innerHTML = ui.view === 'home' ? home() : ui.view === 'invites' ? invitesView() : ui.view === 'music' ? musicView() : ui.view === 'tienda' ? tiendaView() : ui.view === 'places' ? placesView() : ui.view === 'place' ? placeView() : ui.view === 'fotos' ? fotosView() : ui.view === 'chats' ? chatsView() : ui.view === 'gchat' ? gchatView() : ui.view === 'profile' ? profileView() : ui.view === 'user' ? userView() : eventView();
   if (keep !== false) window.scrollTo(0, y);
   if (ui.stick) { ui.stick = false; window.scrollTo(0, document.documentElement.scrollHeight); }
 }
@@ -978,7 +978,7 @@ function act(a, t){
 
 document.addEventListener('click', function(e){
   var t = e.target.closest('[data-act]');
-  if (t) { var a = t.dataset.act; if (a === 'story' || a.indexOf('st-') === 0) storyAct(a, t); else if (a.indexOf('cv-') === 0) coverAct(a); else if (a.indexOf('tr-') === 0) tourAct(a, t); else if (a.indexOf('pl-') === 0) planAct(a, t); else if (a === 'hm') menuAct(t); else if (a.indexOf('gr-') === 0) groupAct(a, t); else if (a.indexOf('mu-') === 0) musicAct(a, t); else if (a.indexOf('pc-') === 0) placeAct(a, t); else if (a.indexOf('fo-') === 0) fotosAct(a, t); else if (a.indexOf('lg-') === 0) loginAct(a, t); else if (a.indexOf('ed-') === 0) edAct(a, t); else if (a.indexOf('ch-') === 0) chatAct(a, t); else if (a.indexOf('pay-') === 0) payAct(a); else if (a.indexOf('us-') === 0 || a.indexOf('lk-') === 0 || a === 'pf-followers' || a === 'pf-following') socialAct(a, t); else if (a.indexOf('pf-') === 0 || a.indexOf('ac-') === 0) profileAct(a, t); else act(a, t); }
+  if (t) { var a = t.dataset.act; if (a === 'story' || a.indexOf('st-') === 0) storyAct(a, t); else if (a.indexOf('cv-') === 0) coverAct(a); else if (a.indexOf('tr-') === 0) tourAct(a, t); else if (a.indexOf('pl-') === 0) planAct(a, t); else if (a === 'hm') menuAct(t); else if (a.indexOf('gr-') === 0) groupAct(a, t); else if (a.indexOf('mu-') === 0) musicAct(a, t); else if (a.indexOf('pc-') === 0) placeAct(a, t); else if (a.indexOf('fo-') === 0) fotosAct(a, t); else if (a.indexOf('lg-') === 0) loginAct(a, t); else if (a.indexOf('ed-') === 0) edAct(a, t); else if (a.indexOf('ch-') === 0) chatAct(a, t); else if (a.indexOf('pay-') === 0) payAct(a, t); else if (a.indexOf('us-') === 0 || a.indexOf('lk-') === 0 || a === 'pf-followers' || a === 'pf-following') socialAct(a, t); else if (a.indexOf('pf-') === 0 || a.indexOf('ac-') === 0) profileAct(a, t); else act(a, t); }
 });
 document.addEventListener('input', function(e){
   if (e.target.id === 'chatin') ui.draft = e.target.value;
@@ -1416,7 +1416,8 @@ var CV_TILES = [
   /* 'Música' se quitó por ahora del menú y de la portada; el código sigue abajo (musicBlock, musicView) por si se vuelve a activar */
   ['Chat', svg('<path d="M21 12a8 8 0 0 1-11.7 7L4 20l1.2-4.6A8 8 0 1 1 21 12z"/><path d="M8.5 12h.01M12 12h.01M15.5 12h.01"/>', 24), ''],
   ['Lugares', svg('<path d="M12 21s7-6.2 7-11.5A7 7 0 0 0 5 9.5C5 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>', 24), 'cy'],
-  ['Fotos', svg('<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M4 18l5-5 4 4 3-3 4 4"/>', 24), '']
+  ['Fotos', svg('<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M4 18l5-5 4 4 3-3 4 4"/>', 24), ''],
+  ['Tienda', svg('<path d="M4 9l1.5-5h13L20 9M4 9v10a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V9M4 9h16M9 13a3 3 0 0 0 6 0"/>', 24), 'pk']
 ];
 function coverConfetti(){
   var cols = ['#ff8a4c', '#ff5fd0', '#9b6bff', '#5be0ff', '#ffd166'], out = '', i;
@@ -1783,6 +1784,7 @@ function menuAct(t){
   else if (k === 'Lugares') { ui.view = 'places'; render(false); window.scrollTo(0, 0); }
   else if (k === 'Música') { ui.view = 'music'; ui.mu.filter = 'all'; render(false); window.scrollTo(0, 0); }
   else if (k === 'Invitaciones') { ensureGroup(); ui.view = 'invites'; render(false); window.scrollTo(0, 0); }
+  else if (k === 'Tienda') { ui.view = 'tienda'; render(false); window.scrollTo(0, 0); }
   else toast(k + ': esta sección la armamos en el siguiente paso.');
 }
 
@@ -2879,37 +2881,60 @@ var STK_IMG = {};
 I.edit = svg('<path d="M4 20l4-1 11-11-3-3L5 16z"/><path d="M14 6l3 3"/>', 18);
 I.lock = svg('<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>', 12);
 
-function owned(){ return !!(S.purchases && S.purchases.stickers); }
+/* catálogo de la Tienda: hoy solo el paquete base tiene sus 60 stickers ya subidos (STK, vía stickers.json).
+   Halloween y Navidad quedan listados para vender, con su preview de emoji mientras subimos sus imágenes reales. */
+var PACKS = [
+  {id: 'stickers', name: 'Stickers Friends Party', desc: '60 stickers en inglés y español', emoji: '🎉', price: PRICE, live: true},
+  {id: 'halloween', name: 'Stickers de Halloween', desc: '160 stickers para tus fotos de Halloween', emoji: '🎃', price: '$1.99', live: false},
+  {id: 'christmas', name: 'Stickers de Navidad', desc: '158 stickers para tus fotos de Navidad', emoji: '🎄', price: '$1.99', live: false}
+];
+function packById(id){ for (var i = 0; i < PACKS.length; i++) if (PACKS[i].id === id) return PACKS[i]; return null; }
+function owned(id){ return !!(S.purchases && S.purchases[id || 'stickers']); }
 function stkById(id){ for (var i = 0; i < STK.length; i++) if (STK[i].id === id) return STK[i]; return null; }
 function stkImg(s){
   if (!STK_IMG[s.id]) { var im = new Image(); im.onload = function(){ if (ui.ed) edDraw(); }; im.src = s.d; STK_IMG[s.id] = im; }
   return STK_IMG[s.id];
 }
 
-/* compra del bundle (en el prototipo no se cobra nada) */
-function payHTML(step){
-  var strip = ['en-01-party-forever', 'es-04-amigas-por-siempre', 'en-03-incredible-night', 'en-04-friends-squad', 'es-01-fiesta-sin-fin', 'en-06-good-vibes-only'].map(stkById).filter(Boolean)
-    .map(function(s){ return '<img src="' + s.d + '" alt="' + esc(s.t) + '">'; }).join('');
+/* compra de un paquete (en el prototipo no se cobra nada) */
+function payHTML(packId, step){
+  var pack = packById(packId) || PACKS[0];
+  var preview = pack.live
+    ? '<div class="paystrip">' + ['en-01-party-forever', 'es-04-amigas-por-siempre', 'en-03-incredible-night', 'en-04-friends-squad', 'es-01-fiesta-sin-fin', 'en-06-good-vibes-only'].map(stkById).filter(Boolean)
+        .map(function(s){ return '<img src="' + s.d + '" alt="' + esc(s.t) + '">'; }).join('') + '</div>'
+    : '<div class="paystrip" style="grid-template-columns:1fr;justify-items:center;padding:26px 10px"><span style="font-size:64px;line-height:1">' + pack.emoji + '</span></div>';
   if (step === 2) {
     return '<div class="payscrim" data-act="pay-x"></div><div class="paysheet" role="dialog" aria-modal="true" aria-label="Confirmar compra"><h2>Confirmar compra</h2>' +
-      '<div class="payrow"><span>Stickers Friends Party<small>60 stickers, pago único</small></span><b>' + PRICE + '</b></div>' +
+      '<div class="payrow"><span>' + esc(pack.name) + '<small>pago único</small></span><b>' + pack.price + '</b></div>' +
       '<div class="notice">Modo de prueba. En este prototipo no se hace ningún cobro. En la versión real, este paso lo muestra Apple o Google y ellos procesan el pago.</div>' +
-      '<button class="btn primary block" data-act="pay-ok">Confirmar compra</button><button class="link" data-act="pay-x">Cancelar</button></div>';
+      '<button class="btn primary block" data-act="pay-ok" data-pack="' + pack.id + '">Confirmar compra</button><button class="link" data-act="pay-x">Cancelar</button></div>';
   }
-  return '<div class="payscrim" data-act="pay-x"></div><div class="paysheet" role="dialog" aria-modal="true" aria-label="Stickers Friends Party"><h2>Stickers Friends Party</h2>' +
-    '<p class="muted">Decora tus fotos con 60 stickers en inglés y en español.</p><div class="paystrip">' + strip + '</div>' +
-    '<ul class="paylist"><li>30 stickers en inglés y 30 en español</li><li>Se pegan encima de tus fotos y los mueves, agrandas y giras</li><li>Pago único de ' + PRICE + ', sin suscripción</li></ul>' +
-    '<button class="btn primary block" data-act="pay-1">Comprar por ' + PRICE + '</button><button class="link" data-act="pay-x">Ahora no</button></div>';
+  return '<div class="payscrim" data-act="pay-x"></div><div class="paysheet" role="dialog" aria-modal="true" aria-label="' + esc(pack.name) + '"><h2>' + esc(pack.name) + '</h2>' +
+    '<p class="muted">' + esc(pack.desc) + '.</p>' + preview +
+    '<ul class="paylist"><li>Se pegan encima de tus fotos y los mueves, agrandas y giras</li><li>Pago único de ' + pack.price + ', sin suscripción</li>' +
+    (pack.live ? '' : '<li>Aún estamos subiendo estos stickers a la app</li>') + '</ul>' +
+    '<button class="btn primary block" data-act="pay-1" data-pack="' + pack.id + '">Comprar por ' + pack.price + '</button><button class="link" data-act="pay-x">Ahora no</button></div>';
 }
-function openPay(step){
-  var el = $('#pay'); el.className = 'on'; el.innerHTML = payHTML(step || 1);
-  if (!STK.length) loadStickers().then(function(){ if (el.className === 'on') el.innerHTML = payHTML(step || 1); });
+function openPay(packId, step){
+  ui.payPack = packId || 'stickers';
+  var el = $('#pay'); el.className = 'on'; el.innerHTML = payHTML(ui.payPack, step || 1);
+  if (!STK.length) loadStickers().then(function(){ if (el.className === 'on') el.innerHTML = payHTML(ui.payPack, step || 1); });
 }
 function closePay(){ var el = $('#pay'); el.className = ''; el.innerHTML = ''; }
 function purchasesBlock(){
   return '<h3 class="pl-h">Compras</h3><ul class="people sec"><li><span class="nm">Stickers Friends Party<small>60 stickers en inglés y español, ' + PRICE + ', pago único</small></span>' +
-    (owned() ? '<span class="pill va">Comprado</span>' : '<button class="btn small" data-act="pay-open">Comprar</button>') + '</li></ul>' +
-    '<p class="muted small">Modo de prueba: no se cobra nada. En la versión real el pago lo procesa Apple o Google.</p>';
+    (owned() ? '<span class="pill va">Comprado</span>' : '<button class="btn small" data-act="pay-open" data-pack="stickers">Comprar</button>') + '</li></ul>' +
+    '<p class="muted small">Modo de prueba: no se cobra nada. En la versión real el pago lo procesa Apple o Google.</p>' +
+    '<button class="link" data-act="hm" data-k="Tienda">Ver todos los paquetes en la Tienda</button>';
+}
+function tiendaView(){
+  var cards = PACKS.map(function(p){
+    var st = owned(p.id) ? '<span class="pill va">Comprado</span>' : '<button class="btn small" data-act="pay-open" data-pack="' + p.id + '">Comprar ' + p.price + '</button>';
+    return '<li><span class="nm">' + p.emoji + ' ' + esc(p.name) + '<small>' + esc(p.desc) + (p.live ? '' : ' · próximamente') + '</small></span>' + st + '</li>';
+  }).join('');
+  return '<header class="top"><div class="wrap"><div class="bar1"><button class="ib" data-act="back" aria-label="Volver al inicio">' + I.back + '</button><div class="tt"><div class="ttl">Tienda</div><div class="meta"><span>Stickers para decorar tus fotos</span></div></div></div></div></header>' +
+    '<main class="wrap"><p class="muted small" style="margin-top:6px">Modo de prueba: no se cobra nada. En la versión real el pago lo procesa Apple o Google.</p>' +
+    '<ul class="people sec" style="margin-top:6px">' + cards + '</ul></main>';
 }
 
 /* editor */
@@ -2972,7 +2997,7 @@ function renderEditor(){
     '<button class="btn" data-act="ed-front" data-need>Al frente</button><button class="btn danger" data-act="ed-del" data-need>Borrar</button></div>' +
     '<nav class="tabs trayh" role="tablist"><button class="tab on" data-act="ed-tab" data-tab="todos">Todos<small>' + n + '</small></button><button class="tab" data-act="ed-tab" data-tab="en">English<small>' + en + '</small></button><button class="tab" data-act="ed-tab" data-tab="es">Español<small>' + (n - en) + '</small></button></nav>' +
     '<div class="tray" id="ed-tray"></div>' +
-    (owned() ? '' : '<div class="unlock"><div><strong>Stickers de pago</strong><span>60 stickers por ' + PRICE + ', pago único</span></div><button class="btn primary" data-act="pay-open">Desbloquear</button></div>') +
+    (owned() ? '' : '<div class="unlock"><div><strong>Stickers de pago</strong><span>60 stickers por ' + PRICE + ', pago único</span></div><button class="btn primary" data-act="pay-open" data-pack="stickers">Desbloquear</button></div>') +
     (dl ? '<button class="btn block" data-act="ed-dl">Descargar la foto editada</button>' : '') + '</div>';
   e.cv = $('#ed-cv');
   edFit(); buildTray(); edTools(); edBind();
@@ -3045,19 +3070,21 @@ function edCompose(){
 }
 
 /* acciones */
-function payAct(a){
+function payAct(a, t){
+  var packId = (t && t.dataset && t.dataset.pack) || ui.payPack || 'stickers';
+  var pack = packById(packId) || PACKS[0];
   switch (a) {
-    case 'pay-open': openPay(1); break;
-    case 'pay-1': openPay(2); break;
+    case 'pay-open': openPay(packId, 1); break;
+    case 'pay-1': openPay(packId, 2); break;
     case 'pay-x': closePay(); break;
     case 'pay-ok':
-      S.purchases = S.purchases || {}; S.purchases.stickers = {at: Date.now(), price: 1.99};
+      S.purchases = S.purchases || {}; S.purchases[packId] = {at: Date.now(), price: pack.price};
       save(); closePay();
-      if (ui.ed) { renderEditor(); if (ui.ed.pending) { var pid = ui.ed.pending; ui.ed.pending = null; edAct('ed-add', {dataset: {id: pid}}); } } else render();
-      toast('Stickers desbloqueados. ¡A decorar!');
+      if (ui.ed && packId === 'stickers') { renderEditor(); if (ui.ed.pending) { var pid = ui.ed.pending; ui.ed.pending = null; edAct('ed-add', {dataset: {id: pid}}); } } else render();
+      toast(pack.live ? 'Stickers desbloqueados. ¡A decorar!' : pack.name + ' comprado. Avisamos cuando estén listos para usar.');
       break;
     case 'pay-reset':
-      if (S.purchases) { delete S.purchases.stickers; save(); render(); toast('Compra quitada'); }
+      if (S.purchases) { delete S.purchases[packId]; save(); render(); toast('Compra quitada'); }
       break;
   }
 }
@@ -3071,7 +3098,7 @@ function edAct(a, t){
       break;
     case 'ed-tab': e.tab = t.dataset.tab; buildTray(); break;
     case 'ed-add':
-      if (!owned()) { e.pending = t.dataset.id; openPay(1); return; }
+      if (!owned()) { e.pending = t.dataset.id; openPay('stickers', 1); return; }
       if (e.items.length >= 40) { toast('Máximo 40 stickers por foto'); return; }
       var s = stkById(t.dataset.id), asp = s.w / s.h, w = e.W * 0.55;
       if (w / asp > e.H * 0.5) w = e.H * 0.5 * asp;
