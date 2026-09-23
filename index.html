@@ -141,9 +141,17 @@ main{padding:14px 0 130px}
 .sheet p{margin:0}
 .sheet label{font-weight:700;font-size:14px;display:grid;gap:4px}
 .sheet .inp{background:var(--bg)}
-.ems{display:flex;gap:6px;flex-wrap:wrap}
-.em{width:44px;height:44px;border-radius:12px;font-size:22px;background:var(--bg);border:2px solid transparent}
+.icon-pick{position:relative}
+.icon-pick-btn{display:flex;align-items:center;gap:10px;width:100%;min-height:52px;padding:0 14px;border-radius:14px;border:2px solid var(--line);background:var(--surface);font-weight:700;font-size:15px;color:var(--ink)}
+.icon-pick-btn svg{margin-left:auto;opacity:.6}
+.icon-pick-emoji{font-size:24px;line-height:1}
+.ems{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;max-height:220px;overflow-y:auto;padding:2px}
+.ems[hidden]{display:none}
+.em{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:64px;padding:8px 10px;border-radius:14px;background:var(--bg);border:2px solid transparent}
+.em .em-ico{font-size:22px;line-height:1}
+.em .em-lbl{font-size:11px;font-weight:600;color:var(--muted)}
 .em.on{border-color:var(--accent)}
+.em.on .em-lbl{color:var(--ink)}
 
 #toast{position:fixed;left:50%;bottom:calc(96px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:80;background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:99px;font-weight:500;font-size:15px;opacity:0;pointer-events:none;transition:opacity .2s;max-width:88vw;text-align:center}
 #toast.on{opacity:1}
@@ -426,7 +434,15 @@ var mkCode = function(){ var s = ''; for (var i = 0; i < 6; i++) s += CODE_CH[Ma
 var todayISO = function(){ var d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
 var PAL = ['#D6336C', '#1F9E89', '#7B4FD1', '#D9760B', '#2B7DE1', '#B4235F'];
 var GR = [['#D6336C', '#F6B93B'], ['#1F9E89', '#2B2A6B'], ['#F6B93B', '#1F9E89'], ['#7B4FD1', '#D6336C'], ['#2B7DE1', '#1F9E89']];
-var EMO = ['🎂', '🎉', '🍻', '⛰️', '🏖️', '⚽', '🏠', '💍'];
+/* íconos del evento: emoji + nombre, para el selector desplegable de "Nuevo evento" */
+var ICONS = [
+  {e: '🎂', l: 'Cumpleaños'}, {e: '🎉', l: 'Fiesta'}, {e: '🍻', l: 'Bebidas'}, {e: '🍽️', l: 'Cena'},
+  {e: '☕', l: 'Café'}, {e: '💕', l: 'Cita'}, {e: '🤝', l: 'Reunión'}, {e: '🎓', l: 'Graduación'},
+  {e: '💍', l: 'Boda'}, {e: '🎵', l: 'Concierto'}, {e: '🎮', l: 'Juegos'}, {e: '⚽', l: 'Deporte'},
+  {e: '🏖️', l: 'Playa'}, {e: '⛰️', l: 'Montaña'}, {e: '✈️', l: 'Viaje'}, {e: '🏠', l: 'Casa'},
+  {e: '🧺', l: 'Picnic'}, {e: '🍖', l: 'Asado'}
+];
+function iconInfo(e){ for (var i = 0; i < ICONS.length; i++) if (ICONS[i].e === e) return ICONS[i]; return ICONS[0]; }
 var PARTY = ['🎂', '🎈', '🎉', '🍕', '📸', '🥳', '🍰', '🎁', '🍹'];
 var colorFor = function(n){ var h = 0; for (var i = 0; i < n.length; i++) h = (h * 31 + n.charCodeAt(i)) >>> 0; return PAL[h % PAL.length]; };
 var av = function(n, size){ if (S.profile && S.profile.photo && n === S.me) return '<img class="av" src="' + S.profile.photo + '" alt="" style="width:' + size + 'px;height:' + size + 'px;object-fit:cover">'; var ch = (String(n).trim()[0] || '?').toUpperCase(); return '<span class="av" style="width:' + size + 'px;height:' + size + 'px;font-size:' + Math.round(size * 0.44) + 'px;background:' + colorFor(String(n)) + '">' + esc(ch) + '</span>'; };
@@ -882,6 +898,16 @@ function act(a, t){
     case 'pick-emoji':
       ui.form.emoji = t.dataset.e;
       document.querySelectorAll('#sheet .em').forEach(function(b){ b.classList.toggle('on', b === t); });
+      var ic = iconInfo(t.dataset.e);
+      var eSpan = document.getElementById('icon-pick-emoji'), lSpan = document.getElementById('icon-pick-label'), grid = document.getElementById('icon-grid'), btn = document.getElementById('icon-pick-btn');
+      if (eSpan) eSpan.textContent = ic.e;
+      if (lSpan) lSpan.textContent = ic.l;
+      if (grid) grid.hidden = true;
+      if (btn) btn.setAttribute('aria-expanded', 'false');
+      break;
+    case 'toggle-icons':
+      var grid2 = document.getElementById('icon-grid'), btn2 = document.getElementById('icon-pick-btn');
+      if (grid2) { grid2.hidden = !grid2.hidden; if (btn2) btn2.setAttribute('aria-expanded', grid2.hidden ? 'false' : 'true'); }
       break;
     case 'save-name':
       var nm = ($('#f-me').value || '').trim();
@@ -1694,7 +1720,12 @@ function renderSheet(){
       '<label>Hora<input id="f-time" class="inp" type="time" value="' + esc(ed ? ed.time : '') + '"></label></div>' +
       '<label>Lugar<input id="f-place" class="inp" placeholder="Casa de José, restaurante, parque…" maxlength="80" autocomplete="off" value="' + esc(ed ? ed.place : '') + '"></label>' +
       '<label>Detalles (opcional)<input id="f-notes" class="inp" placeholder="Qué llevar, cómo llegar…" maxlength="140" autocomplete="off" value="' + esc(ed ? ed.notes : '') + '"></label>' +
-      '<div class="ems" role="group" aria-label="Ícono del evento">' + EMO.map(function(e){ return '<button class="em' + (e === ui.form.emoji ? ' on' : '') + '" data-act="pick-emoji" data-e="' + e + '" aria-label="Ícono ' + e + '">' + e + '</button>'; }).join('') + '</div>' +
+      '<label>Ícono</label><div class="icon-pick">' +
+      '<button type="button" class="icon-pick-btn" id="icon-pick-btn" data-act="toggle-icons" aria-expanded="false" aria-controls="icon-grid">' +
+      '<span id="icon-pick-emoji" class="icon-pick-emoji">' + iconInfo(ui.form.emoji).e + '</span>' +
+      '<span id="icon-pick-label">' + esc(iconInfo(ui.form.emoji).l) + '</span>' +
+      svg('<path d="M6 9l6 6 6-6"/>', 18) + '</button>' +
+      '<div class="ems" id="icon-grid" role="group" aria-label="Elige un ícono" hidden>' + ICONS.map(function(ic){ return '<button class="em' + (ic.e === ui.form.emoji ? ' on' : '') + '" data-act="pick-emoji" data-e="' + ic.e + '" aria-label="' + esc(ic.l) + '"><span class="em-ico">' + ic.e + '</span><span class="em-lbl">' + esc(ic.l) + '</span></button>'; }).join('') + '</div></div>' +
       '<button class="btn primary block" data-act="create-event">' + (ed ? 'Guardar cambios' : 'Crear evento') + '</button><button class="link" data-act="close-sheet">Cancelar</button></div>';
     focus = '#f-name';
   } else if (ui.sheet === 'invite') {
