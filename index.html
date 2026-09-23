@@ -109,8 +109,14 @@ main{padding:14px 0 130px}
 .inp{width:100%;min-height:46px;padding:0 14px;border-radius:12px;border:1px solid var(--line);background:var(--surface)}
 
 /* Personas */
-.invite{display:flex;justify-content:space-between;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:16px}
+.invite{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:16px}
+.invbtns{display:flex;gap:8px;flex-wrap:wrap}
 .code{font-size:30px;font-weight:800;letter-spacing:.14em;line-height:1.1}
+.joincard{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:20px}
+.usearch{display:flex;flex-direction:column;gap:4px;margin:-6px 0 10px}
+.usres{text-align:left;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:14px}
+.qrwrap{display:flex;justify-content:center;padding:12px;background:#fff;border-radius:14px;margin:12px 0}
+.qrwrap svg{width:220px;height:220px}
 .people{list-style:none;margin:0 0 14px;padding:0}
 .people li{display:flex;align-items:center;gap:12px;padding:10px 2px;border-bottom:1px solid var(--line)}
 .people li span:nth-child(2){flex:1;font-weight:500}
@@ -420,6 +426,7 @@ details.loc summary{cursor:pointer;font-weight:700;color:var(--accent);padding:8
 <input type="file" id="file" accept="image/*" multiple hidden>
 <input type="file" id="pfile" accept="image/*" hidden>
 <input type="file" id="cfile" accept="image/*" hidden>
+<input type="file" id="qrfile" accept="image/*" capture="environment" hidden>
 
 <script>
 (function(){
@@ -523,9 +530,54 @@ var SB = {
        y el trigger que te agrega como miembro aún no es visible al devolver la fila (daría error 42501) */
     var gid = SB.uuid();
     return SB.rest('groups', 'POST', {id: gid, name: 'Mi grupo', owner_id: S.serverId}, '', 'return=minimal').then(function(res){
-      if (res.ok) { S.serverGroupId = gid; save(); return gid; }
+      if (res.ok) { S.serverGroupId = gid; save(); SB.fetchGroupCode(); return gid; }
       SB.fail('grupo', res); return null;
     });
+  },
+  /* trae (y guarda) el código real del grupo, para mostrarlo y para el QR de invitación */
+  fetchGroupCode: function(){
+    if (!SB.session || !SB.session.access_token || !S.serverGroupId) return Promise.resolve(null);
+    return SB.rest('groups', 'GET', null, '?id=eq.' + S.serverGroupId + '&select=invite_code').then(function(r){
+      var row = r.data && r.data[0];
+      if (row && row.invite_code && S.groupCode !== row.invite_code) {
+        S.groupCode = row.invite_code; save();
+        if (ui.view === 'invites' || ui.view === 'event') render(false);
+      }
+      return S.groupCode || null;
+    }).catch(function(){ return null; });
+  },
+  rpc: function(name, params){ return SB.rest('rpc/' + name, 'POST', params || {}); },
+  /* intenta el código como código de evento y, si no existe, como código de grupo */
+  /* nota: la base de datos también tiene join_event_by_code (para unirse a un solo evento sin ver
+     el resto del grupo), pero por ahora todos los códigos que muestra la app son del grupo completo,
+     así que solo probamos ese */
+  joinByCode: function(code){
+    code = String(code || '').trim();
+    if (!code) return Promise.resolve({ok: false, msg: 'Escribe o escanea un código'});
+    if (!SB.session || !SB.session.access_token) return Promise.resolve({ok: false, msg: 'Inicia sesión primero'});
+    return SB.rpc('join_group_by_code', {code: code}).then(function(r){
+      if (r.ok && r.data) return {ok: true, kind: 'group', id: r.data};
+      return {ok: false, msg: 'Ese código no existe. Revísalo con quien te invitó.'};
+    }).catch(function(){ return {ok: false, msg: 'No se pudo conectar con el servidor'}; });
+  },
+  /* amigos reales (ya en tu grupo), para mostrarlos en "Mi grupo" */
+  pullGroupMembers: function(){
+    if (!SB.session || !SB.session.access_token || !S.serverGroupId) return Promise.resolve([]);
+    return SB.rest('group_members', 'GET', null, '?group_id=eq.' + S.serverGroupId + '&select=user_id').then(function(r){
+      var ids = (r.data || []).map(function(m){ return m.user_id; }).filter(function(id){ return id !== S.serverId; });
+      if (!ids.length) return [];
+      return SB.rest('profiles', 'GET', null, '?id=in.(' + ids.join(',') + ')&select=username,display_name').then(function(pr){
+        return (pr.data || []).map(function(p){ return p.display_name || p.username; }).filter(Boolean);
+      });
+    }).catch(function(){ return []; });
+  },
+  /* busca cuentas reales por su nombre de usuario, para invitar con más confianza que escribiendo un nombre libre */
+  searchUsers: function(term){
+    term = String(term || '').trim().replace(/^@/, '');
+    if (term.length < 2 || !SB.session || !SB.session.access_token) return Promise.resolve([]);
+    return SB.rest('profiles', 'GET', null, '?username=ilike.' + encodeURIComponent(term) + '*&select=username,display_name&limit=6').then(function(r){
+      return (r.data || []).filter(function(p){ return p.username !== (S.profile && S.profile.user); });
+    }).catch(function(){ return []; });
   },
   /* muestra (y registra en consola) por qué falló algo con el servidor, en vez de callarlo */
   uuid: function(){
@@ -980,8 +1032,8 @@ function act(a, t){
       ev = cur();
       var msg = inviteText(ev);
       if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(msg).then(function(){ toast('Invitación copiada'); }, function(){ toast('Código: ' + ev.code); });
-      } else toast('Código: ' + ev.code);
+        navigator.clipboard.writeText(msg).then(function(){ toast('Invitación copiada'); }, function(){ toast('Código: ' + groupCode()); });
+      } else toast('Código: ' + groupCode());
       break;
     case 'sim':
       ev = cur();
@@ -1004,7 +1056,7 @@ function act(a, t){
 
 document.addEventListener('click', function(e){
   var t = e.target.closest('[data-act]');
-  if (t) { var a = t.dataset.act; if (a === 'story' || a.indexOf('st-') === 0) storyAct(a, t); else if (a.indexOf('cv-') === 0) coverAct(a); else if (a.indexOf('tr-') === 0) tourAct(a, t); else if (a.indexOf('pl-') === 0) planAct(a, t); else if (a === 'hm') menuAct(t); else if (a.indexOf('gr-') === 0) groupAct(a, t); else if (a.indexOf('mu-') === 0) musicAct(a, t); else if (a.indexOf('pc-') === 0) placeAct(a, t); else if (a.indexOf('fo-') === 0) fotosAct(a, t); else if (a.indexOf('lg-') === 0) loginAct(a, t); else if (a.indexOf('ed-') === 0) edAct(a, t); else if (a.indexOf('ch-') === 0) chatAct(a, t); else if (a.indexOf('pay-') === 0) payAct(a, t); else if (a.indexOf('us-') === 0 || a.indexOf('lk-') === 0 || a === 'pf-followers' || a === 'pf-following') socialAct(a, t); else if (a.indexOf('pf-') === 0 || a.indexOf('ac-') === 0) profileAct(a, t); else act(a, t); }
+  if (t) { var a = t.dataset.act; if (a === 'story' || a.indexOf('st-') === 0) storyAct(a, t); else if (a.indexOf('cv-') === 0) coverAct(a); else if (a.indexOf('tr-') === 0) tourAct(a, t); else if (a.indexOf('pl-') === 0) planAct(a, t); else if (a === 'hm') menuAct(t); else if (a.indexOf('gr-') === 0) groupAct(a, t); else if (a.indexOf('jn-') === 0) joinAct(a, t); else if (a.indexOf('mu-') === 0) musicAct(a, t); else if (a.indexOf('pc-') === 0) placeAct(a, t); else if (a.indexOf('fo-') === 0) fotosAct(a, t); else if (a.indexOf('lg-') === 0) loginAct(a, t); else if (a.indexOf('ed-') === 0) edAct(a, t); else if (a.indexOf('ch-') === 0) chatAct(a, t); else if (a.indexOf('pay-') === 0) payAct(a, t); else if (a.indexOf('us-') === 0 || a.indexOf('lk-') === 0 || a === 'pf-followers' || a === 'pf-following') socialAct(a, t); else if (a.indexOf('pf-') === 0 || a.indexOf('ac-') === 0) profileAct(a, t); else act(a, t); }
 });
 document.addEventListener('input', function(e){
   if (e.target.id === 'chatin') ui.draft = e.target.value;
@@ -1590,7 +1642,8 @@ function inviteText(ev){
   var l = ['¡Te invito a "' + ev.name + '"!'];
   if (ev.date) l.push('📅 ' + fmtDay(ev.date) + (ev.time ? ', ' + fmtHour(ev.time) : ''));
   if (ev.place) l.push('📍 ' + ev.place);
-  l.push('Únete en Friends Party con el código ' + ev.code + '.');
+  l.push('Únete en Friends Party con el código ' + groupCode() + '.');
+  l.push(joinUrl(groupCode()));
   return l.join('\n');
 }
 function remindMsg(ev, k){
@@ -1675,7 +1728,7 @@ function planBody(ev){
       return '<button class="cb' + (ev.remind[k[0]] ? ' on' : '') + '" aria-pressed="' + !!ev.remind[k[0]] + '" data-act="pl-rm" data-k="' + k[0] + '">' + k[1] + '</button>';
     }).join('') + '</div><button class="link" data-act="pl-remind">Ver cómo llegan los avisos</button>';
 
-  var more = '<h3 class="pl-h">Código del evento</h3><div class="invite"><div class="code">' + esc(ev.code) + '</div><button class="btn" data-act="copy-invite">Copiar invitación</button></div>' +
+  var more = '<h3 class="pl-h">Invita a este evento</h3><p class="muted small">Con este código tu amigo entra a tu grupo y ve este evento (y los demás).</p><div class="invite"><div class="code">' + esc(groupCode()) + '</div><div class="invbtns"><button class="btn" data-act="copy-invite">Copiar invitación</button><button class="btn" data-act="jn-qr" data-code="' + esc(groupCode()) + '" data-label="' + esc(ev.name) + '">Ver código QR</button></div></div>' +
     '<button class="link" data-act="pl-edit">Editar evento</button><br>' +
     '<button class="link danger" data-act="ev-del">' + (ui.armed === 'e' + ev.id ? 'Toca otra vez para eliminar' : 'Eliminar evento') + '</button>';
   return hero + seg + people + rm + more; /* musicBlock(ev) quitado por ahora, junto con la sección Música */
@@ -1684,7 +1737,7 @@ function planBody(ev){
 /* hojas: invitar y ver avisos */
 function inviteSheet(){
   return '<div class="scrim" data-act="close-sheet"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="Invitar a un amigo"><h2>Invitar a un amigo</h2>' + groupChips() +
-    '<label>Nombre<input id="i-name" class="inp" placeholder="Ana" maxlength="40" autocomplete="off"></label>' +
+    '<label>Usuario de Friends Party (o el nombre)<input id="i-name" class="inp" placeholder="@usuario o Ana" maxlength="40" autocomplete="off"></label><div id="i-found"></div>' +
     '<label>WhatsApp (con código de país)<input id="i-phone" class="inp" inputmode="tel" placeholder="502 5555 1234" autocomplete="off"></label>' +
     '<label>Correo<input id="i-mail" class="inp" type="email" placeholder="ana@correo.com" autocomplete="off"></label>' +
     '<div class="inv3"><button class="btn primary" data-act="pl-wa">WhatsApp</button><button class="btn primary" data-act="pl-mail">Correo</button><button class="btn primary" data-act="pl-app">En la app</button></div>' +
@@ -1729,7 +1782,7 @@ function renderSheet(){
       '<button class="btn primary block" data-act="create-event">' + (ed ? 'Guardar cambios' : 'Crear evento') + '</button><button class="link" data-act="close-sheet">Cancelar</button></div>';
     focus = '#f-name';
   } else if (ui.sheet === 'invite') {
-    el.innerHTML = inviteSheet(); focus = '#i-name';
+    el.innerHTML = inviteSheet(); focus = '#i-name'; wireUserSearch('i-name', 'i-found');
   } else if (ui.sheet === 'remind') {
     el.innerHTML = remindSheet(cur());
   } else if (ui.sheet === 'photoloc') {
@@ -1748,6 +1801,10 @@ function renderSheet(){
     el.innerHTML = pwdSheet(); focus = '#p-old' ;
   } else if (ui.sheet === 'chatpick') {
     el.innerHTML = pickSheet();
+  } else if (ui.sheet === 'join') {
+    el.innerHTML = joinSheet(); focus = '#j-code';
+  } else if (ui.sheet === 'qr') {
+    el.innerHTML = qrSheet();
   }
   if (focus) setTimeout(function(){ var f = $(focus); if (f) f.focus(); }, 50);
 }
@@ -1814,7 +1871,16 @@ function menuAct(t){
   else if (k === 'Fotos') { ui.view = 'fotos'; render(false); window.scrollTo(0, 0); }
   else if (k === 'Lugares') { ui.view = 'places'; render(false); window.scrollTo(0, 0); }
   else if (k === 'Música') { ui.view = 'music'; ui.mu.filter = 'all'; render(false); window.scrollTo(0, 0); }
-  else if (k === 'Invitaciones') { ensureGroup(); ui.view = 'invites'; render(false); window.scrollTo(0, 0); }
+  else if (k === 'Invitaciones') {
+    ensureGroup(); ui.view = 'invites'; render(false); window.scrollTo(0, 0); wireUserSearch('g-name', 'g-found');
+    SB.ensureGroup().then(function(){ return SB.fetchGroupCode(); }).then(function(){
+      return SB.pullGroupMembers();
+    }).then(function(names){
+      (names || []).forEach(function(n){ if (S.group.members.indexOf(n) < 0) S.group.members.push(n); });
+      save();
+      if (ui.view === 'invites') { render(false); wireUserSearch('g-name', 'g-found'); }
+    });
+  }
   else if (k === 'Tienda') { ui.view = 'tienda'; render(false); window.scrollTo(0, 0); }
   else toast(k + ': esta sección la armamos en el siguiente paso.');
 }
@@ -1823,20 +1889,15 @@ function menuAct(t){
 var VIA = {whatsapp: 'WhatsApp', correo: 'correo', app: 'la app'};
 
 function ensureGroup(){
-  if (!S.group) S.group = {code: mkCode(), members: ['José', 'Ana', 'Luis', 'Marta'], invites: [{id: uid(), who: 'Pedro', via: 'whatsapp', contact: '', at: Date.now() - 86400000}]};
-  if (!S.group.chat) {
-    var t0 = Date.now();
-    S.group.chat = [
-      {id: uid(), by: 'José', at: t0 - 90000000, text: '¡Bienvenidos al grupo!'},
-      {id: uid(), by: 'Ana', at: t0 - 89000000, text: 'Ya quiero que sea el asado'},
-      {id: uid(), by: 'Luis', at: t0 - 88000000, text: 'Yo llevo la carne'},
-      {id: uid(), by: 'Marta', at: t0 - 7200000, text: 'Cuenten conmigo'}
-    ];
-  }
+  if (!S.group) S.group = {code: mkCode(), members: [], invites: []};
+  if (!S.group.chat) S.group.chat = [];
 }
+/* código real del grupo (del servidor) si ya lo tenemos; si no, el local, de respaldo, solo para no dejar la pantalla vacía */
+function groupCode(){ return S.groupCode || S.group.code; }
 function groupMsg(){
-  return (S.me || 'Un amigo') + ' te invita a su grupo en Friends Party. Aquí planeamos fiestas y guardamos las fotos juntos.\nCódigo del grupo: ' + S.group.code + '.';
+  return (S.me || 'Un amigo') + ' te invita a su grupo en Friends Party. Aquí planeamos fiestas y guardamos las fotos juntos.\nCódigo del grupo: ' + groupCode() + '.\n' + joinUrl(groupCode());
 }
+function joinUrl(code){ return location.origin + location.pathname + '?join=' + encodeURIComponent(code); }
 function pendingCount(){
   var n = S.group ? S.group.invites.length : 0;
   S.events.forEach(function(ev){ n += (ev.invites || []).length; });
@@ -1875,14 +1936,16 @@ function invitesView(){
       }).join('') + '</ul>'
     : '';
   return '<header class="top"><div class="wrap"><div class="bar1"><button class="ib" data-act="back" aria-label="Volver al inicio">' + I.back + '</button><div class="tt"><div class="ttl">Invitaciones</div><div class="meta"><span>Tu grupo de la party</span></div></div></div></div></header>' +
-    '<main class="wrap"><h3 class="pl-h" style="margin-top:4px">Invita a tu grupo</h3><p class="muted small">Tus amigos se unen a tu grupo y desde ahí los invitas a cada evento.</p>' +
-    '<div class="gform"><label>Nombre<input id="g-name" class="inp" placeholder="Ana" maxlength="40" autocomplete="off"></label>' +
+    '<main class="wrap">' +
+    '<div class="joincard"><h3 class="pl-h" style="margin-top:0">¿Tienes un código?</h3><p class="muted small">Si un amigo te compartió un código o un QR, únete aquí y verás sus fotos y eventos.</p><button class="btn primary block" data-act="jn-open">Unirme con un código</button></div>' +
+    '<h3 class="pl-h">Invita a tu grupo</h3><p class="muted small">Tus amigos se unen a tu grupo y desde ahí los invitas a cada evento.</p>' +
+    '<div class="gform"><label>Usuario de Friends Party (o el nombre)<input id="g-name" class="inp" placeholder="@usuario o Ana" maxlength="40" autocomplete="off"></label><div id="g-found"></div>' +
     '<label>WhatsApp (con código de país)<input id="g-phone" class="inp" inputmode="tel" placeholder="502 5555 1234" autocomplete="off"></label>' +
     '<label>Correo<input id="g-mail" class="inp" type="email" placeholder="ana@correo.com" autocomplete="off"></label>' +
     '<div class="inv3"><button class="btn primary" data-act="gr-wa">WhatsApp</button><button class="btn primary" data-act="gr-mail">Correo</button><button class="btn primary" data-act="gr-app">En la app</button></div>' +
     '<p class="muted small">«En la app» le llega a tu amigo dentro de Friends Party si ya la tiene descargada. Si WhatsApp o el correo no se abren, copia el mensaje y pégalo ahí.</p>' +
     '<button class="link" data-act="gr-copy">Copiar mensaje de invitación</button></div>' +
-    '<h3 class="pl-h">Código de tu grupo</h3><div class="invite"><div class="code">' + esc(g.code) + '</div><button class="btn" data-act="gr-copy">Copiar invitación</button></div>' +
+    '<h3 class="pl-h">Código de tu grupo</h3><div class="invite"><div class="code">' + esc(groupCode()) + '</div><div class="invbtns"><button class="btn" data-act="gr-copy">Copiar invitación</button><button class="btn" data-act="jn-qr" data-code="' + esc(groupCode()) + '" data-label="tu grupo">Ver código QR</button></div></div>' +
     '<h3 class="pl-h">Mi grupo (' + g.members.length + ')</h3>' + members +
     '<h3 class="pl-h">Invitaciones enviadas (' + g.invites.length + ')</h3>' + sent + evs + '</main>';
 }
@@ -1919,6 +1982,161 @@ function groupAct(a, t){
       toast(k === 1 ? '1 amigo aceptó y ya está en tu grupo' : k + ' amigos aceptaron y ya están en tu grupo');
       break;
   }
+}
+
+/* ---------- unirse con un código (o un QR): código de evento o de grupo, generados de verdad en el servidor ---------- */
+function loadScript(src){
+  return new Promise(function(res, rej){
+    var s = document.createElement('script');
+    s.src = src; s.onload = res; s.onerror = rej;
+    document.head.appendChild(s);
+  });
+}
+var qrEncPromise = null, qrDecPromise = null;
+function loadQrEncoder(){
+  if (typeof qrcode !== 'undefined') return Promise.resolve();
+  if (qrEncPromise) return qrEncPromise;
+  qrEncPromise = loadScript('qrcode.js').catch(function(e){ qrEncPromise = null; throw e; });
+  return qrEncPromise;
+}
+function loadQrDecoder(){
+  if (typeof jsQR !== 'undefined') return Promise.resolve();
+  if (qrDecPromise) return qrDecPromise;
+  qrDecPromise = loadScript('jsQR.js').catch(function(e){ qrDecPromise = null; throw e; });
+  return qrDecPromise;
+}
+/* detecta ?join=CODIGO en la URL al abrir la app (por ejemplo, al escanear un QR con la cámara del teléfono) */
+var PENDING_JOIN = (function(){
+  var m = /[?&]join=([^&]+)/.exec(window.location.search);
+  return m ? decodeURIComponent(m[1]) : '';
+})();
+function clearJoinUrl(){
+  if (window.history && history.replaceState) history.replaceState(null, '', location.pathname);
+}
+function afterJoinResult(r){
+  if (r.ok) {
+    toast(r.kind === 'event' ? '¡Listo! Ya eres parte de ese evento.' : '¡Listo! Ya eres parte del grupo.');
+    ensureGroup();
+    SB.ensureGroup().then(function(){ return SB.fetchGroupCode(); });
+    SB.pullGroupMembers().then(function(names){
+      names.forEach(function(n){ if (S.group.members.indexOf(n) < 0) S.group.members.push(n); });
+      save();
+    });
+    SB.pullAll().then(function(){ save(); render(false); });
+  } else toast(r.msg || 'No se pudo unir');
+}
+function doJoin(code){
+  if (!code) { toast('Escribe o escanea un código'); return; }
+  toast('Entrando…');
+  SB.joinByCode(code).then(function(r){
+    if (r.ok) { ui.sheet = null; renderSheet(); }
+    afterJoinResult(r);
+  });
+}
+/* si venías de un enlace/QR con ?join=, se intenta apenas termina el login o la creación de cuenta;
+   la sesión del servidor a veces llega un instante después, por eso reintenta unas pocas veces */
+function tryPendingJoin(tries){
+  if (!PENDING_JOIN) return;
+  if (SB.session && SB.session.access_token) {
+    var code = PENDING_JOIN; PENDING_JOIN = ''; clearJoinUrl(); doJoin(code);
+  } else if ((tries || 0) < 8) setTimeout(function(){ tryPendingJoin((tries || 0) + 1); }, 400);
+}
+function joinSheet(){
+  return '<div class="scrim" data-act="close-sheet"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="Unirme con un código"><h2>Unirme con un código</h2>' +
+    '<label>Código<input id="j-code" class="inp" placeholder="Ej. 7ed556c7" maxlength="24" autocomplete="off" autocapitalize="none"' + (PENDING_JOIN ? ' value="' + esc(PENDING_JOIN) + '"' : '') + '></label>' +
+    '<button class="btn primary block" data-act="jn-go">Unirme</button>' +
+    '<button class="link" data-act="jn-scan">📷 Escanear código QR</button>' +
+    '<p class="muted small">Pide a tu amigo su código (lo ve en Invitaciones, o al abrir un evento) o que te muestre el QR.</p>' +
+    '<button class="link" data-act="close-sheet">Cerrar</button></div>';
+}
+function qrSheet(){
+  return '<div class="scrim" data-act="close-sheet"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="Código QR"><h2>Código QR</h2>' +
+    '<p class="muted small">Que tu amigo escanee este código con la cámara para unirse a ' + esc(ui.qrLabel || '') + '.</p>' +
+    '<div class="qrwrap" id="qr-target"><p class="muted small">Generando…</p></div>' +
+    '<div class="code" style="text-align:center">' + esc(ui.qrCode || '') + '</div>' +
+    '<button class="link" data-act="close-sheet">Cerrar</button></div>';
+}
+function renderQrInto(code){
+  loadQrEncoder().then(function(){
+    var el = document.getElementById('qr-target');
+    if (!el) return;
+    var qr = qrcode(0, 'M');
+    qr.addData(joinUrl(code));
+    qr.make();
+    el.innerHTML = qr.createSvgTag(6, 12);
+  }).catch(function(){
+    var el = document.getElementById('qr-target');
+    if (el) el.innerHTML = '<p class="muted small">No se pudo generar el QR. Usa el código de abajo.</p>';
+  });
+}
+function decodeQrFile(file){
+  return loadQrDecoder().then(function(){
+    return new Promise(function(res, rej){
+      var fr = new FileReader();
+      fr.onerror = rej;
+      fr.onload = function(){
+        var img = new Image();
+        img.onerror = rej;
+        img.onload = function(){
+          var c = document.createElement('canvas'); c.width = img.width; c.height = img.height;
+          var ctx = c.getContext('2d'); ctx.drawImage(img, 0, 0);
+          var data = ctx.getImageData(0, 0, c.width, c.height);
+          var out = jsQR(data.data, c.width, c.height);
+          if (out && out.data) res(out.data); else rej();
+        };
+        img.src = fr.result;
+      };
+      fr.readAsDataURL(file);
+    });
+  });
+}
+function codeFromScan(text){
+  var m = /[?&]join=([^&]+)/.exec(text || '');
+  return m ? decodeURIComponent(m[1]) : (text || '').trim();
+}
+function joinAct(a, t){
+  switch (a) {
+    case 'jn-open': ui.sheet = 'join'; renderSheet(); break;
+    case 'jn-go': doJoin(($('#j-code').value || '').trim()); break;
+    case 'jn-scan': var f = $('#qrfile'); if (f) f.click(); break;
+    case 'jn-qr': ui.qrCode = t.dataset.code; ui.qrLabel = t.dataset.label; ui.sheet = 'qr'; renderSheet(); renderQrInto(t.dataset.code); break;
+  }
+}
+$('#qrfile').addEventListener('change', function(e){
+  var f = e.target.files && e.target.files[0];
+  e.target.value = '';
+  if (!f) return;
+  toast('Leyendo el código…');
+  decodeQrFile(f).then(function(text){
+    var code = codeFromScan(text);
+    var box = $('#j-code'); if (box) box.value = code;
+    doJoin(code);
+  }, function(){ toast('No se pudo leer ese QR. Intenta con otra foto o escribe el código.'); });
+});
+
+/* busca cuentas reales por su usuario, para invitar con más confianza que escribiendo un nombre cualquiera */
+var usearchTimer = null;
+function userSearchResultsHtml(list, inputId){
+  if (!list.length) return '';
+  return '<div class="usearch">' + list.map(function(p){
+    return '<button type="button" class="usres" data-act="us-pick" data-name="' + esc(p.display_name || p.username) + '" data-target="' + inputId + '">@' + esc(p.username) + (p.display_name ? ' · ' + esc(p.display_name) : '') + '</button>';
+  }).join('') + '</div>';
+}
+function wireUserSearch(inputId, resultsId){
+  var input = document.getElementById(inputId);
+  if (!input) return;
+  input.addEventListener('input', function(){
+    var term = input.value.replace(/^@/, '');
+    clearTimeout(usearchTimer);
+    var r = document.getElementById(resultsId);
+    if (term.length < 2) { if (r) r.innerHTML = ''; return; }
+    usearchTimer = setTimeout(function(){
+      SB.searchUsers(term).then(function(list){
+        var r2 = document.getElementById(resultsId);
+        if (r2) r2.innerHTML = userSearchResultsHtml(list, inputId);
+      });
+    }, 350);
+  });
 }
 
 /* ---------- música: canciones que te recuerdan cada evento ---------- */
@@ -2618,6 +2836,7 @@ function profileAct(a, t){
           if (!S.seeded) { S.seeded = true; }
           save(); ui.authed = true; ui.acctMode = 'form'; ui.sheet = null; renderSheet(); render(false);
           toast('Bienvenido de nuevo, ' + S.me);
+          tryPendingJoin();
           return SB.pullAll();
         });
       }).catch(function(){ toast('No se pudo conectar con el servidor'); });
@@ -2663,6 +2882,11 @@ function socialAct(a, t){
   var n = t && t.dataset ? t.dataset.n : '', ev, p, i;
   switch (a) {
     case 'us-open': openUser(n); break;
+    case 'us-pick':
+      var input = document.getElementById(t.dataset.target);
+      if (input) input.value = t.dataset.name;
+      var r = t.closest('.usearch'); if (r) r.innerHTML = '';
+      break;
     case 'us-back':
       var s = ui.ustack.pop();
       if (!s) { ui.view = 'home'; ui.eid = null; }
@@ -2742,6 +2966,8 @@ function finishSignup(name, user, email, phone, bio, prov, h, pwd){
       if (res.ok && res.data && res.data.user) {
         SB.remember({access_token: res.data.access_token, refresh_token: res.data.refresh_token});
         S.serverId = res.data.user.id; save();
+        tryPendingJoin();
+        SB.ensureGroup().then(function(){ return SB.fetchGroupCode(); });
         return SB.upsertProfile(res.data.user.id, user, name, bio);
       }
     }).catch(function(){ /* sin conexión: la cuenta sigue funcionando en este teléfono */ });
@@ -2753,6 +2979,7 @@ function loginOk(){
   ui.afterLogin = '';
   render(false);
   toast('Hola de nuevo, ' + S.me.split(' ')[0]);
+  tryPendingJoin();
 }
 
 /* Face ID / Touch ID (huella o rostro en Android) mediante el navegador */
@@ -3308,7 +3535,8 @@ Promise.race([load(), new Promise(function(r){ setTimeout(function(){ r(null); }
     if (hasLock()) ui.sheet = 'login'; else ui.authed = true;
   }
   render(false); renderSheet(); renderCover();
-  SB.restore().then(function(ok){ if (ok) SB.syncPending(); }); /* recupera la sesión y reintenta lo pendiente */
+  if (PENDING_JOIN && !S.me) toast('Alguien te invitó a Friends Party. Crea tu cuenta o inicia sesión para unirte.');
+  SB.restore().then(function(ok){ if (ok) { SB.syncPending(); tryPendingJoin(); SB.ensureGroup().then(function(){ return SB.fetchGroupCode(); }); } }); /* recupera la sesión y reintenta lo pendiente */
   setTimeout(loadStickers, 4000); /* los stickers no hacen falta al abrir la app: se piden en segundo plano, sin competir con lo primero que se ve */
   try {
     if (window.claude && window.claude.use) {
