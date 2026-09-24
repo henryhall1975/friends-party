@@ -44,12 +44,29 @@ svg{flex:none}
 /* Inicio */
 .hero{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding:28px 0 18px}
 .hero h1{margin:0;font-size:40px;line-height:1.02;font-weight:800;letter-spacing:-.035em}
+.hero .h1g{background:linear-gradient(90deg,#6B7BFF,#B36BFF);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent}
+.tagl{margin-top:8px;font-size:12px;font-weight:600;letter-spacing:.32em;text-transform:uppercase;color:var(--muted)}
 .lead{margin:8px 0 0;color:var(--muted);max-width:26ch}
 .note{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--sun);border-radius:10px;padding:12px 14px;margin:0 0 18px}
 .note p{margin:0 0 6px;font-size:15px}
 .link{color:var(--accent);font-weight:700;padding:8px 0;text-align:left}
 .link.danger{color:var(--danger)}
-.list{display:grid;gap:12px;padding-bottom:110px}
+.list{display:grid;gap:16px;padding-bottom:110px}
+.ecard{display:block;position:relative;width:100%;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:22px;overflow:hidden;padding:0;color:inherit}
+.ecard:active{transform:scale(.99)}
+.ecover{position:relative;height:150px;background-size:cover;background-position:center;display:grid;place-items:start center;padding-top:18px;font-size:60px;line-height:1}
+.ecover::after{content:"";position:absolute;left:0;right:0;bottom:0;height:80px;background:linear-gradient(transparent,var(--surface))}
+.ecount{position:absolute;top:12px;right:12px;z-index:2;font-size:13px;font-weight:700;background:var(--accent);color:#fff;border-radius:99px;padding:3px 12px}
+.ebody{position:relative;z-index:1;display:grid;grid-template-columns:76px 1fr;gap:14px;padding:0 16px 16px;margin-top:-40px}
+.edate{align-self:start;margin-top:10px;background:var(--bg);border:1px solid var(--line);border-radius:16px;padding:10px 4px;text-align:center;display:grid;gap:1px}
+.edate small{text-transform:uppercase;font-size:11px;color:var(--muted);letter-spacing:.06em;font-weight:700}
+.edate b{font-size:30px;line-height:1.05;font-weight:800}
+.et{font-weight:800;font-size:20px;line-height:1.15;letter-spacing:-.01em}
+.einfo{min-width:0}
+.erow{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:14px;margin-top:5px}
+.erow span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.epeople{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:14px}
+.eav{display:flex}.eav .av{border:2px solid var(--surface)}.eav .av+.av{margin-left:-8px}
 .card{display:flex;gap:14px;align-items:center;text-align:left;width:100%;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px}
 .card:active{transform:scale(.99)}
 .stack{position:relative;width:96px;height:88px;flex:none}
@@ -115,8 +132,11 @@ main{padding:14px 0 130px}
 .joincard{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:20px}
 .usearch{display:flex;flex-direction:column;gap:4px;margin:-6px 0 10px}
 .usres{text-align:left;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:14px}
-.qrwrap{display:flex;justify-content:center;padding:12px;background:#fff;border-radius:14px;margin:12px 0}
-.qrwrap svg{width:220px;height:220px}
+.getapp{position:fixed;left:12px;right:12px;top:calc(12px + env(safe-area-inset-top,0px));z-index:99;text-align:center;background:var(--accent);color:#fff;font-weight:800;padding:12px 14px;border-radius:14px;text-decoration:none}
+.qrframe{position:relative;display:flex;justify-content:center;margin:16px 0;padding:14px;border-radius:24px;background:linear-gradient(160deg,#1a1441,#241a55);box-shadow:0 0 30px 6px rgba(214,51,108,.45),0 0 55px 14px rgba(107,92,231,.3)}
+.qrwrap{display:flex;justify-content:center;align-items:center;padding:14px;background:#fff;border-radius:16px}
+.qrwrap svg{width:220px;height:220px;display:block}
+.qr-mark{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,#2B2A6B,#171233);display:grid;place-items:center;box-shadow:0 0 0 4px #fff,0 4px 10px rgba(0,0,0,.35);color:#fff}
 .people{list-style:none;margin:0 0 14px;padding:0}
 .people li{display:flex;align-items:center;gap:12px;padding:10px 2px;border-bottom:1px solid var(--line)}
 .people li span:nth-child(2){flex:1;font-weight:500}
@@ -238,19 +258,44 @@ main{padding:14px 0 130px}
 #tour{display:none}
 #tour.on{display:block;position:fixed;inset:0;z-index:71;overflow:hidden;color:#fff;transition:opacity .3s;
   height:100vh;height:100dvh;min-height:-webkit-fill-available;
-  background:radial-gradient(120% 55% at 50% 0%,#4a1f9c 0%,transparent 62%),radial-gradient(70% 40% at 95% 58%,rgba(140,60,220,.35) 0%,transparent 70%),linear-gradient(180deg,#1b0a45 0%,#160838 45%,#0d0524 100%)}
+  background:radial-gradient(90% 45% at 12% 8%,rgba(255,95,208,.55) 0%,transparent 65%),radial-gradient(80% 45% at 92% 22%,rgba(91,140,255,.5) 0%,transparent 65%),radial-gradient(90% 40% at 50% 100%,rgba(255,160,64,.38) 0%,transparent 70%),linear-gradient(180deg,#3a1290 0%,#230b5e 50%,#14063a 100%)}
 #tour.out{opacity:0}
 .tr{position:relative;min-height:100%;display:flex;flex-direction:column;max-width:440px;margin:0 auto;
   padding:calc(env(safe-area-inset-top,0px) + 14px) 22px calc(env(safe-area-inset-bottom,0px) + 20px)}
 .tr-body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:14px}
-.tr-emoji{font-size:64px;line-height:1;filter:drop-shadow(0 6px 18px rgba(150,90,255,.4))}
-.tr-title{margin:0;font-size:23px;font-weight:800;letter-spacing:-.01em}
-.tr-text{margin:0;font-size:15px;line-height:1.5;color:rgba(255,255,255,.78);max-width:30ch}
+.tr-fx{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.tr-fx i{position:absolute;top:-6%;width:9px;height:14px;border-radius:2px;opacity:.9;animation:trfall linear infinite}
+.tr-fx b{position:absolute;color:#ffd166;font-size:18px;animation:trtw 2.2s ease-in-out infinite}
+@keyframes trfall{to{transform:translateY(112vh) rotate(540deg)}}
+@keyframes trtw{0%,100%{transform:scale(.6);opacity:.35}50%{transform:scale(1.2);opacity:1}}
+@keyframes trpop{0%{transform:scale(.4) rotate(-12deg);opacity:0}60%{transform:scale(1.12) rotate(4deg);opacity:1}100%{transform:scale(1) rotate(0)}}
+@keyframes trbob{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
+.tr-body{position:relative;z-index:1}
+.tr-emoji{position:relative;font-size:72px;line-height:1;width:150px;height:150px;display:grid;place-items:center;border-radius:50%;
+  background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.3),rgba(255,255,255,.08) 60%,transparent 72%);
+  box-shadow:0 0 0 2px rgba(255,255,255,.18),0 0 46px 8px rgba(255,95,208,.45),0 0 90px 22px rgba(91,140,255,.3);
+  animation:trpop .6s cubic-bezier(.2,.9,.3,1.2) both,trbob 3s ease-in-out .6s infinite}
+.tr-emoji:has(img){width:auto;height:auto;background:none;box-shadow:none;border-radius:0}
+.tr-emoji img{max-height:170px;max-width:190px;object-fit:contain}
+.tr-mark{position:static;display:grid;width:100px;height:100px;border-radius:26px;margin:0 auto;box-shadow:0 0 0 5px #fff,0 0 40px 10px rgba(214,51,108,.5),0 0 70px 18px rgba(107,92,231,.35)}
+.tr-mark svg{width:46px;height:46px}
+.tr-title{margin:0;font-size:28px;font-weight:800;letter-spacing:-.015em;background:linear-gradient(90deg,#fff,#ffd6f5 55%,#c9d8ff);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.tr-text{margin:0;font-size:16px;line-height:1.5;color:rgba(255,255,255,.9);max-width:30ch}
 .tr-dots{display:flex;gap:7px;justify-content:center;margin:18px 0 4px}
 .tr-dot{width:7px;height:7px;border-radius:99px;background:rgba(255,255,255,.3);border:0;padding:0;transition:width .2s,background .2s}
-.tr-dot.on{background:#fff;width:20px}
+.tr-dot.on{background:linear-gradient(90deg,#ff5fd0,#ffd166);width:22px}
 .tr-cta{min-height:54px;border-radius:99px;font-size:17px;font-weight:700;color:#fff;background:linear-gradient(90deg,#ff5fd0,#9b6bff 55%,#5b8cff);box-shadow:0 8px 26px rgba(150,90,255,.4);width:100%;margin-top:12px}
 #tour :focus-visible{outline-color:#ffd166}
+#lvlup{display:none}
+#lvlup.on{display:grid;place-items:center;position:fixed;inset:0;z-index:90;background:radial-gradient(70% 50% at 50% 40%,rgba(255,95,208,.35),transparent 70%),rgba(12,5,36,.92);animation:lvfade .3s both}
+#lvl-cv{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.lv-box{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;padding:0 28px;max-width:420px;width:100%;color:#fff}
+.lv-k{font-size:15px;font-weight:800;letter-spacing:.24em;text-transform:uppercase;color:#ffd166}
+.lv-img{max-height:300px;max-width:78%;object-fit:contain;filter:drop-shadow(0 0 30px rgba(255,95,208,.7));animation:lvpop .8s cubic-bezier(.2,.9,.3,1.3) both}
+.lv-n{font-size:34px;font-weight:800;letter-spacing:-.02em;background:linear-gradient(90deg,#fff,#ffd6f5 55%,#c9d8ff);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.lv-d{font-size:16px;color:rgba(255,255,255,.85);margin-bottom:10px}
+@keyframes lvpop{0%{transform:scale(.2) rotate(-14deg);opacity:0}100%{transform:scale(1) rotate(0);opacity:1}}
+@keyframes lvfade{from{opacity:0}to{opacity:1}}
 
 /* Plan del evento */
 .sheet{max-height:92vh;overflow-y:auto}
@@ -361,6 +406,14 @@ details.loc summary{cursor:pointer;font-weight:700;color:var(--accent);padding:8
 .pf-stats .stat{text-align:center;padding:0;color:inherit}
 .pf-stats button.stat:active{opacity:.6}
 .pf-tag{margin-top:2px}
+.pf-badge{display:flex;align-items:center;gap:14px;background:linear-gradient(135deg,var(--surface),var(--bg));border:1px solid var(--line);color:var(--ink);font-weight:800;font-size:17px;padding:10px 14px;border-radius:16px;margin:8px 0 12px}
+.pf-badge-ic{width:72px;height:88px;display:grid;place-items:center;flex:none}
+.pf-badge-ic img{max-width:100%;max-height:100%;object-fit:contain;filter:drop-shadow(0 4px 10px rgba(150,90,255,.45))}
+.pf-badge-txt{display:flex;flex-direction:column;gap:2px;min-width:0}
+.pf-badge em{font-style:normal;font-weight:600;font-size:13px;color:var(--muted)}
+.pf-badge small{font-weight:700;font-size:12px;color:var(--sun)}
+.pf-badge.off{border-style:dashed;color:var(--muted)}
+.pf-badge.off .pf-badge-ic img{filter:grayscale(1) brightness(.7);opacity:.45}
 .people li .rowbtn{flex:1;width:auto}
 .heartb[aria-pressed="true"]{color:#ff8ab0}
 .heartb[aria-pressed="true"] svg{fill:currentColor}
@@ -443,12 +496,29 @@ var PAL = ['#D6336C', '#1F9E89', '#7B4FD1', '#D9760B', '#2B7DE1', '#B4235F'];
 var GR = [['#D6336C', '#F6B93B'], ['#1F9E89', '#2B2A6B'], ['#F6B93B', '#1F9E89'], ['#7B4FD1', '#D6336C'], ['#2B7DE1', '#1F9E89']];
 /* íconos del evento: emoji + nombre, para el selector desplegable de "Nuevo evento" */
 var ICONS = [
-  {e: '🎂', l: 'Cumpleaños'}, {e: '🎉', l: 'Fiesta'}, {e: '🍻', l: 'Bebidas'}, {e: '🍽️', l: 'Cena'},
-  {e: '☕', l: 'Café'}, {e: '💕', l: 'Cita'}, {e: '🤝', l: 'Reunión'}, {e: '🎓', l: 'Graduación'},
-  {e: '💍', l: 'Boda'}, {e: '🎵', l: 'Concierto'}, {e: '🎮', l: 'Juegos'}, {e: '⚽', l: 'Deporte'},
-  {e: '🏖️', l: 'Playa'}, {e: '⛰️', l: 'Montaña'}, {e: '✈️', l: 'Viaje'}, {e: '🏠', l: 'Casa'},
-  {e: '🧺', l: 'Picnic'}, {e: '🍖', l: 'Asado'}
+  {e: '🎉', l: 'Fiesta', k: 'fiesta'}, {e: '🎂', l: 'Cumpleaños', k: 'cumpleanos'}, {e: '✈️', l: 'Viaje', k: 'viaje'},
+  {e: '🏖️', l: 'Playa', k: 'playa'}, {e: '🍖', l: 'Asado / BBQ', k: 'asado'}, {e: '🍽️', l: 'Cena', k: 'cena'},
+  {e: '🍻', l: 'Salida con amigos', k: 'salida'}, {e: '🎵', l: 'Concierto', k: 'concierto'}, {e: '💃', l: 'Discoteca / Club', k: 'discoteca'},
+  {e: '🏡', l: 'Reunión en casa', k: 'casa'}, {e: '⚽', l: 'Deportes', k: 'deportes'}, {e: '🎓', l: 'Graduación', k: 'graduacion'},
+  {e: '💍', l: 'Boda / compromiso', k: 'boda'}, {e: '🎄', l: 'Navidad', k: 'navidad'}, {e: '🎆', l: 'Año Nuevo', k: 'anonuevo'},
+  {e: '☕', l: 'Reunión / café', k: 'cafe'}, {e: '🎮', l: 'Gaming', k: 'gaming'}, {e: '🎬', l: 'Cine', k: 'cine'},
+  {e: '🥳', l: 'Otro', k: 'otro'}
 ];
+/* portada de cada tipo de evento: covers/<clave>.jpg; si el archivo aún no existe, se usa el degradado con el ícono */
+var coverState = {};
+function coverFor(emoji){
+  var k = null; ICONS.forEach(function(ic){ if (ic.e === emoji) k = ic.k; });
+  if (!k) return null;
+  if (coverState[k] === true) return 'covers/' + k + '.jpg';
+  if (coverState[k] === undefined) {
+    coverState[k] = 'wait';
+    var im = new Image();
+    im.onload = function(){ coverState[k] = true; if (ui.view === 'home') render(); };
+    im.onerror = function(){ coverState[k] = false; };
+    im.src = 'covers/' + k + '.jpg';
+  }
+  return null;
+}
 function iconInfo(e){ for (var i = 0; i < ICONS.length; i++) if (ICONS[i].e === e) return ICONS[i]; return ICONS[0]; }
 var PARTY = ['🎂', '🎈', '🎉', '🍕', '📸', '🥳', '🍰', '🎁', '🍹'];
 var colorFor = function(n){ var h = 0; for (var i = 0; i < n.length; i++) h = (h * 31 + n.charCodeAt(i)) >>> 0; return PAL[h % PAL.length]; };
@@ -464,6 +534,7 @@ var I = {
   next: svg('<path d="M9 5l7 7-7 7"/>', 22),
   pin: svg('<path d="M12 21s7-6.2 7-11.5A7 7 0 0 0 5 9.5C5 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>', 15),
   cal: svg('<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/>', 15),
+  crown: svg('<path d="M3 18h18l-2-8-4.5 4-2.5-6-2.5 6L5 10l-2 8z"/><path d="M4 20h16"/>', 20),
   plus: svg('<path d="M12 5v14M5 12h14"/>'),
   x: svg('<path d="M6 6l12 12M18 6L6 18"/>', 22),
   down: svg('<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>', 18),
@@ -561,10 +632,15 @@ var SB = {
     }).catch(function(){ return {ok: false, msg: 'No se pudo conectar con el servidor'}; });
   },
   /* amigos reales (ya en tu grupo), para mostrarlos en "Mi grupo" */
+  /* junta a todos los que están contigo en CUALQUIER grupo (el tuyo propio y los que te has unido), no solo el que creaste tú */
   pullGroupMembers: function(){
-    if (!SB.session || !SB.session.access_token || !S.serverGroupId) return Promise.resolve([]);
-    return SB.rest('group_members', 'GET', null, '?group_id=eq.' + S.serverGroupId + '&select=user_id').then(function(r){
-      var ids = (r.data || []).map(function(m){ return m.user_id; }).filter(function(id){ return id !== S.serverId; });
+    if (!SB.session || !SB.session.access_token || !S.serverId) return Promise.resolve([]);
+    return SB.rest('group_members', 'GET', null, '?user_id=eq.' + S.serverId + '&select=group_id').then(function(gm){
+      var gids = (gm.data || []).map(function(r){ return r.group_id; });
+      if (!gids.length) return [];
+      return SB.rest('group_members', 'GET', null, '?group_id=in.(' + gids.join(',') + ')&select=user_id');
+    }).then(function(r){
+      var ids = (r && r.data || []).map(function(m){ return m.user_id; }).filter(function(id, i, arr){ return id && id !== S.serverId && arr.indexOf(id) === i; });
       if (!ids.length) return [];
       return SB.rest('profiles', 'GET', null, '?id=in.(' + ids.join(',') + ')&select=username,display_name').then(function(pr){
         return (pr.data || []).map(function(p){ return p.display_name || p.username; }).filter(Boolean);
@@ -578,6 +654,16 @@ var SB = {
     return SB.rest('profiles', 'GET', null, '?username=ilike.' + encodeURIComponent(term) + '*&select=username,display_name&limit=6').then(function(r){
       return (r.data || []).filter(function(p){ return p.username !== (S.profile && S.profile.user); });
     }).catch(function(){ return []; });
+  },
+  /* convierte una lista de ids de usuario del servidor en un mapa id -> nombre para mostrar */
+  resolveNames: function(ids){
+    ids = (ids || []).filter(function(id, i, arr){ return id && arr.indexOf(id) === i; });
+    if (!ids.length) return Promise.resolve({});
+    return SB.rest('profiles', 'GET', null, '?id=in.(' + ids.join(',') + ')&select=id,username,display_name').then(function(r){
+      var map = {};
+      (r.data || []).forEach(function(p){ map[p.id] = p.display_name || p.username; });
+      return map;
+    }).catch(function(){ return {}; });
   },
   /* muestra (y registra en consola) por qué falló algo con el servidor, en vez de callarlo */
   uuid: function(){
@@ -706,11 +792,24 @@ var SB = {
           SB.rest('photos', 'GET', null, '?event_id=eq.' + erow.id + '&order=created_at.asc'),
           SB.rest('messages', 'GET', null, '?event_id=eq.' + erow.id + '&order=created_at.asc'),
           SB.rest('songs', 'GET', null, '?event_id=eq.' + erow.id + '&order=created_at.asc')
-        ]).then(function(r3){
-          var photoRows = r3[0].data || [];
-          return Promise.all(photoRows.map(function(p){
+        ]).then(function(r3){ return {erow: erow, photoRows: r3[0].data || [], msgRows: r3[1].data || [], songRows: r3[2].data || []}; });
+      }));
+    }).then(function(bundles){
+      /* averigua quién es quién (author_id/added_by son ids del servidor) para no mostrar
+         las fotos, mensajes y canciones de tus amigos como si fueran tuyas */
+      var ids = {}; ids[S.serverId] = 1;
+      bundles.forEach(function(b){
+        b.photoRows.forEach(function(p){ if (p.author_id) ids[p.author_id] = 1; });
+        b.msgRows.forEach(function(m){ if (m.author_id) ids[m.author_id] = 1; });
+        b.songRows.forEach(function(s){ if (s.added_by) ids[s.added_by] = 1; });
+      });
+      return SB.resolveNames(Object.keys(ids)).then(function(names){
+        names[S.serverId] = S.me;
+        return Promise.all(bundles.map(function(b){
+          var erow = b.erow;
+          return Promise.all(b.photoRows.map(function(p){
             return SB.downloadPhoto(p.storage_path).then(function(data){
-              return {id: 'p_' + p.id, by: S.me, at: Date.parse(p.created_at) || Date.now(), data: data, synced: true};
+              return {id: 'p_' + p.id, by: names[p.author_id] || 'Alguien', at: Date.parse(p.created_at) || Date.now(), data: data, synced: true};
             }).catch(function(){ return null; });
           })).then(function(photos){
             return {
@@ -719,12 +818,12 @@ var SB = {
               emoji: '🎉', grad: 0, code: mkCode(), members: [S.me], created: Date.parse(erow.created_at) || Date.now(),
               rsvp: {}, invites: [], remind: {d3: true, d1: true, d0: true},
               photos: photos.filter(Boolean),
-              chat: (r3[1].data || []).map(function(m){ return {id: 'm_' + m.id, by: S.me, at: Date.parse(m.created_at), text: m.body || ''}; }),
-              songs: (r3[2].data || []).map(function(s){ return {id: 's_' + s.id, title: s.title, artist: s.artist, platform: s.platform, url: s.external_url, note: '', by: S.me, at: Date.parse(s.created_at), likes: []}; })
+              chat: b.msgRows.map(function(m){ return {id: 'm_' + m.id, by: names[m.author_id] || 'Alguien', at: Date.parse(m.created_at), text: m.body || ''}; }),
+              songs: b.songRows.map(function(s){ return {id: 's_' + s.id, title: s.title, artist: s.artist, platform: s.platform, url: s.external_url, note: '', by: names[s.added_by] || 'Alguien', at: Date.parse(s.created_at), likes: []}; })
             };
           });
-        });
-      }));
+        }));
+      });
     }).then(function(evs){
       (evs || []).forEach(function(nev){
         var existing = S.events.filter(function(e){ return e.serverId === nev.serverId; })[0];
@@ -895,6 +994,8 @@ function eventView(){
 function render(keep){
   var y = window.scrollY;
   app.innerHTML = ui.view === 'home' ? home() : ui.view === 'invites' ? invitesView() : ui.view === 'music' ? musicView() : ui.view === 'tienda' ? tiendaView() : ui.view === 'places' ? placesView() : ui.view === 'place' ? placeView() : ui.view === 'fotos' ? fotosView() : ui.view === 'chats' ? chatsView() : ui.view === 'gchat' ? gchatView() : ui.view === 'profile' ? profileView() : ui.view === 'user' ? userView() : eventView();
+  if (ui.view === 'invites') renderQrInto(groupCode());
+  checkLevelUp();
   if (keep !== false) window.scrollTo(0, y);
   if (ui.stick) { ui.stick = false; window.scrollTo(0, document.documentElement.scrollHeight); }
 }
@@ -1053,6 +1154,12 @@ function act(a, t){
       break;
   }
 }
+
+/* al tocar Fecha u Hora se abre directo el calendario/reloj, sin tener que escribir los números */
+document.addEventListener('click', function(e){
+  var i = e.target;
+  if (i && i.tagName === 'INPUT' && (i.type === 'date' || i.type === 'time') && i.showPicker) { try { i.showPicker(); } catch (_) {} }
+});
 
 document.addEventListener('click', function(e){
   var t = e.target.closest('[data-act]');
@@ -1548,16 +1655,23 @@ function proceedAfterCover(a){
 /* ---------- tutorial de bienvenida (una sola vez por dispositivo) ---------- */
 var TOUR_STEPS = [
   {e: '🎉', t: 'Crea tu primer evento', d: 'Ponle nombre, fecha y lugar. En segundos tienes un espacio para tu fiesta.'},
-  {e: '👥', t: 'Invita a tus amigos', d: 'Comparte el código o el enlace del evento. Al entrar, ya son parte de él.'},
+  {mark: true, t: 'Invita a tus amigos', d: 'Comparte el código o muéstrales el QR desde Invitaciones. Al escanearlo con la cámara, ya son parte del grupo.'},
   {e: '📸', t: 'Todos suben sus fotos', d: 'Cada quien sube las que tomó. Se guardan juntas, en un solo álbum del evento.'},
   {e: '📤', t: 'Comparte o descarga el álbum', d: 'Bájalas a tu teléfono o compártelas directo a tus redes cuando quieras.'},
-  {e: '👤', t: 'Tu perfil', d: 'Ahí ves tus propios eventos, tus fotos, y quién te sigue.'}
+  {e: '👤', t: 'Tu perfil', d: 'Ahí ves tus propios eventos, tus fotos, y quién te sigue.'},
+  {e: '🏆', img: 'badges/party-icon.png', t: 'Tu estatus de fiesta', d: 'Cada evento al que vas y en el que subes fotos te sube de nivel, tú solo: de Party Rookie a Party Icon. Tu trofeo aparece en tu perfil.'}
 ];
 var tourOn = false;
+function tourFx(){
+  var C = ['#ff5fd0', '#ffd166', '#5b8cff', '#7cf5c0', '#ff8a5b', '#b38bff'], h = '';
+  for (var i = 0; i < 26; i++) h += '<i style="left:' + ((i * 37 + 8) % 100) + '%;background:' + C[i % 6] + ';animation-duration:' + (5 + (i * 7) % 6) + 's;animation-delay:-' + ((i * 13) % 9) + 's;transform:rotate(' + (i * 29) % 90 + 'deg)"></i>';
+  [[8, 14], [88, 10], [16, 66], [84, 60], [50, 6], [92, 84]].forEach(function(p, k){ h += '<b style="left:' + p[0] + '%;top:' + p[1] + '%;animation-delay:-' + k * .4 + 's">✦</b>'; });
+  return '<div class="tr-fx" aria-hidden="true">' + h + '</div>';
+}
 function tourHTML(){
   var n = TOUR_STEPS.length, i = ui.tourStep || 0, s = TOUR_STEPS[i];
-  return '<div class="tr">' +
-    '<div class="tr-body"><div class="tr-emoji" aria-hidden="true">' + s.e + '</div>' +
+  return '<div class="tr">' + tourFx() +
+    '<div class="tr-body"><div class="tr-emoji" aria-hidden="true">' + (s.img ? '<img src="' + s.img + '" alt="">' : s.mark ? '<span class="qr-mark tr-mark">' + I.crown + '</span>' : s.e) + '</div>' +
     '<h2 class="tr-title">' + esc(s.t) + '</h2><p class="tr-text">' + esc(s.d) + '</p></div>' +
     '<div class="tr-dots">' + TOUR_STEPS.map(function(_, k){ return '<button class="tr-dot' + (k === i ? ' on' : '') + '" data-act="tr-dot" data-i="' + k + '" aria-label="Paso ' + (k + 1) + ' de ' + n + '"></button>'; }).join('') + '</div>' +
     '<button class="tr-cta" data-act="tr-next">' + (i === n - 1 ? 'Empezar' : 'Siguiente') + '</button></div>';
@@ -1673,13 +1787,27 @@ function dueReminders(){
 
 /* inicio */
 function card(ev){
-  var n = ev.photos.length, m = ev.members.length, d = daysUntil(ev.date);
-  return '<button class="card" data-act="open" data-id="' + ev.id + '">' + stack(ev) +
-    '<div class="ct"><div class="t">' + esc(ev.name) + '</div>' +
-    (ev.place ? '<div class="s">' + esc(ev.place) + '</div>' : '') +
-    (ev.date ? '<div class="s">' + esc(fmtDate(ev.date) + (ev.time ? ', ' + fmtHour(ev.time) : '')) + '</div>' : '') +
-    '<div class="chips">' + (d !== null && d >= 0 ? '<span class="chip up">' + countdown(ev) + '</span>' : '') +
-    '<span class="chip">' + n + (n === 1 ? ' foto' : ' fotos') + '</span><span class="chip">' + m + (m === 1 ? ' persona' : ' personas') + '</span></div></div></button>';
+  var n = ev.photos.length, m = ev.members.length, d = daysUntil(ev.date), g = GR[ev.grad % GR.length];
+  var top = sorted(ev)[0];
+  var themed = coverFor(ev.emoji);
+  var cover = top
+    ? '<div class="ecover" style="background-image:url(' + top.data + ')"></div>'
+    : themed
+      ? '<div class="ecover" style="background-image:url(' + themed + ')"></div>'
+      : '<div class="ecover" style="background:linear-gradient(135deg,' + g[0] + ',' + g[1] + ')">' + ev.emoji + '</div>';
+  var dt = '';
+  if (ev.date) {
+    var p = ev.date.split('-').map(Number), dd = new Date(p[0], p[1] - 1, p[2]);
+    dt = '<small>' + esc(dd.toLocaleDateString('es', {weekday: 'short'}).replace('.', '')) + '</small><b>' + p[2] + '</b><small>' + esc(dd.toLocaleDateString('es', {month: 'short'}).replace('.', '') + ' ' + p[0]) + '</small>';
+  } else dt = '<small>Sin</small><b>—</b><small>fecha</small>';
+  var shown = ev.members.slice(0, 3), more = m - shown.length;
+  return '<button class="ecard" data-act="open" data-id="' + ev.id + '">' + cover +
+    (d !== null && d >= 0 ? '<span class="ecount">' + esc(countdown(ev)) + '</span>' : '') +
+    '<div class="ebody"><div class="edate">' + dt + '</div><div class="einfo"><div class="et">' + esc(ev.name) + '</div>' +
+    (ev.place ? '<div class="erow">' + I.pin + '<span>' + esc(ev.place) + '</span></div>' : '') +
+    (ev.time ? '<div class="erow">' + I.clock + '<span>' + esc(fmtHour(ev.time)) + '</span></div>' : '') +
+    '<div class="epeople"><span class="eav">' + shown.map(function(x){ return av(x, 28); }).join('') + '</span>' + (more > 0 ? '<span class="muted">+' + more + '</span>' : '') + '<span>' + m + (m === 1 ? ' persona' : ' personas') + '</span></div>' +
+    '<div class="erow">' + I.image + '<span>' + n + (n === 1 ? ' foto' : ' fotos') + '</span></div></div></div></button>';
 }
 function remHTML(r){
   var ev = r.ev, title = r.k === 'd3' ? 'Faltan 3 días' : r.k === 'd1' ? 'Es mañana' : 'Es hoy';
@@ -1693,7 +1821,7 @@ function home(){
     return (b.date || '').localeCompare(a.date || '') || b.created - a.created;
   });
   var rems = dueReminders();
-  return '<div class="wrap"><header class="hero"><div><h1>Friends Party</h1></div>' + (S.me ? '<button class="pfbtn" data-act="pf-open" aria-label="Mi perfil">' + av(S.me, 44) + '</button>' : '') + '</header>' + homeMenu() +
+  return '<div class="wrap"><header class="hero"><div><h1>Friends<br><span class="h1g">Party</span></h1><div class="tagl">Eventos que te unen</div></div>' + (S.me ? '<button class="pfbtn" data-act="pf-open" aria-label="Mi perfil">' + av(S.me, 44) + '</button>' : '') + '</header>' + homeMenu() +
     (rems.length ? '<div class="rems">' + rems.map(remHTML).join('') + '</div>' : '') +
     (evs.length ? '<div class="list">' + evs.map(card).join('') + '</div>' : '<div class="empty"><p><strong>Todavía no tienes eventos.</strong></p><p class="muted">Crea uno y comparte su código con tus amigos.</p></div>') +
     '</div><div class="bar"><div class="wrap"><button class="btn primary block" data-act="new-event">' + I.plus + ' Nuevo evento</button></div></div>';
@@ -1728,21 +1856,21 @@ function planBody(ev){
       return '<button class="cb' + (ev.remind[k[0]] ? ' on' : '') + '" aria-pressed="' + !!ev.remind[k[0]] + '" data-act="pl-rm" data-k="' + k[0] + '">' + k[1] + '</button>';
     }).join('') + '</div><button class="link" data-act="pl-remind">Ver cómo llegan los avisos</button>';
 
-  var more = '<h3 class="pl-h">Invita a este evento</h3><p class="muted small">Con este código tu amigo entra a tu grupo y ve este evento (y los demás).</p><div class="invite"><div class="code">' + esc(groupCode()) + '</div><div class="invbtns"><button class="btn" data-act="copy-invite">Copiar invitación</button><button class="btn" data-act="jn-qr" data-code="' + esc(groupCode()) + '" data-label="' + esc(ev.name) + '">Ver código QR</button></div></div>' +
-    '<button class="link" data-act="pl-edit">Editar evento</button><br>' +
+  var more = '<button class="link" data-act="pl-edit">Editar evento</button><br>' +
     '<button class="link danger" data-act="ev-del">' + (ui.armed === 'e' + ev.id ? 'Toca otra vez para eliminar' : 'Eliminar evento') + '</button>';
   return hero + seg + people + rm + more; /* musicBlock(ev) quitado por ahora, junto con la sección Música */
 }
 
 /* hojas: invitar y ver avisos */
 function inviteSheet(){
-  return '<div class="scrim" data-act="close-sheet"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="Invitar a un amigo"><h2>Invitar a un amigo</h2>' + groupChips() +
-    '<label>Usuario de Friends Party (o el nombre)<input id="i-name" class="inp" placeholder="@usuario o Ana" maxlength="40" autocomplete="off"></label><div id="i-found"></div>' +
-    '<label>WhatsApp (con código de país)<input id="i-phone" class="inp" inputmode="tel" placeholder="502 5555 1234" autocomplete="off"></label>' +
-    '<label>Correo<input id="i-mail" class="inp" type="email" placeholder="ana@correo.com" autocomplete="off"></label>' +
-    '<div class="inv3"><button class="btn primary" data-act="pl-wa">WhatsApp</button><button class="btn primary" data-act="pl-mail">Correo</button><button class="btn primary" data-act="pl-app">En la app</button></div>' +
-    '<p class="muted small">Si el botón no abre WhatsApp o tu correo, copia el mensaje y pégalo ahí. «En la app» deja la invitación registrada dentro de Friends Party.</p>' +
-    '<button class="link" data-act="pl-copy">Copiar mensaje de invitación</button><button class="link" data-act="close-sheet">Cerrar</button></div>';
+  return '<div class="scrim" data-act="close-sheet"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="Invitar a un amigo"><h2>Invitar a un amigo</h2>' +
+    '<p class="muted small">Que tu amigo escanee este código con la cámara. Al entrar, ve este evento y los demás de tu grupo.</p>' +
+    '<div class="qrframe"><div class="qrwrap" id="qr-target"><p class="muted small">Generando…</p></div><div class="qr-mark">' + I.crown + '</div></div>' +
+    '<div class="code" style="text-align:center;margin-bottom:6px">' + esc(groupCode()) + '</div>' +
+    '<h3 class="pl-h">Invitar por usuario</h3>' +
+    '<label>Usuario de Friends Party<input id="i-name" class="inp" placeholder="@usuario" maxlength="40" autocomplete="off" autocapitalize="none"></label><div id="i-found"></div>' +
+    '<button class="btn primary block" data-act="pl-app">Invitar</button>' +
+    '<button class="link" data-act="close-sheet">Cerrar</button></div>';
 }
 function remindSheet(ev){
   var names = recipients(ev);
@@ -1782,7 +1910,7 @@ function renderSheet(){
       '<button class="btn primary block" data-act="create-event">' + (ed ? 'Guardar cambios' : 'Crear evento') + '</button><button class="link" data-act="close-sheet">Cancelar</button></div>';
     focus = '#f-name';
   } else if (ui.sheet === 'invite') {
-    el.innerHTML = inviteSheet(); focus = '#i-name'; wireUserSearch('i-name', 'i-found');
+    el.innerHTML = inviteSheet(); wireUserSearch('i-name', 'i-found'); renderQrInto(groupCode());
   } else if (ui.sheet === 'remind') {
     el.innerHTML = remindSheet(cur());
   } else if (ui.sheet === 'photoloc') {
@@ -1832,16 +1960,15 @@ function planAct(a, t){
       break;
     case 'pl-wa': case 'pl-mail': case 'pl-app':
       nm = ($('#i-name').value || '').trim();
-      if (!nm) { toast('Escribe el nombre de tu amigo'); $('#i-name').focus(); return; }
-      ph = ($('#i-phone').value || '').replace(/\D/g, '');
-      mail = ($('#i-mail').value || '').trim();
+      if (!nm) { toast('Escribe el usuario de tu amigo'); $('#i-name').focus(); return; }
+      ph = ''; mail = '';
       text = inviteText(ev);
       if (a === 'pl-wa') { openLink('https://wa.me/' + ph + '?text=' + encodeURIComponent(text)); }
       else if (a === 'pl-mail') { openLink('mailto:' + mail + '?subject=' + encodeURIComponent('Te invito a ' + ev.name) + '&body=' + encodeURIComponent(text)); }
       ev.invites.push({id: uid(), who: nm, via: a === 'pl-wa' ? 'whatsapp' : a === 'pl-mail' ? 'correo' : 'app', at: Date.now()});
       if (ev.serverId) SB.syncInvite('event', ev.serverId, a === 'pl-wa' ? 'whatsapp' : a === 'pl-mail' ? 'correo' : 'app', a === 'pl-wa' ? ph : mail);
       save(); render();
-      ['#i-name', '#i-phone', '#i-mail'].forEach(function(s){ var f = $(s); if (f) f.value = ''; });
+      { var f1 = $('#i-name'); if (f1) f1.value = ''; }
       toast(a === 'pl-app' ? nm + ' quedó invitado en la app' : 'Invitación para ' + nm + ' registrada');
       { var f0 = $('#i-name'); if (f0) f0.focus(); }
       break;
@@ -1937,15 +2064,17 @@ function invitesView(){
     : '';
   return '<header class="top"><div class="wrap"><div class="bar1"><button class="ib" data-act="back" aria-label="Volver al inicio">' + I.back + '</button><div class="tt"><div class="ttl">Invitaciones</div><div class="meta"><span>Tu grupo de la party</span></div></div></div></div></header>' +
     '<main class="wrap">' +
-    '<div class="joincard"><h3 class="pl-h" style="margin-top:0">¿Tienes un código?</h3><p class="muted small">Si un amigo te compartió un código o un QR, únete aquí y verás sus fotos y eventos.</p><button class="btn primary block" data-act="jn-open">Unirme con un código</button></div>' +
-    '<h3 class="pl-h">Invita a tu grupo</h3><p class="muted small">Tus amigos se unen a tu grupo y desde ahí los invitas a cada evento.</p>' +
+    '<h3 class="pl-h" style="margin-top:4px">Comparte tu grupo</h3><p class="muted small">Que tu amigo escanee este código con la cámara para unirse. Al entrar, ve tus eventos y fotos.</p>' +
+    '<div class="qrframe"><div class="qrwrap" id="qr-target"><p class="muted small">Generando…</p></div><div class="qr-mark">' + I.crown + '</div></div>' +
+    '<div class="code" style="text-align:center;margin-bottom:6px">' + esc(groupCode()) + '</div>' +
+    '<h3 class="pl-h">Otras formas de compartir</h3>' +
+    '<button class="btn block" data-act="gr-copy" style="margin-bottom:12px">Copiar invitación</button>' +
     '<div class="gform"><label>Usuario de Friends Party (o el nombre)<input id="g-name" class="inp" placeholder="@usuario o Ana" maxlength="40" autocomplete="off"></label><div id="g-found"></div>' +
     '<label>WhatsApp (con código de país)<input id="g-phone" class="inp" inputmode="tel" placeholder="502 5555 1234" autocomplete="off"></label>' +
     '<label>Correo<input id="g-mail" class="inp" type="email" placeholder="ana@correo.com" autocomplete="off"></label>' +
     '<div class="inv3"><button class="btn primary" data-act="gr-wa">WhatsApp</button><button class="btn primary" data-act="gr-mail">Correo</button><button class="btn primary" data-act="gr-app">En la app</button></div>' +
-    '<p class="muted small">«En la app» le llega a tu amigo dentro de Friends Party si ya la tiene descargada. Si WhatsApp o el correo no se abren, copia el mensaje y pégalo ahí.</p>' +
-    '<button class="link" data-act="gr-copy">Copiar mensaje de invitación</button></div>' +
-    '<h3 class="pl-h">Código de tu grupo</h3><div class="invite"><div class="code">' + esc(groupCode()) + '</div><div class="invbtns"><button class="btn" data-act="gr-copy">Copiar invitación</button><button class="btn" data-act="jn-qr" data-code="' + esc(groupCode()) + '" data-label="tu grupo">Ver código QR</button></div></div>' +
+    '<p class="muted small">«En la app» le llega a tu amigo dentro de Friends Party si ya la tiene descargada. Si WhatsApp o el correo no se abren, copia el mensaje y pégalo ahí.</p></div>' +
+    '<div class="joincard"><h3 class="pl-h" style="margin-top:0">¿Tienes un código?</h3><p class="muted small">Si un amigo te compartió un código o un QR, únete aquí y verás sus fotos y eventos.</p><button class="btn primary block" data-act="jn-open">Unirme con un código</button></div>' +
     '<h3 class="pl-h">Mi grupo (' + g.members.length + ')</h3>' + members +
     '<h3 class="pl-h">Invitaciones enviadas (' + g.invites.length + ')</h3>' + sent + evs + '</main>';
 }
@@ -2006,6 +2135,8 @@ function loadQrDecoder(){
   return qrDecPromise;
 }
 /* detecta ?join=CODIGO en la URL al abrir la app (por ejemplo, al escanear un QR con la cámara del teléfono) */
+/* enlace de la app en App Store; cuando esté publicada, pegarlo aquí. Si alguien abre un QR de invitación sin la app, se le ofrece descargarla */
+var APPSTORE_URL = '';
 var PENDING_JOIN = (function(){
   var m = /[?&]join=([^&]+)/.exec(window.location.search);
   return m ? decodeURIComponent(m[1]) : '';
@@ -2052,7 +2183,7 @@ function joinSheet(){
 function qrSheet(){
   return '<div class="scrim" data-act="close-sheet"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="Código QR"><h2>Código QR</h2>' +
     '<p class="muted small">Que tu amigo escanee este código con la cámara para unirse a ' + esc(ui.qrLabel || '') + '.</p>' +
-    '<div class="qrwrap" id="qr-target"><p class="muted small">Generando…</p></div>' +
+    '<div class="qrframe"><div class="qrwrap" id="qr-target"><p class="muted small">Generando…</p></div><div class="qr-mark">' + I.crown + '</div></div>' +
     '<div class="code" style="text-align:center">' + esc(ui.qrCode || '') + '</div>' +
     '<button class="link" data-act="close-sheet">Cerrar</button></div>';
 }
@@ -2060,7 +2191,7 @@ function renderQrInto(code){
   loadQrEncoder().then(function(){
     var el = document.getElementById('qr-target');
     if (!el) return;
-    var qr = qrcode(0, 'M');
+    var qr = qrcode(0, 'H'); /* corrección alta: tolera el logo tapando el centro */
     qr.addData(joinUrl(code));
     qr.make();
     el.innerHTML = qr.createSvgTag(6, 12);
@@ -2701,6 +2832,68 @@ function personData(name){
   return {photos: photos, evs: evs, likes: likes, followers: followersOf(name), following: followingOf(name)};
 }
 
+/* ---------- estatus de fiesta (individual): cada evento cuenta solo si cumples las 2 condiciones:
+   marcaste "Voy" Y subiste al menos una foto (la foto es la prueba de que sí fuiste) ---------- */
+var PARTY_LEVELS = [
+  {min: 1, img: 'badges/party-rookie.png', n: 'Party Rookie', d: 'Empezando'},
+  {min: 3, img: 'badges/party-baby.png', n: 'Party Baby', d: 'Ya entró al ambiente'},
+  {min: 7, img: 'badges/party-young.png', n: 'Party Young', d: 'Ya sabe cómo va la cosa'},
+  {min: 12, img: 'badges/party-lover.png', n: 'Party Lover', d: 'Le encanta salir'},
+  {min: 16, img: 'badges/party-animal.png', n: 'Party Animal', d: 'Nivel serio de fiesta'},
+  {min: 25, img: 'badges/party-legend.png', n: 'Party Legend', d: 'Veterano de Friends Party'},
+  {min: 40, img: 'badges/party-master.png', n: 'Party Master', d: 'Nivel élite'},
+  {min: 60, img: 'badges/party-icon.png', n: 'Party Icon', d: 'Máximo estatus'}
+];
+function partyCount(name){
+  var n = 0;
+  S.events.forEach(function(ev){
+    var fue = (ev.rsvp && ev.rsvp[name] || 'va') === 'va';
+    if (fue && ev.photos.some(function(p){ return p.by === name; })) n++;
+  });
+  /* el nivel nunca baja: se guarda el máximo alcanzado (borrar una foto o cambiar a "No voy" no te quita lo ganado) */
+  if (name === S.me) { if (n > (S.partyBest || 0)) { S.partyBest = n; S.partyDirty = true; } return Math.max(n, S.partyBest || 0); }
+  return n;
+}
+/* pantalla de celebración al subir de nivel: trofeo + explosión de confeti */
+function levelIdx(count){ var k = -1; for (var i = 0; i < PARTY_LEVELS.length; i++) if (count >= PARTY_LEVELS[i].min) k = i; return k; }
+function checkLevelUp(){
+  if (!S.me) return;
+  var now = levelIdx(partyCount(S.me));
+  if (S.partyDirty) { S.partyDirty = false; save(); }
+  if (S.celebLvl === undefined) { S.celebLvl = now; save(); return; }
+  if (now > S.celebLvl) { S.celebLvl = now; save(); showLevelUp(PARTY_LEVELS[now]); }
+}
+var confRaf = 0;
+function showLevelUp(lv){
+  var el = document.getElementById('lvlup');
+  if (!el) { el = document.createElement('div'); el.id = 'lvlup'; document.body.appendChild(el); }
+  el.innerHTML = '<canvas id="lvl-cv"></canvas><div class="lv-box"><div class="lv-k">¡Subiste de nivel!</div><img class="lv-img" src="' + lv.img + '" alt="' + esc(lv.n) + '"><div class="lv-n">' + esc(lv.n) + '</div><div class="lv-d">' + esc(lv.d) + '</div><button class="tr-cta" id="lv-ok">¡Genial!</button></div>';
+  el.className = 'on';
+  document.getElementById('lv-ok').onclick = function(){ cancelAnimationFrame(confRaf); el.className = ''; el.innerHTML = ''; };
+  if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  var cv = document.getElementById('lvl-cv'), W = cv.width = innerWidth, H = cv.height = innerHeight, x = cv.getContext('2d');
+  var C = ['#ff5fd0', '#ffd166', '#5b8cff', '#7cf5c0', '#ff8a5b', '#b38bff', '#ffffff'], P = [];
+  function burst(cx, cy, n){ for (var i = 0; i < n; i++) { var a = Math.random() * Math.PI * 2, v = 6 + Math.random() * 12; P.push({x: cx, y: cy, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 5, w: 6 + Math.random() * 7, h: 9 + Math.random() * 8, r: Math.random() * 6, vr: (Math.random() - .5) * .4, c: C[i % C.length], life: 1}); } }
+  burst(W / 2, H * .42, 170);
+  setTimeout(function(){ burst(W * .2, H * .5, 70); burst(W * .8, H * .5, 70); }, 350);
+  setTimeout(function(){ burst(W / 2, H * .35, 90); }, 800);
+  (function tick(){
+    x.clearRect(0, 0, W, H);
+    P.forEach(function(q){ q.vy += .28; q.vx *= .992; q.x += q.vx; q.y += q.vy; q.r += q.vr; if (q.y > H) q.life = 0;
+      x.save(); x.translate(q.x, q.y); x.rotate(q.r); x.fillStyle = q.c; x.fillRect(-q.w / 2, -q.h / 2, q.w, q.h); x.restore(); });
+    P = P.filter(function(q){ return q.life; });
+    if (P.length || document.getElementById('lv-ok')) confRaf = requestAnimationFrame(tick);
+  })();
+}
+function partyLevel(count){
+  var lvl = null;
+  for (var i = 0; i < PARTY_LEVELS.length; i++) if (count >= PARTY_LEVELS[i].min) lvl = PARTY_LEVELS[i];
+  return lvl;
+}
+function nextLevel(count){
+  for (var i = 0; i < PARTY_LEVELS.length; i++) if (PARTY_LEVELS[i].min > count) return PARTY_LEVELS[i];
+  return null;
+}
 /* hoja de cuenta: Apple, Google o correo */
 function acctSheet(){
   var first = !S.me, p = S.profile || {}, mode = first ? ui.acctMode : 'form';
@@ -2765,15 +2958,20 @@ function profileHTML(name){
       : '<div class="empty"><p><strong>' + (me ? 'Todavía no perteneces a ningún evento.' : 'No comparten ningún evento contigo todavía.') + '</strong></p></div>';
   }
   var head = '<header class="top"><div class="wrap"><div class="bar1"><button class="ib" data-act="' + (me ? 'back' : 'us-back') + '" aria-label="Volver">' + I.back + '</button><div class="tt"><div class="ttl">@' + esc(handle) + '</div><div class="meta"><span>' + (me ? 'Mi perfil' : 'Perfil') + '</span></div></div></div></div></header>';
+  var pCount = partyCount(name), pLvl = partyLevel(pCount), pNext = nextLevel(pCount), pShow = pLvl || PARTY_LEVELS[0];
+  var pTitle = pLvl ? pLvl.n : 'Sin nivel todavía';
+  var pDesc = pLvl ? pLvl.d : (me ? 'Asiste a un evento y sube fotos para desbloquear ' + PARTY_LEVELS[0].n : 'Todavía no cumple asistir a un evento y subir fotos');
+  var pLine = pLvl ? pCount + (pCount === 1 ? ' fiesta' : ' fiestas') + (pNext ? ' · faltan ' + (pNext.min - pCount) + ' para ' + pNext.n : ' · nivel máximo') : '';
+  var badge = '<div class="pf-badge' + (pLvl ? '' : ' off') + '"><span class="pf-badge-ic"><img src="' + pShow.img + '" alt="' + esc(pShow.n) + '" loading="lazy"></span><span class="pf-badge-txt"><b>' + esc(pTitle) + '</b><em>' + esc(pDesc) + '</em>' + (pLine ? '<small>' + esc(pLine) + '</small>' : '') + '</span></div>';
   var info;
   if (me) {
-    info = '<div class="pf-name">' + esc(pr.name) + '</div>' + (pr.bio ? '<div class="pf-bio">' + esc(pr.bio) + '</div>' : '') +
+    info = '<div class="pf-name">' + esc(pr.name) + '</div>' + (pr.bio ? '<div class="pf-bio">' + esc(pr.bio) + '</div>' : '') + badge +
       (pr.provider ? '<div class="muted small pf-tag">Conectada con ' + (pr.provider === 'apple' ? 'Apple' : 'Google') + ' (prueba)</div>' : '') +
       (pr.email || pr.phone ? '<div class="pf-priv muted small">' + (pr.email ? esc(pr.email) : '') + (pr.email && pr.phone ? ' y ' : '') + (pr.phone ? esc(pr.phone) : '') + '. Solo tú ves estos datos.</div>' : '<div class="pf-priv muted small">Agrega tu correo para completar tu perfil.</div>') +
       '<button class="btn block" data-act="pf-edit">Editar perfil</button>';
   } else {
     var fol = isFollowing(name), back = S.social.followers.indexOf(name) >= 0;
-    info = '<div class="pf-name">' + esc(name) + '</div>' + (back ? '<div class="muted small pf-tag">Te sigue</div>' : '') +
+    info = '<div class="pf-name">' + esc(name) + '</div>' + (back ? '<div class="muted small pf-tag">Te sigue</div>' : '') + badge +
       '<div style="height:10px"></div><button class="btn block' + (fol ? '' : ' primary') + '" data-act="us-follow" data-n="' + esc(name) + '" aria-pressed="' + fol + '">' + (fol ? 'Siguiendo' : 'Seguir') + '</button>';
   }
   return head + '<main class="wrap"><div class="pf-head">' + av(name, 84) + '<div class="pf-stats">' + stat(D.photos.length, 'Fotos') + stat(D.followers.length, 'Seguidores', 'pf-followers') + stat(D.following.length, 'Siguiendo', 'pf-following') + stat(D.likes, 'Me gusta') + '</div></div>' + info +
@@ -3536,6 +3734,9 @@ Promise.race([load(), new Promise(function(r){ setTimeout(function(){ r(null); }
   }
   render(false); renderSheet(); renderCover();
   if (PENDING_JOIN && !S.me) toast('Alguien te invitó a Friends Party. Crea tu cuenta o inicia sesión para unirte.');
+  if (PENDING_JOIN && APPSTORE_URL && !(window.navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches)) && /iphone|ipad|ipod/i.test(navigator.userAgent) && !/FriendsPartyApp/i.test(navigator.userAgent)) {
+    var bn = document.createElement('a'); bn.className = 'getapp'; bn.href = APPSTORE_URL; bn.textContent = 'Descarga Friends Party en el App Store para unirte'; document.body.appendChild(bn);
+  }
   SB.restore().then(function(ok){ if (ok) { SB.syncPending(); tryPendingJoin(); SB.ensureGroup().then(function(){ return SB.fetchGroupCode(); }); } }); /* recupera la sesión y reintenta lo pendiente */
   setTimeout(loadStickers, 4000); /* los stickers no hacen falta al abrir la app: se piden en segundo plano, sin competir con lo primero que se ve */
   try {
