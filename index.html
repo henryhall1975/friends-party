@@ -651,7 +651,7 @@ var SB = {
   /* guarda el identificador de este teléfono para poder mandarle notificaciones */
   registerDevice: function(token){
     if (!token) return Promise.resolve();
-    if (!SB.session || !SB.session.access_token) { toast('Para recibir avisos entra con tu correo y contraseña (cierra sesión y vuelve a entrar)'); return Promise.resolve(); }
+    if (!SB.session || !SB.session.access_token) { ui.sheet = 'srvconn'; renderSheet(); return Promise.resolve(); }
     return SB.rpc('register_device', {tok: token}).then(function(r){
       toast(r.ok ? 'Teléfono registrado para avisos ✅' : 'No se pudo registrar el teléfono (' + r.status + ')');
     }).catch(function(){ toast('No se pudo registrar el teléfono: sin conexión'); });
@@ -1969,6 +1969,8 @@ function renderSheet(){
     el.innerHTML = pwdSheet(); focus = '#p-old' ;
   } else if (ui.sheet === 'chatpick') {
     el.innerHTML = pickSheet();
+  } else if (ui.sheet === 'srvconn') {
+    el.innerHTML = srvConnSheet();
   } else if (ui.sheet === 'pushask') {
     el.innerHTML = pushSheet();
   } else if (ui.sheet === 'join') {
@@ -2190,6 +2192,14 @@ window.fpPushAnswer = function(granted){
 };
 function pushRefresh(){ if (pushNative() && S.pushOn) webkit.messageHandlers.push.postMessage('status'); }
 function pushAsk(){ if (pushNative() && !S.pushAsked && S.me && !ui.sheet) { ui.sheet = 'pushask'; renderSheet(); } }
+function srvConnSheet(){
+  var e = esc((S.profile && S.profile.email) || '');
+  return '<div class="scrim" data-act="close-sheet"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="Conectar tu cuenta"><h2>Conecta tu cuenta</h2>' +
+    '<p class="muted small">Tu cuenta hoy vive solo en este teléfono. Para recibir invitaciones y avisos, conéctala al servidor con tu correo y contraseña.</p>' +
+    '<label>Correo<input id="sc-mail" class="inp" type="email" autocomplete="email" value="' + e + '"></label>' +
+    '<label>Contraseña<input id="sc-pw" class="inp" type="password" autocomplete="current-password" placeholder="Tu contraseña"></label>' +
+    '<button class="btn primary block" data-act="jn-srvgo">Conectar</button><button class="link" data-act="close-sheet">Ahora no</button></div>';
+}
 function pushSheet(){
   return '<div class="scrim" data-act="jn-pushoff"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="Avisos"><h2>¿Quieres que te avisemos?</h2>' +
     '<p class="muted">Te mandamos una notificación cuando un amigo te invite a su grupo o a un evento, para que no se te pase.</p>' +
@@ -2311,7 +2321,27 @@ function codeFromScan(text){
 function joinAct(a, t){
   switch (a) {
     case 'jn-open': ui.sheet = 'join'; renderSheet(); break;
+    case 'jn-srvconn': ui.sheet = 'srvconn'; renderSheet(); break;
     case 'jn-pushon': ui.sheet = null; renderSheet(); if (pushNative()) webkit.messageHandlers.push.postMessage('request'); break;
+    case 'jn-srvgo':
+      var em = ($('#sc-mail').value || '').trim(), pw = $('#sc-pw').value || '';
+      if (!em || !pw) { toast('Escribe tu correo y tu contraseña'); return; }
+      toast('Conectando…');
+      SB.signIn(em, pw).then(function(r){
+        if (r.ok && r.data && r.data.access_token) return r;
+        return SB.signUp(em, pw).then(function(r2){ r2.created = true; return r2; });
+      }).then(function(r){
+        if (!r.ok || !r.data || !r.data.access_token) { toast('El correo o la contraseña no coinciden'); return; }
+        SB.remember({access_token: r.data.access_token, refresh_token: r.data.refresh_token});
+        S.serverId = r.data.user && r.data.user.id; save();
+        var chain = r.created ? SB.upsertProfile(S.serverId, (S.profile && S.profile.user) || userFrom(S.me), S.me, (S.profile && S.profile.bio) || '') : Promise.resolve();
+        return chain.then(function(){
+          ui.sheet = null; renderSheet(); toast('Cuenta conectada ✅');
+          SB.pullInvites(); SB.pullAll();
+          if (pushNative()) webkit.messageHandlers.push.postMessage('request');
+        });
+      }).catch(function(){ toast('No se pudo conectar con el servidor'); });
+      break;
     case 'jn-pushoff': ui.sheet = null; S.pushAsked = true; save(); renderSheet(); break;
     case 'jn-accept':
       SB.rpc('accept_user_invite', {inv: t.dataset.id}).then(function(r){
@@ -3065,6 +3095,7 @@ function profileHTML(name){
     info = '<div class="pf-name">' + esc(pr.name) + '</div>' + (pr.bio ? '<div class="pf-bio">' + esc(pr.bio) + '</div>' : '') + badge +
       (pr.provider ? '<div class="muted small pf-tag">Conectada con ' + (pr.provider === 'apple' ? 'Apple' : 'Google') + ' (prueba)</div>' : '') +
       (pr.email || pr.phone ? '<div class="pf-priv muted small">' + (pr.email ? esc(pr.email) : '') + (pr.email && pr.phone ? ' y ' : '') + (pr.phone ? esc(pr.phone) : '') + '. Solo tú ves estos datos.</div>' : '<div class="pf-priv muted small">Agrega tu correo para completar tu perfil.</div>') +
+      (S.me && !S.session ? '<button class="link" data-act="jn-srvconn" style="margin:0 0 10px">🔗 Conectar mi cuenta al servidor</button><br>' : '') +
       (pushNative() ? '<button class="link" data-act="jn-pushon" style="margin:0 0 10px">🔔 ' + (S.pushOn ? 'Avisos activados (toca para revisar)' : 'Activar avisos de invitaciones') + '</button><br>' : '') +
       '<button class="btn block" data-act="pf-edit">Editar perfil</button>';
   } else {
