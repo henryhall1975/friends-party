@@ -129,6 +129,7 @@ main{padding:14px 0 130px}
 .invite{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:16px}
 .invbtns{display:flex;gap:8px;flex-wrap:wrap}
 .code{font-size:30px;font-weight:800;letter-spacing:.14em;line-height:1.1}
+.inbox{background:var(--surface);border:1px solid var(--accent);border-radius:14px;padding:14px;margin-bottom:20px}
 .joincard{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:20px}
 .usearch{display:flex;flex-direction:column;gap:4px;margin:-6px 0 10px}
 .usres{text-align:left;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:14px}
@@ -646,6 +647,42 @@ var SB = {
         return (pr.data || []).map(function(p){ return p.display_name || p.username; }).filter(Boolean);
       });
     }).catch(function(){ return []; });
+  },
+  /* guarda el identificador de este teléfono para poder mandarle notificaciones */
+  registerDevice: function(token){
+    if (!SB.session || !SB.session.access_token || !token) return Promise.resolve();
+    return SB.rpc('register_device', {tok: token}).catch(function(){});
+  },
+  /* invitación directa a otra cuenta real (le llega a su bandeja de "Invitaciones recibidas") */
+  sendUserInvite: function(username){
+    username = String(username || '').replace(/^@/, '').trim().toLowerCase();
+    if (!SB.session || !SB.session.access_token) return Promise.resolve({ok: false, msg: 'Inicia sesión primero'});
+    return SB.ensureGroup().then(function(gid){
+      if (!gid) return {ok: false, msg: 'No se pudo conectar con el servidor'};
+      return SB.rest('profiles', 'GET', null, '?username=eq.' + encodeURIComponent(username) + '&select=id,display_name,username').then(function(pr){
+        var p = pr.data && pr.data[0];
+        if (!p) return {ok: false, msg: 'No encontramos a @' + username};
+        if (p.id === S.serverId) return {ok: false, msg: 'Esa eres tú'};
+        return SB.rest('user_invites', 'POST', {group_id: gid, to_user: p.id}, '', 'return=minimal').then(function(r){
+          if (r.ok) return {ok: true, name: p.display_name || p.username};
+          if (r.status === 409) return {ok: true, name: p.display_name || p.username, dup: true};
+          return {ok: false, msg: 'No se pudo enviar la invitación. Intenta de nuevo.'};
+        });
+      });
+    }).catch(function(){ return {ok: false, msg: 'No se pudo conectar con el servidor'}; });
+  },
+  /* trae las invitaciones que te mandaron y aún no respondes */
+  pullInvites: function(){
+    if (!SB.session || !SB.session.access_token || !S.serverId) return Promise.resolve();
+    return SB.rest('user_invites', 'GET', null, '?to_user=eq.' + S.serverId + '&status=eq.pending&select=id,from_user,created_at&order=created_at.desc').then(function(r){
+      if (!r.ok || !Array.isArray(r.data)) return;
+      return SB.resolveNames(r.data.map(function(x){ return x.from_user; })).then(function(names){
+        var list = r.data.map(function(x){ return {id: x.id, by: names[x.from_user] || 'Alguien', at: Date.parse(x.created_at) || Date.now()}; });
+        var changed = JSON.stringify(list) !== JSON.stringify(S.inbox || []);
+        S.inbox = list;
+        if (changed) { save(); if (ui.view === 'invites' || ui.view === 'home') render(false); }
+      });
+    }).catch(function(){});
   },
   /* busca cuentas reales por su nombre de usuario, para invitar con más confianza que escribiendo un nombre libre */
   searchUsers: function(term){
@@ -1929,6 +1966,8 @@ function renderSheet(){
     el.innerHTML = pwdSheet(); focus = '#p-old' ;
   } else if (ui.sheet === 'chatpick') {
     el.innerHTML = pickSheet();
+  } else if (ui.sheet === 'pushask') {
+    el.innerHTML = pushSheet();
   } else if (ui.sheet === 'join') {
     el.innerHTML = joinSheet(); focus = '#j-code';
   } else if (ui.sheet === 'qr') {
@@ -1965,6 +2004,15 @@ function planAct(a, t){
       text = inviteText(ev);
       if (a === 'pl-wa') { openLink('https://wa.me/' + ph + '?text=' + encodeURIComponent(text)); }
       else if (a === 'pl-mail') { openLink('mailto:' + mail + '?subject=' + encodeURIComponent('Te invito a ' + ev.name) + '&body=' + encodeURIComponent(text)); }
+      if (nm.charAt(0) === '@') {
+        SB.sendUserInvite(nm).then(function(r){
+          if (!r.ok) { toast(r.msg); return; }
+          ev.invites.push({id: uid(), who: r.name, via: 'app', at: Date.now()}); save(); render();
+          toast(r.dup ? 'Ya habías invitado a ' + r.name : 'Invitación enviada a ' + r.name);
+        });
+        { var f2 = $('#i-name'); if (f2) f2.value = ''; }
+        break;
+      }
       ev.invites.push({id: uid(), who: nm, via: a === 'pl-wa' ? 'whatsapp' : a === 'pl-mail' ? 'correo' : 'app', at: Date.now()});
       if (ev.serverId) SB.syncInvite('event', ev.serverId, a === 'pl-wa' ? 'whatsapp' : a === 'pl-mail' ? 'correo' : 'app', a === 'pl-wa' ? ph : mail);
       save(); render();
@@ -1999,7 +2047,7 @@ function menuAct(t){
   else if (k === 'Lugares') { ui.view = 'places'; render(false); window.scrollTo(0, 0); }
   else if (k === 'Música') { ui.view = 'music'; ui.mu.filter = 'all'; render(false); window.scrollTo(0, 0); }
   else if (k === 'Invitaciones') {
-    ensureGroup(); ui.view = 'invites'; render(false); window.scrollTo(0, 0); wireUserSearch('g-name', 'g-found');
+    ensureGroup(); ui.view = 'invites'; render(false); window.scrollTo(0, 0); wireUserSearch('g-name', 'g-found'); SB.pullInvites(); setTimeout(pushAsk, 900);
     SB.ensureGroup().then(function(){ return SB.fetchGroupCode(); }).then(function(){
       return SB.pullGroupMembers();
     }).then(function(names){
@@ -2025,11 +2073,7 @@ function groupMsg(){
   return (S.me || 'Un amigo') + ' te invita a su grupo en Friends Party. Aquí planeamos fiestas y guardamos las fotos juntos.\nCódigo del grupo: ' + groupCode() + '.\n' + joinUrl(groupCode());
 }
 function joinUrl(code){ return location.origin + location.pathname + '?join=' + encodeURIComponent(code); }
-function pendingCount(){
-  var n = S.group ? S.group.invites.length : 0;
-  S.events.forEach(function(ev){ n += (ev.invites || []).length; });
-  return n;
-}
+function pendingCount(){ return (S.inbox || []).length; }
 function groupSend(via, contact, text){
   if (via === 'whatsapp') openLink('https://wa.me/' + String(contact || '').replace(/\D/g, '') + '?text=' + encodeURIComponent(text));
   else if (via === 'correo') openLink('mailto:' + (contact || '') + '?subject=' + encodeURIComponent('Te invito a mi grupo en Friends Party') + '&body=' + encodeURIComponent(text));
@@ -2046,6 +2090,15 @@ function groupChips(){
   }).join('') + '</div>';
 }
 
+/* invitaciones que te mandaron otras cuentas, para aceptar o rechazar */
+function inboxHtml(){
+  var l = S.inbox || [];
+  if (!l.length) return '';
+  return '<div class="inbox"><h3 class="pl-h" style="margin-top:0">Invitaciones recibidas (' + l.length + ')</h3><ul class="people">' + l.map(function(x){
+    return '<li>' + av(x.by, 36) + '<span class="nm">' + esc(x.by) + '<small>Te invitó a su grupo</small></span>' +
+      '<button class="btn primary small" data-act="jn-accept" data-id="' + esc(x.id) + '">Aceptar</button><button class="link small" data-act="jn-decline" data-id="' + esc(x.id) + '">Rechazar</button></li>';
+  }).join('') + '</ul></div>';
+}
 function invitesView(){
   var g = S.group, evInv = [];
   S.events.forEach(function(ev){ (ev.invites || []).forEach(function(v){ evInv.push({ev: ev, v: v}); }); });
@@ -2063,7 +2116,7 @@ function invitesView(){
       }).join('') + '</ul>'
     : '';
   return '<header class="top"><div class="wrap"><div class="bar1"><button class="ib" data-act="back" aria-label="Volver al inicio">' + I.back + '</button><div class="tt"><div class="ttl">Invitaciones</div><div class="meta"><span>Tu grupo de la party</span></div></div></div></div></header>' +
-    '<main class="wrap">' +
+    '<main class="wrap">' + inboxHtml() +
     '<h3 class="pl-h" style="margin-top:4px">Comparte tu grupo</h3><p class="muted small">Que tu amigo escanee este código con la cámara para unirse. Al entrar, ve tus eventos y fotos.</p>' +
     '<div class="qrframe"><div class="qrwrap" id="qr-target"><p class="muted small">Generando…</p></div><div class="qr-mark">' + I.crown + '</div></div>' +
     '<div class="code" style="text-align:center;margin-bottom:6px">' + esc(groupCode()) + '</div>' +
@@ -2086,6 +2139,15 @@ function groupAct(a, t){
     case 'gr-wa': case 'gr-mail': case 'gr-app':
       nm = ($('#g-name').value || '').trim();
       if (!nm) { toast('Escribe el nombre de tu amigo'); $('#g-name').focus(); return; }
+      if (nm.charAt(0) === '@') {
+        SB.sendUserInvite(nm).then(function(r){
+          if (!r.ok) { toast(r.msg); return; }
+          g.invites.push({id: uid(), who: r.name, via: 'app', contact: '', at: Date.now()}); save(); render(false); wireUserSearch('g-name', 'g-found');
+          toast(r.dup ? 'Ya habías invitado a ' + r.name : 'Invitación enviada a ' + r.name);
+        });
+        $('#g-name').value = '';
+        return;
+      }
       if (g.members.some(function(m){ return m.toLowerCase() === nm.toLowerCase(); })) { toast(nm + ' ya está en tu grupo'); return; }
       ph = ($('#g-phone').value || '').trim(); mail = ($('#g-mail').value || '').trim();
       if (mail && mail.indexOf('@') < 1) { toast('Revisa el correo'); $('#g-mail').focus(); return; }
@@ -2111,6 +2173,18 @@ function groupAct(a, t){
       toast(k === 1 ? '1 amigo aceptó y ya está en tu grupo' : k + ' amigos aceptaron y ya están en tu grupo');
       break;
   }
+}
+
+/* ---------- notificaciones (solo dentro de la app de iPhone; el navegador no las recibe) ---------- */
+function pushNative(){ return /FriendsPartyApp/.test(navigator.userAgent) && window.webkit && webkit.messageHandlers && webkit.messageHandlers.push; }
+window.fpPushToken = function(t){ SB.registerDevice(t); };
+window.fpPushAnswer = function(granted){ S.pushAsked = true; S.pushOn = !!granted; save(); toast(granted ? '¡Listo! Te avisaremos cuando te inviten' : 'Sin problema, puedes activarlo después en Ajustes'); };
+function pushRefresh(){ if (pushNative() && S.pushOn) webkit.messageHandlers.push.postMessage('status'); }
+function pushAsk(){ if (pushNative() && !S.pushAsked && S.me && !ui.sheet) { ui.sheet = 'pushask'; renderSheet(); } }
+function pushSheet(){
+  return '<div class="scrim" data-act="jn-pushoff"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="Avisos"><h2>¿Quieres que te avisemos?</h2>' +
+    '<p class="muted">Te mandamos una notificación cuando un amigo te invite a su grupo o a un evento, para que no se te pase.</p>' +
+    '<button class="btn primary block" data-act="jn-pushon">Activar avisos</button><button class="link" data-act="jn-pushoff">Ahora no</button></div>';
 }
 
 /* ---------- unirse con un código (o un QR): código de evento o de grupo, generados de verdad en el servidor ---------- */
@@ -2228,6 +2302,20 @@ function codeFromScan(text){
 function joinAct(a, t){
   switch (a) {
     case 'jn-open': ui.sheet = 'join'; renderSheet(); break;
+    case 'jn-pushon': ui.sheet = null; renderSheet(); if (pushNative()) webkit.messageHandlers.push.postMessage('request'); break;
+    case 'jn-pushoff': ui.sheet = null; S.pushAsked = true; save(); renderSheet(); break;
+    case 'jn-accept':
+      SB.rpc('accept_user_invite', {inv: t.dataset.id}).then(function(r){
+        if (!r.ok) { toast('No se pudo aceptar. Intenta de nuevo.'); return; }
+        S.inbox = (S.inbox || []).filter(function(x){ return x.id !== t.dataset.id; });
+        afterJoinResult({ok: true, kind: 'group', id: r.data});
+      });
+      break;
+    case 'jn-decline':
+      SB.rpc('decline_user_invite', {inv: t.dataset.id}).then(function(){
+        S.inbox = (S.inbox || []).filter(function(x){ return x.id !== t.dataset.id; }); save(); render(false); toast('Invitación rechazada');
+      });
+      break;
     case 'jn-go': doJoin(($('#j-code').value || '').trim()); break;
     case 'jn-scan': var f = $('#qrfile'); if (f) f.click(); break;
     case 'jn-qr': ui.qrCode = t.dataset.code; ui.qrLabel = t.dataset.label; ui.sheet = 'qr'; renderSheet(); renderQrInto(t.dataset.code); break;
@@ -2250,7 +2338,7 @@ var usearchTimer = null;
 function userSearchResultsHtml(list, inputId){
   if (!list.length) return '';
   return '<div class="usearch">' + list.map(function(p){
-    return '<button type="button" class="usres" data-act="us-pick" data-name="' + esc(p.display_name || p.username) + '" data-target="' + inputId + '">@' + esc(p.username) + (p.display_name ? ' · ' + esc(p.display_name) : '') + '</button>';
+    return '<button type="button" class="usres" data-act="us-pick" data-name="@' + esc(p.username) + '" data-target="' + inputId + '">@' + esc(p.username) + (p.display_name ? ' · ' + esc(p.display_name) : '') + '</button>';
   }).join('') + '</div>';
 }
 function wireUserSearch(inputId, resultsId){
@@ -3035,6 +3123,7 @@ function profileAct(a, t){
           save(); ui.authed = true; ui.acctMode = 'form'; ui.sheet = null; renderSheet(); render(false);
           toast('Bienvenido de nuevo, ' + S.me);
           tryPendingJoin();
+          SB.pullInvites(); setInterval(function(){ if (!document.hidden) SB.pullInvites(); }, 30000);
           return SB.pullAll();
         });
       }).catch(function(){ toast('No se pudo conectar con el servidor'); });
@@ -3737,7 +3826,7 @@ Promise.race([load(), new Promise(function(r){ setTimeout(function(){ r(null); }
   if (PENDING_JOIN && APPSTORE_URL && !(window.navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches)) && /iphone|ipad|ipod/i.test(navigator.userAgent) && !/FriendsPartyApp/i.test(navigator.userAgent)) {
     var bn = document.createElement('a'); bn.className = 'getapp'; bn.href = APPSTORE_URL; bn.textContent = 'Descarga Friends Party en el App Store para unirte'; document.body.appendChild(bn);
   }
-  SB.restore().then(function(ok){ if (ok) { SB.syncPending(); tryPendingJoin(); SB.ensureGroup().then(function(){ return SB.fetchGroupCode(); }); } }); /* recupera la sesión y reintenta lo pendiente */
+  SB.restore().then(function(ok){ if (ok) { pushRefresh(); SB.pullInvites(); setInterval(function(){ if (!document.hidden) SB.pullInvites(); }, 30000); SB.syncPending(); tryPendingJoin(); SB.ensureGroup().then(function(){ return SB.fetchGroupCode(); }); } }); /* recupera la sesión y reintenta lo pendiente */
   setTimeout(loadStickers, 4000); /* los stickers no hacen falta al abrir la app: se piden en segundo plano, sin competir con lo primero que se ve */
   try {
     if (window.claude && window.claude.use) {
