@@ -650,8 +650,11 @@ var SB = {
   },
   /* guarda el identificador de este teléfono para poder mandarle notificaciones */
   registerDevice: function(token){
-    if (!SB.session || !SB.session.access_token || !token) return Promise.resolve();
-    return SB.rpc('register_device', {tok: token}).catch(function(){});
+    if (!token) return Promise.resolve();
+    if (!SB.session || !SB.session.access_token) { toast('Para recibir avisos entra con tu correo y contraseña (cierra sesión y vuelve a entrar)'); return Promise.resolve(); }
+    return SB.rpc('register_device', {tok: token}).then(function(r){
+      toast(r.ok ? 'Teléfono registrado para avisos ✅' : 'No se pudo registrar el teléfono (' + r.status + ')');
+    }).catch(function(){ toast('No se pudo registrar el teléfono: sin conexión'); });
   },
   /* invitación directa a otra cuenta real (le llega a su bandeja de "Invitaciones recibidas") */
   sendUserInvite: function(username){
@@ -2177,8 +2180,14 @@ function groupAct(a, t){
 
 /* ---------- notificaciones (solo dentro de la app de iPhone; el navegador no las recibe) ---------- */
 function pushNative(){ return /FriendsPartyApp/.test(navigator.userAgent) && window.webkit && webkit.messageHandlers && webkit.messageHandlers.push; }
-window.fpPushToken = function(t){ SB.registerDevice(t); };
-window.fpPushAnswer = function(granted){ S.pushAsked = true; S.pushOn = !!granted; save(); toast(granted ? '¡Listo! Te avisaremos cuando te inviten' : 'Sin problema, puedes activarlo después en Ajustes'); };
+window.fpPushToken = function(t){ clearTimeout(window.__pushT); SB.registerDevice(t); };
+window.fpPushAnswer = function(granted){
+  S.pushAsked = true; S.pushOn = !!granted; save();
+  if (!granted) { toast('Los avisos están apagados. Actívalos en Ajustes del iPhone → Friends Party → Notificaciones'); return; }
+  toast('Permiso concedido, registrando tu teléfono…');
+  clearTimeout(window.__pushT);
+  window.__pushT = setTimeout(function(){ toast('El teléfono no recibió su identificador de Apple. Revisa que tenga internet y vuelve a intentar'); }, 9000);
+};
 function pushRefresh(){ if (pushNative() && S.pushOn) webkit.messageHandlers.push.postMessage('status'); }
 function pushAsk(){ if (pushNative() && !S.pushAsked && S.me && !ui.sheet) { ui.sheet = 'pushask'; renderSheet(); } }
 function pushSheet(){
