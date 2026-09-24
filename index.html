@@ -3056,6 +3056,7 @@ function profileHTML(name){
     info = '<div class="pf-name">' + esc(pr.name) + '</div>' + (pr.bio ? '<div class="pf-bio">' + esc(pr.bio) + '</div>' : '') + badge +
       (pr.provider ? '<div class="muted small pf-tag">Conectada con ' + (pr.provider === 'apple' ? 'Apple' : 'Google') + ' (prueba)</div>' : '') +
       (pr.email || pr.phone ? '<div class="pf-priv muted small">' + (pr.email ? esc(pr.email) : '') + (pr.email && pr.phone ? ' y ' : '') + (pr.phone ? esc(pr.phone) : '') + '. Solo tú ves estos datos.</div>' : '<div class="pf-priv muted small">Agrega tu correo para completar tu perfil.</div>') +
+      (pushNative() ? '<button class="link" data-act="jn-pushon" style="margin:0 0 10px">🔔 ' + (S.pushOn ? 'Avisos activados (toca para revisar)' : 'Activar avisos de invitaciones') + '</button><br>' : '') +
       '<button class="btn block" data-act="pf-edit">Editar perfil</button>';
   } else {
     var fol = isFollowing(name), back = S.social.followers.indexOf(name) >= 0;
