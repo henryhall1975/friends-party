@@ -117,6 +117,9 @@ main{padding:14px 0 130px}
 .msg{max-width:82%;align-self:flex-start}
 .msg.me{align-self:flex-end}
 .who{font-size:13px;color:var(--muted);margin:0 0 2px 4px}
+.flag{font-size:12px;color:var(--muted);opacity:.6;padding:0 4px}
+.sheet label.rprow{display:flex;gap:10px;align-items:center;padding:6px 0;font-size:15px;font-weight:500}
+.rprow input{width:auto;margin:0;accent-color:var(--accent)}
 .bub{background:var(--surface);border:1px solid var(--line);border-radius:16px 16px 16px 4px;padding:8px 12px}
 .msg.me .bub{background:var(--brand);color:var(--on-brand);border-color:transparent;border-radius:16px 16px 4px 16px}
 .bub time{display:block;font-size:11px;opacity:.65;margin-top:2px;text-align:right}
@@ -1001,7 +1004,8 @@ function seedDemo(){
   S.events.push(ev);
 }
 var cur = function(){ return S.events.filter(function(e){ return e.id === ui.eid; })[0]; };
-var sorted = function(ev){ return ev.photos.slice().sort(function(a, b){ return b.at - a.at; }); };
+var isBlocked = function(n){ return !!n && (S.blocked || []).indexOf(n) >= 0; };
+var sorted = function(ev){ return ev.photos.filter(function(p){ return !isBlocked(p.by); }).sort(function(a, b){ return b.at - a.at; }); };
 
 /* ---------- vistas ---------- */
 var app = $('#app');
@@ -1053,7 +1057,7 @@ function renderLb(){
     '<div class="lbimg"><button class="nav l" data-act="lb-prev" aria-label="Foto anterior"' + (i === 0 ? ' disabled' : '') + '>' + I.back + '</button><img src="' + p.data + '" alt="Foto de ' + esc(p.by) + '"><button class="nav r" data-act="lb-next" aria-label="Foto siguiente"' + (i === list.length - 1 ? ' disabled' : '') + '>' + I.next + '</button></div>' +
     likesLine(p) + '<div class="lbact">' + likeBtn(p) + (dl ? '<button class="btn light" data-act="lb-dl">' + I.down + ' Guardar</button>' : '') +
     '<button class="btn light" data-act="ed-open">' + I.edit + ' Editar</button><button class="btn light" data-act="lb-send">' + I.send + ' Compartir</button><button class="btn light" data-act="lb-share">' + I.chat + ' Al chat</button>' +
-    (p.by === S.me ? '<button class="btn light danger" data-act="lb-del">' + I.trash + ' ' + (ui.armed === 'p' + p.id ? '¿Eliminar?' : 'Eliminar') + '</button>' : '') + '</div>' +
+    (p.by === S.me ? '<button class="btn light danger" data-act="lb-del">' + I.trash + ' ' + (ui.armed === 'p' + p.id ? '¿Eliminar?' : 'Eliminar') + '</button>' : '<button class="btn light" data-act="rp-open" data-n="' + esc(p.by) + '" data-k="foto">⚑ Reportar</button>') + '</div>' +
     (dl ? '' : '<p class="dim hint">Guardar fotos no está disponible en esta vista.</p>');
 }
 
@@ -1203,7 +1207,7 @@ document.addEventListener('click', function(e){
 
 document.addEventListener('click', function(e){
   var t = e.target.closest('[data-act]');
-  if (t) { var a = t.dataset.act; if (a === 'story' || a.indexOf('st-') === 0) storyAct(a, t); else if (a.indexOf('cv-') === 0) coverAct(a); else if (a.indexOf('tr-') === 0) tourAct(a, t); else if (a.indexOf('pl-') === 0) planAct(a, t); else if (a === 'hm') menuAct(t); else if (a.indexOf('gr-') === 0) groupAct(a, t); else if (a.indexOf('jn-') === 0) joinAct(a, t); else if (a.indexOf('mu-') === 0) musicAct(a, t); else if (a.indexOf('pc-') === 0) placeAct(a, t); else if (a.indexOf('fo-') === 0) fotosAct(a, t); else if (a.indexOf('lg-') === 0) loginAct(a, t); else if (a.indexOf('ed-') === 0) edAct(a, t); else if (a.indexOf('ch-') === 0) chatAct(a, t); else if (a.indexOf('pay-') === 0) payAct(a, t); else if (a.indexOf('us-') === 0 || a.indexOf('lk-') === 0 || a === 'pf-followers' || a === 'pf-following') socialAct(a, t); else if (a.indexOf('pf-') === 0 || a.indexOf('ac-') === 0) profileAct(a, t); else act(a, t); }
+  if (t) { var a = t.dataset.act; if (a === 'story' || a.indexOf('st-') === 0) storyAct(a, t); else if (a.indexOf('cv-') === 0) coverAct(a); else if (a.indexOf('tr-') === 0) tourAct(a, t); else if (a.indexOf('pl-') === 0) planAct(a, t); else if (a === 'hm') menuAct(t); else if (a.indexOf('gr-') === 0) groupAct(a, t); else if (a.indexOf('jn-') === 0) joinAct(a, t); else if (a.indexOf('rp-') === 0) reportAct(a, t); else if (a.indexOf('mu-') === 0) musicAct(a, t); else if (a.indexOf('pc-') === 0) placeAct(a, t); else if (a.indexOf('fo-') === 0) fotosAct(a, t); else if (a.indexOf('lg-') === 0) loginAct(a, t); else if (a.indexOf('ed-') === 0) edAct(a, t); else if (a.indexOf('ch-') === 0) chatAct(a, t); else if (a.indexOf('pay-') === 0) payAct(a, t); else if (a.indexOf('us-') === 0 || a.indexOf('lk-') === 0 || a === 'pf-followers' || a === 'pf-following') socialAct(a, t); else if (a.indexOf('pf-') === 0 || a.indexOf('ac-') === 0) profileAct(a, t); else act(a, t); }
 });
 document.addEventListener('input', function(e){
   if (e.target.id === 'chatin') ui.draft = e.target.value;
@@ -1977,6 +1981,10 @@ function renderSheet(){
     el.innerHTML = joinSheet(); focus = '#j-code';
   } else if (ui.sheet === 'qr') {
     el.innerHTML = qrSheet();
+  } else if (ui.sheet === 'report') {
+    el.innerHTML = reportSheet();
+  } else if (ui.sheet === 'reportdone') {
+    el.innerHTML = reportDoneSheet();
   }
   if (focus) setTimeout(function(){ var f = $(focus); if (f) f.focus(); }, 50);
 }
@@ -2447,7 +2455,7 @@ function musicBlock(ev){
 
 function musicView(){
   var mu = ui.mu, evs = S.events, all = [];
-  evs.forEach(function(ev){ (ev.songs || []).forEach(function(sg){ all.push({ev: ev, sg: sg}); }); });
+  evs.forEach(function(ev){ (ev.songs || []).forEach(function(sg){ if (!isBlocked(sg.by)) all.push({ev: ev, sg: sg}); }); });
   if (mu.filter !== 'all') all = all.filter(function(r){ return r.ev.id === mu.filter; });
   all.sort(function(a, b){ return b.sg.at - a.sg.at; });
   var sel = evs.some(function(e){ return e.id === mu.evsel; }) ? mu.evsel : (mu.filter !== 'all' ? mu.filter : (evs[0] ? evs[0].id : ''));
@@ -3106,7 +3114,7 @@ function profileHTML(name){
   return head + '<main class="wrap"><div class="pf-head">' + av(name, 84) + '<div class="pf-stats">' + stat(D.photos.length, 'Fotos') + stat(D.followers.length, 'Seguidores', 'pf-followers') + stat(D.following.length, 'Siguiendo', 'pf-following') + stat(D.likes, 'Me gusta') + '</div></div>' + info +
     '<nav class="tabs" style="margin-top:14px" role="tablist"><button class="tab' + (tab === 'fotos' ? ' on' : '') + '" data-act="pf-tab" data-tab="fotos">Fotos<small>' + D.photos.length + '</small></button><button class="tab' + (tab === 'eventos' ? ' on' : '') + '" data-act="pf-tab" data-tab="eventos">Eventos<small>' + D.evs.length + '</small></button></nav>' +
     '<div style="height:12px"></div>' + body +
-    (me ? purchasesBlock() + securityBlock() + legalBlock() + '<div style="height:20px"></div><button class="link danger" data-act="pf-wipe">' + (ui.armed === 'wipe' ? 'Toca otra vez para borrar todo' : 'Borrar mi cuenta y mis datos de este teléfono') + '</button>' : '<p class="muted small" style="margin-top:20px">Este perfil se arma con lo que hay en tu teléfono.</p>') + '</main>';
+    (me ? purchasesBlock() + securityBlock() + blockedBlock() + legalBlock() + '<div style="height:20px"></div><button class="link danger" data-act="pf-wipe">' + (ui.armed === 'wipe' ? 'Toca otra vez para borrar todo' : 'Borrar mi cuenta y mis datos') + '</button>' : '<div style="height:20px"></div><button class="btn block" data-act="rp-open" data-n="' + esc(name) + '" data-k="usuario">⚑ Reportar a este usuario</button><button class="btn block danger" data-act="rp-block" data-n="' + esc(name) + '" style="margin-top:8px">' + (isBlocked(name) ? 'Desbloquear' : 'Bloquear') + ' a este usuario</button>') + '</main>';
 }
 function profileView(){ return profileHTML(S.me); }
 function userView(){ return ui.user && ui.user !== S.me ? profileHTML(ui.user) : profileHTML(S.me); }
@@ -3141,10 +3149,18 @@ function profileAct(a, t){
     case 'pf-wipe':
       if (ui.armed !== 'wipe') { ui.armed = 'wipe'; render(); return; }
       ui.armed = null;
+      var wipeLocal = function(){
+      SB.session = null;
       S = {me: '', events: [], noteSeen: false, seeded: false};
       save(); ui.view = 'home'; ui.eid = null; ui.from = null; ui.lb = null; ui.ustack = []; ui.user = '';
       ui.acctPhoto = ''; ui.acctMode = 'form'; ui.sheet = 'acct';
       coverOn = true; render(false); renderSheet(); renderLb(); renderCover();
+      };
+      if (S.session) SB.rpc('delete_my_account').then(function(x){
+        if (x && x.ok) { wipeLocal(); toast('Tu cuenta fue eliminada'); }
+        else toast('No se pudo eliminar la cuenta. Revisa tu conexión e inténtalo de nuevo.');
+      }).catch(function(){ toast('No se pudo eliminar la cuenta. Revisa tu conexión e inténtalo de nuevo.'); });
+      else wipeLocal();
       break;
     case 'ac-srvlogin':
       var em2 = (document.getElementById('a-mail') && document.getElementById('a-mail').value || '').trim();
@@ -3380,6 +3396,59 @@ function securityBlock(){
     (pr.provider ? row('Cuenta de ' + (pr.provider === 'apple' ? 'Apple' : 'Google'), 'Conectada (prueba)', '') : '') +
     '</ul><p class="muted small">Es un candado para este teléfono. La verificación real, y entrar desde otro teléfono, llegan con el servidor.</p>' +
     (hasLock() ? '<button class="btn block" data-act="lg-out">Cerrar sesión</button>' : '');
+}
+function blockedBlock(){
+  var b = S.blocked || [];
+  if (!b.length) return '';
+  return '<h3 class="pl-h">Usuarios bloqueados</h3><ul class="people sec">' + b.map(function(n){
+    return '<li><span class="nm">' + esc(n) + '</span><button class="btn small" data-act="rp-block" data-n="' + esc(n) + '">Desbloquear</button></li>';
+  }).join('') + '</ul>';
+}
+var RP_REASONS = ['Contenido sexual o inapropiado', 'Acoso o bullying', 'Spam o publicidad', 'Violencia o amenazas', 'Se hace pasar por otra persona', 'Otro motivo'];
+function reportSheet(){
+  var r = ui.report || {};
+  return '<div class="scrim" data-act="close-sheet"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="Reportar"><h2>Reportar ' + esc(r.k || 'usuario') + '</h2>' +
+    '<p class="muted">Cuéntanos qué pasa con ' + esc(r.n || '') + '. Revisamos cada reporte en menos de 24 horas.</p>' +
+    RP_REASONS.map(function(t, i){ return '<label class="rprow"><input type="radio" name="rp-r" value="' + i + '"' + (i === 0 ? ' checked' : '') + '> ' + t + '</label>'; }).join('') +
+    '<label>Detalles (opcional)<textarea id="rp-d" class="inp" rows="2" maxlength="300"></textarea></label>' +
+    '<button class="btn primary block" data-act="rp-send">Enviar reporte</button><button class="link" data-act="close-sheet">Cancelar</button></div>';
+}
+function reportAct(a, t){
+  var n = t && t.dataset ? t.dataset.n : '';
+  switch (a) {
+    case 'rp-open':
+      ui.lb = null; renderLb();
+      ui.report = {n: n, k: t.dataset.k || 'usuario'}; ui.sheet = 'report'; renderSheet(); break;
+    case 'rp-block':
+      S.blocked = S.blocked || [];
+      var i = S.blocked.indexOf(n);
+      if (i >= 0) { S.blocked.splice(i, 1); toast('Desbloqueaste a ' + n); }
+      else { S.blocked.push(n); toast('Bloqueaste a ' + n + '. Ya no verás sus fotos ni mensajes.'); }
+      save(); ui.sheet = null; renderSheet(); render(false); break;
+    case 'rp-send':
+      var r = ui.report || {}, sel = document.querySelector('input[name="rp-r"]:checked');
+      var reason = RP_REASONS[sel ? +sel.value : 0], det = ($('#rp-d').value || '').trim();
+      var done = function(){
+        ui.sheet = null; renderSheet();
+        if (!isBlocked(r.n)) { ui.report = r; ui.sheet = 'reportdone'; renderSheet(); }
+        else toast('Gracias. Revisaremos tu reporte.');
+      };
+      var mail = function(){
+        location.href = 'mailto:friendspartysupport@gmail.com?subject=' + encodeURIComponent('Reporte: ' + r.n) + '&body=' + encodeURIComponent('Usuario: ' + r.n + '\nTipo: ' + r.k + '\nMotivo: ' + reason + '\nDetalles: ' + det);
+        done();
+      };
+      if (S.session) SB.rpc('report_content', {p_name: r.n, p_kind: r.k, p_reason: reason, p_details: det}).then(function(x){ if (x && x.ok) done(); else mail(); }).catch(mail);
+      else mail();
+      break;
+    case 'rp-blockdone':
+      S.blocked = S.blocked || []; if (S.blocked.indexOf(ui.report.n) < 0) S.blocked.push(ui.report.n);
+      save(); ui.sheet = null; renderSheet(); render(false); toast('Bloqueaste a ' + ui.report.n); break;
+  }
+}
+function reportDoneSheet(){
+  var n = (ui.report || {}).n || '';
+  return '<div class="scrim" data-act="close-sheet"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="Reporte enviado"><h2>Gracias por avisarnos</h2><p class="muted">Vamos a revisar tu reporte en menos de 24 horas. ¿Quieres bloquear a ' + esc(n) + ' mientras tanto?</p>' +
+    '<button class="btn danger block" data-act="rp-blockdone">Bloquear a ' + esc(n) + '</button><button class="link" data-act="close-sheet">Ahora no</button></div>';
 }
 function legalBlock(){
   var lnk = 'style="color:inherit;text-decoration:none;display:block"';
@@ -3746,6 +3815,7 @@ function photoOf(m, def){
   return p ? {data: p.data, evId: e.id, id: p.id} : {gone: true};
 }
 function bubbles(msgs, def){
+  msgs = msgs.filter(function(m){ return !isBlocked(m.by); });
   if (!msgs.length) return '<div class="empty"><p><strong>Nadie ha escrito todavía.</strong></p><p class="muted">Escribe el primer mensaje.</p></div>';
   return '<div class="msgs">' + msgs.map(function(m){
     var mine = m.by === S.me, ph = photoOf(m, def), pic = '';
@@ -3754,7 +3824,7 @@ function bubbles(msgs, def){
       else if (ph.id) pic = '<button class="mph" data-act="ch-photo" data-e="' + ph.evId + '" data-id="' + ph.id + '" aria-label="Abrir foto"><img src="' + ph.data + '" alt="Foto compartida"></button>';
       else pic = '<div class="mph"><img src="' + ph.data + '" alt="Foto enviada"></div>';
     }
-    return '<div class="msg' + (mine ? ' me' : '') + '">' + (mine ? '' : '<div class="who">' + esc(m.by) + '</div>') + '<div class="bub">' + pic + (m.text ? '<div>' + esc(m.text) + '</div>' : '') + '<time>' + hhmm(m.at) + '</time></div></div>';
+    return '<div class="msg' + (mine ? ' me' : '') + '">' + (mine ? '' : '<div class="who">' + esc(m.by) + ' <button class="flag" data-act="rp-open" data-n="' + esc(m.by) + '" data-k="mensaje" aria-label="Reportar mensaje">⚑</button></div>') + '<div class="bub">' + pic + (m.text ? '<div>' + esc(m.text) + '</div>' : '') + '<time>' + hhmm(m.at) + '</time></div></div>';
   }).join('') + '</div>';
 }
 function chatBody(ev){ markRead(ev.id); return bubbles(ev.chat, ev); }
