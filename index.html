@@ -117,6 +117,29 @@ main{padding:14px 0 130px}
 .msg{max-width:82%;align-self:flex-start}
 .msg.me{align-self:flex-end}
 .who{font-size:13px;color:var(--muted);margin:0 0 2px 4px}
+.clips{display:flex;gap:12px;overflow-x:auto;padding:4px 2px 14px;margin:0 -2px 6px;scrollbar-width:none}
+.clips::-webkit-scrollbar{display:none}
+.clip{display:grid;justify-items:center;gap:5px;flex:0 0 auto;width:66px;text-align:center}
+.cring{width:64px;height:64px;border-radius:50%;padding:3px;background:linear-gradient(135deg,#ff5fd0,#8b5cff);display:grid;place-items:center}
+.cring.seen{background:var(--line)}
+.cring.add{background:none;border:2px dashed var(--muted)}
+.cin{width:100%;height:100%;border-radius:50%;overflow:hidden;background:var(--bg);display:grid;place-items:center;border:2px solid var(--bg);font-size:26px;color:var(--muted)}
+.cin img,.cin .av{width:100%;height:100%;object-fit:cover;border-radius:50%}
+.cn{font-size:12px;color:var(--muted);max-width:66px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#clipv{position:fixed;inset:0;z-index:60;background:#000;color:#fff}
+#clipv video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000}
+.cvtop{position:absolute;left:0;right:0;top:0;z-index:3;padding:calc(10px + env(safe-area-inset-top,0px)) 12px 30px;background:linear-gradient(rgba(0,0,0,.6),transparent)}
+.cvbars{display:flex;gap:4px;margin-bottom:10px}
+.cvbars i{flex:1;height:3px;border-radius:2px;background:rgba(255,255,255,.35);overflow:hidden}
+.cvbars i.done b{width:100%}
+.cvbars b{display:block;height:100%;width:0;background:#fff}
+.cvwho{display:flex;align-items:center;gap:10px}
+.cvn{display:grid;font-weight:700;flex:1;min-width:0}
+.cvwho small{font-weight:400;opacity:.8;font-size:12px}
+.cvb{width:38px;height:38px;border-radius:50%;background:rgba(0,0,0,.4);color:#fff;font-size:16px;display:grid;place-items:center}
+.cvtap{position:absolute;top:90px;bottom:0;width:50%;z-index:2}
+.cvtap.l{left:0}.cvtap.r{right:0}
+.prem{margin:0;padding-left:18px;display:grid;gap:6px;font-size:15px}
 .flag{font-size:12px;color:var(--muted);opacity:.6;padding:0 4px}
 .sheet label.rprow{display:flex;gap:10px;align-items:center;padding:6px 0;font-size:15px;font-weight:500}
 .rprow input{width:auto;margin:0;accent-color:var(--accent)}
@@ -482,6 +505,7 @@ details.loc summary{cursor:pointer;font-weight:700;color:var(--accent);padding:8
 <div id="toast" role="status" aria-live="polite"></div>
 <input type="file" id="file" accept="image/*" multiple hidden>
 <input type="file" id="pfile" accept="image/*" hidden>
+<input type="file" id="vfile" accept="video/*" hidden>
 <input type="file" id="cfile" accept="image/*" hidden>
 <input type="file" id="qrfile" accept="image/*" capture="environment" hidden>
 
@@ -821,6 +845,7 @@ var SB = {
      (para cuando alguien entra desde un teléfono nuevo) */
   pullAll: function(){
     if (!SB.session || !SB.session.access_token || !S.serverId) return Promise.resolve();
+    SB.pullPremium();
     return SB.rest('group_members', 'GET', null, '?user_id=eq.' + S.serverId + '&select=group_id').then(function(gm){
       var gids = (gm.data || []).map(function(r){ return r.group_id; });
       if (!gids.length) return [];
@@ -1207,7 +1232,7 @@ document.addEventListener('click', function(e){
 
 document.addEventListener('click', function(e){
   var t = e.target.closest('[data-act]');
-  if (t) { var a = t.dataset.act; if (a === 'story' || a.indexOf('st-') === 0) storyAct(a, t); else if (a.indexOf('cv-') === 0) coverAct(a); else if (a.indexOf('tr-') === 0) tourAct(a, t); else if (a.indexOf('pl-') === 0) planAct(a, t); else if (a === 'hm') menuAct(t); else if (a.indexOf('gr-') === 0) groupAct(a, t); else if (a.indexOf('jn-') === 0) joinAct(a, t); else if (a.indexOf('rp-') === 0) reportAct(a, t); else if (a.indexOf('mu-') === 0) musicAct(a, t); else if (a.indexOf('pc-') === 0) placeAct(a, t); else if (a.indexOf('fo-') === 0) fotosAct(a, t); else if (a.indexOf('lg-') === 0) loginAct(a, t); else if (a.indexOf('ed-') === 0) edAct(a, t); else if (a.indexOf('ch-') === 0) chatAct(a, t); else if (a.indexOf('pay-') === 0) payAct(a, t); else if (a.indexOf('us-') === 0 || a.indexOf('lk-') === 0 || a === 'pf-followers' || a === 'pf-following') socialAct(a, t); else if (a.indexOf('pf-') === 0 || a.indexOf('ac-') === 0) profileAct(a, t); else act(a, t); }
+  if (t) { var a = t.dataset.act; if (a === 'story' || a.indexOf('st-') === 0) storyAct(a, t); else if (a.indexOf('cv-') === 0) coverAct(a); else if (a.indexOf('tr-') === 0) tourAct(a, t); else if (a.indexOf('pl-') === 0) planAct(a, t); else if (a === 'hm') menuAct(t); else if (a.indexOf('gr-') === 0) groupAct(a, t); else if (a.indexOf('jn-') === 0) joinAct(a, t); else if (a.indexOf('rp-') === 0) reportAct(a, t); else if (a.indexOf('vc-') === 0) clipAct(a, t); else if (a.indexOf('mu-') === 0) musicAct(a, t); else if (a.indexOf('pc-') === 0) placeAct(a, t); else if (a.indexOf('fo-') === 0) fotosAct(a, t); else if (a.indexOf('lg-') === 0) loginAct(a, t); else if (a.indexOf('ed-') === 0) edAct(a, t); else if (a.indexOf('ch-') === 0) chatAct(a, t); else if (a.indexOf('pay-') === 0) payAct(a, t); else if (a.indexOf('us-') === 0 || a.indexOf('lk-') === 0 || a === 'pf-followers' || a === 'pf-following') socialAct(a, t); else if (a.indexOf('pf-') === 0 || a.indexOf('ac-') === 0) profileAct(a, t); else act(a, t); }
 });
 document.addEventListener('input', function(e){
   if (e.target.id === 'chatin') ui.draft = e.target.value;
@@ -1233,6 +1258,11 @@ $('#file').addEventListener('change', function(e){
   e.target.value = '';
   if (!files.length || (ui.view !== 'event' && ui.view !== 'fotos')) return;
   var ev = cur(); if (!ev) return;
+  if (!isPremium()) {
+    var mineN = ev.photos.filter(function(p){ return p.by === S.me; }).length, left = FREE_PHOTOS - mineN;
+    if (left <= 0) { toast('Llegaste al límite de ' + FREE_PHOTOS + ' fotos en este evento'); ui.sheet = 'premium'; renderSheet(); return; }
+    if (files.length > left) { files = files.slice(0, left); toast('Solo se subirán ' + left + ' fotos: el plan gratis permite ' + FREE_PHOTOS + ' por evento'); }
+  }
   toast('Subiendo fotos…');
   var ok = 0, geoCount = 0;
   files.reduce(function(chain, f){
@@ -1981,6 +2011,8 @@ function renderSheet(){
     el.innerHTML = joinSheet(); focus = '#j-code';
   } else if (ui.sheet === 'qr') {
     el.innerHTML = qrSheet();
+  } else if (ui.sheet === 'premium') {
+    el.innerHTML = premiumSheet();
   } else if (ui.sheet === 'report') {
     el.innerHTML = reportSheet();
   } else if (ui.sheet === 'reportdone') {
@@ -2792,13 +2824,14 @@ function foFoot(){
 
 /* pestaña Fotos de un evento */
 function fotosBody(ev){
+  SB.pullClips(ev);
   var list = sorted(ev), sel = ui.fsel, m = ev.members.length;
-  if (!list.length) return '<div class="empty"><p><strong>Aún no hay fotos.</strong></p><p class="muted">Sube las primeras: las verán las ' + m + (m === 1 ? ' persona' : ' personas') + ' del evento.</p></div>';
+  if (!list.length) return clipsRow(ev) + '<div class="empty"><p><strong>Aún no hay fotos.</strong></p><p class="muted">Sube las primeras: las verán las ' + m + (m === 1 ? ' persona' : ' personas') + ' del evento.</p></div>';
   var seen = {}; list.forEach(function(p){ seen[p.by] = 1; });
   var people = Object.keys(seen).length;
   var top = sel
     ? '<div class="row"><span class="muted" id="fo-count">' + sel.length + (sel.length === 1 ? ' seleccionada' : ' seleccionadas') + '</span><button class="link small" data-act="fo-all">Elegir todas</button></div>'
-    : PROMO + '<div class="row"><span class="muted">' + list.length + (list.length === 1 ? ' foto' : ' fotos') + ' de ' + people + (people === 1 ? ' persona' : ' personas') + '</span><span class="rowbtns"><button class="btn small" data-act="fo-select">Seleccionar</button>' +
+    : clipsRow(ev) + PROMO + '<div class="row"><span class="muted">' + list.length + (list.length === 1 ? ' foto' : ' fotos') + ' de ' + people + (people === 1 ? ' persona' : ' personas') + '</span><span class="rowbtns"><button class="btn small" data-act="fo-select">Seleccionar</button>' +
       (dl ? '<button class="btn small" data-act="dl-all">' + I.down + ' Todas</button>' : '') + '</span></div>' +
       '<p class="muted small" style="margin:-4px 0 12px">Las ven, descargan y comparten las ' + m + (m === 1 ? ' persona' : ' personas') + ' del evento.</p>';
   return top + '<div class="grid">' + list.map(function(p){
@@ -3114,7 +3147,7 @@ function profileHTML(name){
   return head + '<main class="wrap"><div class="pf-head">' + av(name, 84) + '<div class="pf-stats">' + stat(D.photos.length, 'Fotos') + stat(D.followers.length, 'Seguidores', 'pf-followers') + stat(D.following.length, 'Siguiendo', 'pf-following') + stat(D.likes, 'Me gusta') + '</div></div>' + info +
     '<nav class="tabs" style="margin-top:14px" role="tablist"><button class="tab' + (tab === 'fotos' ? ' on' : '') + '" data-act="pf-tab" data-tab="fotos">Fotos<small>' + D.photos.length + '</small></button><button class="tab' + (tab === 'eventos' ? ' on' : '') + '" data-act="pf-tab" data-tab="eventos">Eventos<small>' + D.evs.length + '</small></button></nav>' +
     '<div style="height:12px"></div>' + body +
-    (me ? purchasesBlock() + securityBlock() + blockedBlock() + legalBlock() + '<div style="height:20px"></div><button class="link danger" data-act="pf-wipe">' + (ui.armed === 'wipe' ? 'Toca otra vez para borrar todo' : 'Borrar mi cuenta y mis datos') + '</button>' : '<div style="height:20px"></div><button class="btn block" data-act="rp-open" data-n="' + esc(name) + '" data-k="usuario">⚑ Reportar a este usuario</button><button class="btn block danger" data-act="rp-block" data-n="' + esc(name) + '" style="margin-top:8px">' + (isBlocked(name) ? 'Desbloquear' : 'Bloquear') + ' a este usuario</button>') + '</main>';
+    (me ? purchasesBlock() + premiumBlock() + securityBlock() + blockedBlock() + legalBlock() + '<div style="height:20px"></div><button class="link danger" data-act="pf-wipe">' + (ui.armed === 'wipe' ? 'Toca otra vez para borrar todo' : 'Borrar mi cuenta y mis datos') + '</button>' : '<div style="height:20px"></div><button class="btn block" data-act="rp-open" data-n="' + esc(name) + '" data-k="usuario">⚑ Reportar a este usuario</button><button class="btn block danger" data-act="rp-block" data-n="' + esc(name) + '" style="margin-top:8px">' + (isBlocked(name) ? 'Desbloquear' : 'Bloquear') + ' a este usuario</button>') + '</main>';
 }
 function profileView(){ return profileHTML(S.me); }
 function userView(){ return ui.user && ui.user !== S.me ? profileHTML(ui.user) : profileHTML(S.me); }
@@ -3917,6 +3950,227 @@ $('#cfile').addEventListener('change', function(e){
     target.push({id: uid(), by: S.me, at: Date.now(), text: '', img: d});
     ui.sheet = null; ui.pick = null; ui.stick = true; renderSheet(); save(); render(false); toast('Foto enviada');
   }, function(){ toast('No se pudo leer esa foto'); });
+});
+
+/* ---------- historias en video (clips de hasta 15 segundos) ---------- */
+var CLIP_MAX_S = 15, CLIP_MAX_MB = 50, FREE_PHOTOS = 10;
+var isPremium = function(){ return !!S.premium; };
+var clipLive = function(c){ return !c.exp || Date.parse(c.exp) > Date.now(); };
+function clipsOf(ev, name){
+  return (ev.clips || []).filter(function(c){ return c.by === name && clipLive(c) && !isBlocked(c.by); }).sort(function(a, b){ return a.at - b.at; });
+}
+/* autores con historias, yo primero, luego los que tienen algo sin ver */
+function clipAuthors(ev){
+  var seen = {}, out = [];
+  (ev.clips || []).forEach(function(c){ if (clipLive(c) && !isBlocked(c.by) && !seen[c.by]) { seen[c.by] = 1; out.push(c.by); } });
+  var unseen = function(n){ return clipsOf(ev, n).some(function(c){ return !(S.clipSeen || {})[c.id]; }); };
+  out.sort(function(a, b){ return (b === S.me) - (a === S.me) || unseen(b) - unseen(a); });
+  return out;
+}
+function clipsRow(ev){
+  var authors = clipAuthors(ev);
+  var h = '<div class="clips"><button class="clip" data-act="vc-add"><span class="cring add"><span class="cin">+</span></span><span class="cn">Agregar</span></button>';
+  authors.forEach(function(n){
+    var list = clipsOf(ev, n), last = list[list.length - 1];
+    var unseen = list.some(function(c){ return !(S.clipSeen || {})[c.id]; });
+    h += '<button class="clip" data-act="vc-open" data-n="' + esc(n) + '"><span class="cring' + (unseen ? '' : ' seen') + '"><span class="cin">' +
+      (last && last.thumb ? '<img src="' + last.thumb + '" alt="">' : av(n, 56)) + '</span></span><span class="cn">' + esc(n === S.me ? 'Tu historia' : n) + '</span></button>';
+  });
+  return h + '</div>';
+}
+/* lee la duración y saca una imagen de portada del video */
+function probeVideo(file){
+  return new Promise(function(res){
+    var v = document.createElement('video'), url = URL.createObjectURL(file), done = false;
+    v.muted = true; v.playsInline = true; v.preload = 'metadata';
+    var finish = function(dur, thumb){ if (done) return; done = true; URL.revokeObjectURL(url); res({dur: dur, thumb: thumb || ''}); };
+    var timer = setTimeout(function(){ finish(v.duration || 0, ''); }, 8000);
+    v.onerror = function(){ clearTimeout(timer); finish(0, ''); };
+    v.onloadedmetadata = function(){ try { v.currentTime = Math.min(0.4, (v.duration || 1) / 2); } catch (e) { clearTimeout(timer); finish(v.duration || 0, ''); } };
+    v.onseeked = function(){
+      clearTimeout(timer);
+      var thumb = '';
+      try {
+        var w = 240, h = Math.round(w * (v.videoHeight || 16) / (v.videoWidth || 9)), cv = document.createElement('canvas');
+        cv.width = w; cv.height = h; cv.getContext('2d').drawImage(v, 0, 0, w, h); thumb = cv.toDataURL('image/jpeg', 0.7);
+      } catch (e) {}
+      finish(v.duration || 0, thumb);
+    };
+    v.src = url;
+  });
+}
+SB.syncClip = function(ev, c){
+  if (!SB.session || !SB.session.access_token || c.synced || !c.blob) return Promise.resolve(false);
+  var put = function(path, body, type){
+    return fetch(SUPABASE_URL + '/storage/v1/object/clips/' + path, {
+      method: 'POST', headers: {'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SB.session.access_token, 'Content-Type': type}, body: body
+    });
+  };
+  return SB.syncEvent(ev).then(function(eid){
+    if (!eid) return false;
+    var ext = /quicktime/.test(c.blob.type) ? 'mov' : 'mp4', base = 'event/' + eid + '/' + c.id;
+    return put(base + '.' + ext, c.blob, c.blob.type || 'video/mp4').then(function(r){
+      if (!r.ok) { SB.fail('video (almacenamiento)', {status: r.status, data: null}); return false; }
+      var thumbUp = c.thumb ? put(base + '.jpg', dataToBytes(c.thumb), 'image/jpeg').catch(function(){}) : Promise.resolve();
+      return thumbUp.then(function(){
+        return SB.rest('event_clips', 'POST', {event_id: eid, author_id: S.serverId, storage_path: base + '.' + ext, thumb_path: c.thumb ? base + '.jpg' : null, duration: c.dur || null}, '', 'return=representation');
+      }).then(function(res){
+        if (!res.ok || !res.data || !res.data[0]) { SB.fail('video (tabla)', res); return false; }
+        c.id = 'c_' + res.data[0].id; c.exp = res.data[0].expires_at; c.path = res.data[0].storage_path; c.synced = true; c.blob = null;
+        save(); if (ui.view === 'event') render(false);
+        return true;
+      });
+    });
+  }).catch(function(e){ SB.fail('video', {status: 0, data: {message: String(e)}}); return false; });
+};
+/* trae las historias de un evento (no más de una vez cada 20 segundos) */
+SB.pullClips = function(ev){
+  if (!SB.session || !SB.session.access_token || !ev.serverId) return;
+  if (Date.now() - (ev._clipAt || 0) < 20000) return;
+  ev._clipAt = Date.now();
+  SB.rest('event_clips', 'GET', null, '?event_id=eq.' + ev.serverId + '&order=created_at.asc').then(function(r){
+    if (!r.ok || !r.data) return;
+    var rows = r.data, ids = [S.serverId]; rows.forEach(function(x){ ids.push(x.author_id); });
+    return SB.resolveNames(ids).then(function(names){
+      names[S.serverId] = S.me;
+      var old = {}; (ev.clips || []).forEach(function(c){ old[c.id] = c; });
+      var mine = (ev.clips || []).filter(function(c){ return !c.synced; });
+      var fresh = rows.map(function(x){
+        var id = 'c_' + x.id, o = old[id];
+        return o && o.thumb !== undefined ? Object.assign(o, {exp: x.expires_at}) : {id: id, by: names[x.author_id] || 'Alguien', at: Date.parse(x.created_at), path: x.storage_path, thumbPath: x.thumb_path, thumb: undefined, exp: x.expires_at, synced: true};
+      });
+      var before = (ev.clips || []).map(function(c){ return c.id; }).join();
+      ev.clips = fresh.concat(mine);
+      var changed = before !== ev.clips.map(function(c){ return c.id; }).join();
+      if (changed) { save(); if (ui.view === 'event') render(true); }
+      /* portadas: se bajan aparte, una por una */
+      fresh.filter(function(c){ return c.thumb === undefined; }).forEach(function(c){
+        if (!c.thumbPath) { c.thumb = ''; return; }
+        fetch(SUPABASE_URL + '/storage/v1/object/clips/' + c.thumbPath, {headers: {'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SB.session.access_token}})
+          .then(function(x){ return x.blob(); }).then(function(b){
+            return new Promise(function(res2){ var fr = new FileReader(); fr.onload = function(){ res2(fr.result); }; fr.readAsDataURL(b); });
+          }).then(function(d){ c.thumb = d; save(); if (ui.view === 'event') render(true); }).catch(function(){ c.thumb = ''; });
+      });
+    });
+  }).catch(function(){});
+};
+SB.pullPremium = function(){
+  if (!SB.session || !SB.session.access_token || !S.serverId) return;
+  SB.rest('subscriptions', 'GET', null, '?user_id=eq.' + S.serverId + '&select=premium_until').then(function(r){
+    if (!r.ok) return;
+    var u = r.data && r.data[0] && Date.parse(r.data[0].premium_until);
+    var p = !!(u && u > Date.now());
+    if (p !== !!S.premium) { S.premium = p; save(); render(false); }
+  }).catch(function(){});
+};
+function clipUrl(c){
+  if (c.blob) return Promise.resolve(URL.createObjectURL(c.blob));
+  if (c._url && c._urlAt > Date.now() - 3000000) return Promise.resolve(c._url);
+  return fetch(SUPABASE_URL + '/storage/v1/object/sign/clips/' + c.path, {
+    method: 'POST', headers: {'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SB.session.access_token, 'Content-Type': 'application/json'}, body: JSON.stringify({expiresIn: 3600})
+  }).then(function(r){ return r.json(); }).then(function(j){
+    if (!j || !j.signedURL) throw 0;
+    c._url = SUPABASE_URL + '/storage/v1' + j.signedURL; c._urlAt = Date.now(); return c._url;
+  });
+}
+/* --- visor a pantalla completa --- */
+function clipViewer(){ return document.getElementById('clipv'); }
+function openClips(ev, name){
+  var authors = clipAuthors(ev), i = authors.indexOf(name);
+  if (i < 0) return;
+  var list = clipsOf(ev, name), first = 0;
+  for (var k = 0; k < list.length; k++) if (!(S.clipSeen || {})[list[k].id]) { first = k; break; }
+  ui.cv = {eid: ev.id, authors: authors, ai: i, ci: first};
+  renderClip();
+}
+function closeClips(){
+  var el = clipViewer(); if (el) { var v = el.querySelector('video'); if (v) v.pause(); el.remove(); }
+  ui.cv = null; document.body.style.overflow = ''; render(true);
+}
+function renderClip(){
+  var cv = ui.cv; if (!cv) return;
+  var ev = S.events.filter(function(e){ return e.id === cv.eid; })[0];
+  var name = cv.authors[cv.ai], list = ev ? clipsOf(ev, name) : [];
+  if (!list.length) { closeClips(); return; }
+  if (cv.ci >= list.length) cv.ci = list.length - 1;
+  var c = list[cv.ci];
+  S.clipSeen = S.clipSeen || {}; if (!S.clipSeen[c.id]) { S.clipSeen[c.id] = 1; save(); }
+  var el = clipViewer();
+  if (!el) { el = document.createElement('div'); el.id = 'clipv'; document.body.appendChild(el); }
+  document.body.style.overflow = 'hidden';
+  var bars = list.map(function(x, i){ return '<i class="' + (i < cv.ci ? 'done' : '') + '"><b></b></i>'; }).join('');
+  var days = c.exp ? Math.max(1, Math.ceil((Date.parse(c.exp) - Date.now()) / 86400000)) : 0;
+  el.innerHTML = '<video playsinline autoplay webkit-playsinline></video>' +
+    '<div class="cvtop"><div class="cvbars">' + bars + '</div><div class="cvwho">' + av(name, 34) + '<div class="cvn">' + esc(name === S.me ? 'Tú' : name) + '<small>' + esc(fmtTime(c.at)) + (days && name === S.me ? ' · se borra en ' + days + (days === 1 ? ' día' : ' días') : '') + '</small></div>' +
+    (name === S.me ? '<button class="cvb" data-act="vc-del" aria-label="Eliminar">' + I.trash + '</button>' : '<button class="cvb" data-act="vc-report" data-n="' + esc(name) + '" aria-label="Reportar">⚑</button>') +
+    '<button class="cvb" data-act="vc-close" aria-label="Cerrar">' + I.x + '</button></div></div>' +
+    '<button class="cvtap l" data-act="vc-prev" aria-label="Anterior"></button><button class="cvtap r" data-act="vc-next" aria-label="Siguiente"></button>';
+  var v = el.querySelector('video'), bar = el.querySelectorAll('.cvbars i')[cv.ci];
+  v.onended = function(){ clipAct('vc-next'); };
+  v.ontimeupdate = function(){ if (v.duration && bar) bar.firstChild.style.width = Math.min(100, v.currentTime / v.duration * 100) + '%'; };
+  v.onerror = function(){ toast('No se pudo reproducir este video'); };
+  clipUrl(c).then(function(u){ if (clipViewer() === el && ui.cv && ui.cv.ci === cv.ci) { v.src = u; var p = v.play(); if (p && p.catch) p.catch(function(){}); } }, function(){ toast('No se pudo cargar el video'); });
+}
+function clipAct(a, t){
+  var ev, cv = ui.cv;
+  switch (a) {
+    case 'vc-add':
+      if (!S.me) return;
+      $('#vfile').click(); break;
+    case 'vc-open': ev = cur(); if (ev) openClips(ev, t.dataset.n); break;
+    case 'vc-close': closeClips(); break;
+    case 'vc-next':
+      if (!cv) return;
+      ev = S.events.filter(function(e){ return e.id === cv.eid; })[0];
+      if (cv.ci < clipsOf(ev, cv.authors[cv.ai]).length - 1) cv.ci++;
+      else if (cv.ai < cv.authors.length - 1) { cv.ai++; cv.ci = 0; }
+      else { closeClips(); return; }
+      renderClip(); break;
+    case 'vc-prev':
+      if (!cv) return;
+      if (cv.ci > 0) cv.ci--; else if (cv.ai > 0) { ev = S.events.filter(function(e){ return e.id === cv.eid; })[0]; cv.ai--; cv.ci = Math.max(0, clipsOf(ev, cv.authors[cv.ai]).length - 1); }
+      renderClip(); break;
+    case 'vc-del':
+      if (!cv) return;
+      ev = S.events.filter(function(e){ return e.id === cv.eid; })[0];
+      var c = clipsOf(ev, S.me)[cv.ci]; if (!c) return;
+      if (ui.armed !== 'vcdel') { ui.armed = 'vcdel'; toast('Toca otra vez para eliminar este video'); setTimeout(function(){ if (ui.armed === 'vcdel') ui.armed = null; }, 3000); return; }
+      ui.armed = null;
+      ev.clips = ev.clips.filter(function(x){ return x.id !== c.id; }); save();
+      if (c.synced && SB.session) {
+        SB.rest('event_clips', 'DELETE', null, '?id=eq.' + c.id.replace(/^c_/, '')).catch(function(){});
+        [c.path, c.thumbPath].forEach(function(p){ if (p) fetch(SUPABASE_URL + '/storage/v1/object/clips/' + p, {method: 'DELETE', headers: {'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SB.session.access_token}}).catch(function(){}); });
+      }
+      toast('Video eliminado'); renderClip(); break;
+    case 'vc-report': closeClips(); reportAct('rp-open', {dataset: {n: t.dataset.n, k: 'video'}}); break;
+    case 'vc-premium': closeClips(); ui.sheet = 'premium'; renderSheet(); break;
+  }
+}
+function premiumSheet(){
+  var b = function(t){ return '<li>' + t + '</li>'; };
+  return '<div class="scrim" data-act="close-sheet"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="Premium"><h2>Friends Party Premium</h2>' +
+    (isPremium() ? '<p class="muted">Ya eres Premium. Gracias por apoyar la app.</p>' : '<p class="muted">Sube sin límites y guarda tus recuerdos para siempre.</p>') +
+    '<ul class="prem">' + b('Fotos sin límite en todos tus eventos (gratis: ' + FREE_PHOTOS + ' por evento)') + b('Tus historias en video se quedan para siempre (gratis: 7 días)') + b('Todos los paquetes de stickers de la tienda incluidos') + '</ul>' +
+    (isPremium() ? '' : '<p class="muted small">US$ 1.99 al mes. Se renueva solo y lo cancelas cuando quieras desde los ajustes de Apple.</p><button class="btn primary block" disabled>Disponible muy pronto</button>') +
+    '<button class="link" data-act="close-sheet">Cerrar</button></div>';
+}
+function premiumBlock(){
+  return '<h3 class="pl-h">Plan</h3><ul class="people sec"><li><span class="nm">' + (isPremium() ? 'Premium' : 'Gratis') + '<small>' + (isPremium() ? 'Fotos y videos sin límite' : FREE_PHOTOS + ' fotos por evento, historias por 7 días') + '</small></span>' +
+    (isPremium() ? '<span class="pill va">Activo</span>' : '<button class="btn small" data-act="vc-premium">Ver Premium</button>') + '</li></ul>';
+}
+$('#vfile').addEventListener('change', function(e){
+  var f = (e.target.files || [])[0]; e.target.value = '';
+  var ev = cur(); if (!f || !ev) return;
+  if (!/^video\//.test(f.type)) { toast('Elige un video'); return; }
+  if (f.size > CLIP_MAX_MB * 1048576) { toast('El video pesa mucho. Máximo ' + CLIP_MAX_MB + ' MB: graba uno más corto o en menor calidad.'); return; }
+  toast('Preparando tu video…');
+  probeVideo(f).then(function(p){
+    if (p.dur > CLIP_MAX_S + 0.5) { toast('El video dura ' + Math.round(p.dur) + ' segundos. Máximo ' + CLIP_MAX_S + '.'); return; }
+    var c = {id: uid(), by: S.me, at: Date.now(), thumb: p.thumb, dur: p.dur, blob: f, synced: false};
+    ev.clips = ev.clips || []; ev.clips.push(c); save(); render(true);
+    toast(isPremium() ? 'Tu historia ya está en el evento' : 'Tu historia ya está. Se borra en 7 días (con Premium se queda para siempre).');
+    SB.syncClip(ev, c);
+  });
 });
 
 /* ---------- inicio ---------- */
