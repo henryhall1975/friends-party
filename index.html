@@ -1924,7 +1924,7 @@ function remindSheet(ev){
   return '<div class="scrim" data-act="close-sheet"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="Así llegan los avisos"><h2>Así llegan los avisos</h2>' +
     (items ? '<ul class="rmlist">' + items + '</ul>' : '<p class="muted">No tienes avisos activos.</p>') +
     '<p class="muted small">Los reciben: ' + (names.length ? esc(names.join(', ')) : 'nadie todavía') + '.</p>' +
-    '<p class="muted small">En este prototipo los avisos solo aparecen dentro de la app, arriba en la pantalla de inicio. Para que lleguen al teléfono o al correo hace falta el servidor de la versión real.</p>' +
+    '<p class="muted small">Los avisos aparecen arriba en la pantalla de inicio. Si activas las notificaciones, también te llegan al teléfono.</p>' +
     '<button class="btn primary block" data-act="close-sheet">Entendido</button></div>';
 }
 function renderSheet(){
@@ -2070,7 +2070,7 @@ function menuAct(t){
     });
   }
   else if (k === 'Tienda') { ui.view = 'tienda'; render(false); window.scrollTo(0, 0); }
-  else toast(k + ': esta sección la armamos en el siguiente paso.');
+  else toast(k + ' no está disponible por ahora.');
 }
 
 /* ---------- invitaciones: grupo de la party ---------- */
@@ -3051,7 +3051,7 @@ function acctSheet(){
   }
   var appleFirst = /iphone|ipad|ipod|macintosh/i.test(navigator.userAgent);
   var apple = '<button class="apl" data-act="ac-prov" data-p="apple">Continuar con Apple</button>', google = '<button class="ggl" data-act="ac-prov" data-p="google">Continuar con Google</button>';
-  var prov = first ? '<div class="prov">' + (appleFirst ? apple + google : google + apple) + '</div><div class="or"><span>o con tu correo</span></div>' : '';
+  var prov = ''; /* los botones de Apple y Google se quitaron: eran de mentira */
   return scrim + '<div class="sheet" role="dialog" aria-modal="true" aria-label="' + (first ? 'Crear cuenta' : 'Editar perfil') + '"><h2>' + (first ? 'Crea tu cuenta' : 'Editar perfil') + '</h2>' + prov +
     '<div class="acct-photo"><div id="a-prev">' + acctPrev() + '</div><div class="acct-btns"><button class="btn small" data-act="ac-photo">' + (ui.acctPhoto ? 'Cambiar foto' : 'Elegir foto de perfil') + '</button>' + (ui.acctPhoto ? '<button class="link small" data-act="ac-nophoto">Quitar foto</button>' : '') + '</div></div>' +
     '<label>Nombre<input id="a-name" class="inp" placeholder="Tu nombre" maxlength="30" autocomplete="name" value="' + v('name') + '"></label>' +
@@ -3101,7 +3101,7 @@ function profileHTML(name){
   var info;
   if (me) {
     info = '<div class="pf-name">' + esc(pr.name) + '</div>' + (pr.bio ? '<div class="pf-bio">' + esc(pr.bio) + '</div>' : '') + badge +
-      (pr.provider ? '<div class="muted small pf-tag">Conectada con ' + (pr.provider === 'apple' ? 'Apple' : 'Google') + ' (prueba)</div>' : '') +
+      (pr.provider ? '<div class="muted small pf-tag">Conectada con ' + (pr.provider === 'apple' ? 'Apple' : 'Google') + '</div>' : '') +
       (pr.email || pr.phone ? '<div class="pf-priv muted small">' + (pr.email ? esc(pr.email) : '') + (pr.email && pr.phone ? ' y ' : '') + (pr.phone ? esc(pr.phone) : '') + '. Solo tú ves estos datos.</div>' : '<div class="pf-priv muted small">Agrega tu correo para completar tu perfil.</div>') +
       (S.me && !S.session ? '<button class="link" data-act="jn-srvconn" style="margin:0 0 10px">🔗 Conectar mi cuenta al servidor</button><br>' : '') +
       (pushNative() ? '<button class="link" data-act="jn-pushon" style="margin:0 0 10px">🔔 ' + (S.pushOn ? 'Avisos activados (toca para revisar)' : 'Activar avisos de invitaciones') + '</button><br>' : '') +
@@ -3363,7 +3363,6 @@ function loginSheet(){
     '<label>Contraseña<input id="l-pw" class="inp" type="password" autocomplete="current-password" placeholder="Tu contraseña"></label>' +
     '<button class="btn primary block" id="l-go" data-act="lg-pw">Iniciar sesión</button>';
   if (L.bio) h += '<button class="btn block' + (L.pw ? '' : ' primary') + '" data-act="lg-bio">Entrar con Face ID o Touch ID</button>';
-  h += '<div class="or"><span>o</span></div>' + provButtons('lg-prov');
   if (L.pw) h += '<button class="link" data-act="lg-forgot">¿Olvidaste tu contraseña?</button>';
   return h + '</div>';
 }
@@ -3393,7 +3392,7 @@ function securityBlock(){
   return '<h3 class="pl-h">Seguridad</h3><ul class="people sec">' +
     row('Contraseña', L.pw ? 'Activada' : 'Sin contraseña', '<button class="btn small" data-act="lg-setpw">' + (L.pw ? 'Cambiar' : 'Crear') + '</button>') +
     row('Face ID o Touch ID', L.bio ? 'Activado en este teléfono' : 'Desactivado', L.bio ? '<button class="btn small" data-act="lg-biooff">Desactivar</button>' : '<button class="btn small" data-act="lg-bioon">Activar</button>') +
-    (pr.provider ? row('Cuenta de ' + (pr.provider === 'apple' ? 'Apple' : 'Google'), 'Conectada (prueba)', '') : '') +
+    (pr.provider ? row('Cuenta de ' + (pr.provider === 'apple' ? 'Apple' : 'Google'), 'Conectada', '') : '') +
     '</ul><p class="muted small">Es un candado para este teléfono. La verificación real, y entrar desde otro teléfono, llegan con el servidor.</p>' +
     (hasLock() ? '<button class="btn block" data-act="lg-out">Cerrar sesión</button>' : '');
 }
