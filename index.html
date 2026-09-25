@@ -3557,7 +3557,10 @@ var stkPromise = null;
    al abrir el editor de fotos o la ficha de compra, no en la carga inicial de la app */
 function loadStickers(){
   if (stkPromise) return stkPromise;
-  stkPromise = fetch('stickers.json').then(function(r){ return r.json(); }).then(function(d){ STK = d; return STK; })
+  stkPromise = Promise.all([
+      fetch('stickers.json').then(function(r){ return r.json(); }),
+      fetch('stk-emoticones/index.json').then(function(r){ return r.json(); }).catch(function(){ return []; })
+    ]).then(function(r){ STK = r[0].concat(r[1].map(function(x){ x.p = 'emoticones'; return x; })); return STK; })
     .catch(function(){ stkPromise = null; return []; });
   return stkPromise;
 }
@@ -3572,11 +3575,13 @@ I.lock = svg('<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a
    Halloween y Navidad quedan listados para vender, con su preview de emoji mientras subimos sus imágenes reales. */
 var PACKS = [
   {id: 'stickers', name: 'Stickers Friends Party', desc: '60 stickers en inglés y español', emoji: '🎉', price: PRICE, live: true},
+  {id: 'emoticones', name: 'Emoticones', desc: 'Más de 300 stickers: fiesta, emociones, oficios y viajes', emoji: '😀', price: '$1.99', live: true, preview: ['emo-fiesta-001', 'emo-emociones-002', 'emo-oficios-001', 'emo-viajes-002', 'emo-fiesta-010', 'emo-oficios-030']},
   {id: 'halloween', name: 'Stickers de Halloween', desc: '160 stickers para tus fotos de Halloween', emoji: '🎃', price: '$1.99', live: false},
   {id: 'christmas', name: 'Stickers de Navidad', desc: '158 stickers para tus fotos de Navidad', emoji: '🎄', price: '$1.99', live: false}
 ];
 function packById(id){ for (var i = 0; i < PACKS.length; i++) if (PACKS[i].id === id) return PACKS[i]; return null; }
-function owned(id){ return !!(S.purchases && S.purchases[id || 'stickers']); }
+function owned(id){ return !!(S.premium || (S.purchases && S.purchases[id || 'stickers'])); }
+function stkPack(s){ return (s && s.p) || 'stickers'; }
 function stkById(id){ for (var i = 0; i < STK.length; i++) if (STK[i].id === id) return STK[i]; return null; }
 function stkImg(s){
   if (!STK_IMG[s.id]) { var im = new Image(); im.onload = function(){ if (ui.ed) edDraw(); }; im.src = s.d; STK_IMG[s.id] = im; }
@@ -3587,7 +3592,7 @@ function stkImg(s){
 function payHTML(packId, step){
   var pack = packById(packId) || PACKS[0];
   var preview = pack.live
-    ? '<div class="paystrip">' + ['en-01-party-forever', 'es-04-amigas-por-siempre', 'en-03-incredible-night', 'en-04-friends-squad', 'es-01-fiesta-sin-fin', 'en-06-good-vibes-only'].map(stkById).filter(Boolean)
+    ? '<div class="paystrip">' + (pack.preview || ['en-01-party-forever', 'es-04-amigas-por-siempre', 'en-03-incredible-night', 'en-04-friends-squad', 'es-01-fiesta-sin-fin', 'en-06-good-vibes-only']).map(stkById).filter(Boolean)
         .map(function(s){ return '<img src="' + s.d + '" alt="' + esc(s.t) + '">'; }).join('') + '</div>'
     : '<div class="paystrip" style="grid-template-columns:1fr;justify-items:center;padding:26px 10px"><span style="font-size:64px;line-height:1">' + pack.emoji + '</span></div>';
   if (step === 2) {
@@ -3661,11 +3666,23 @@ function buildTray(){
   var tray = $('#ed-tray'), e = ui.ed; if (!tray || !e) return;
   tray.innerHTML = '';
   if (!STK.length) { tray.innerHTML = '<p class="muted small" style="padding:10px 4px">Cargando stickers…</p>'; return; }
-  STK.filter(function(s){ return e.tab === 'todos' || s.l === e.tab; }).forEach(function(s){
+  var isEmo = e.tab === 'emo';
+  var cats = document.getElementById('ed-cats');
+  if (cats) {
+    var CATN = {all: 'Todos', fiesta: 'Fiesta', emociones: 'Emociones', oficios: 'Oficios', viajes: 'Viajes'};
+    cats.hidden = !isEmo;
+    if (isEmo) cats.innerHTML = Object.keys(CATN).map(function(k){ return '<button class="tab' + ((e.cat || 'all') === k ? ' on' : '') + '" data-act="ed-cat" data-cat="' + k + '">' + CATN[k] + '</button>'; }).join('');
+  }
+  var un = document.getElementById('ed-unlock'), upk = packById(isEmo ? 'emoticones' : 'stickers');
+  if (un) un.innerHTML = owned(upk.id) ? '' : '<div class="unlock"><div><strong>' + esc(upk.name) + '</strong><span>' + esc(upk.desc) + ' por ' + upk.price + ', pago único</span></div><button class="btn primary" data-act="pay-open" data-pack="' + upk.id + '">Desbloquear</button></div>';
+  STK.filter(function(s){
+    if (isEmo) return stkPack(s) === 'emoticones' && (!e.cat || e.cat === 'all' || s.l === e.cat);
+    return stkPack(s) === 'stickers' && (e.tab === 'todos' || s.l === e.tab);
+  }).forEach(function(s){
     var b = document.createElement('button');
     b.className = 'stk'; b.setAttribute('data-act', 'ed-add'); b.setAttribute('data-id', s.id); b.setAttribute('aria-label', s.t);
     b.appendChild(stkImg(s).cloneNode());
-    if (!owned()) { var l = document.createElement('span'); l.className = 'lock'; l.innerHTML = I.lock; b.appendChild(l); }
+    if (!owned(stkPack(s))) { var l = document.createElement('span'); l.className = 'lock'; l.innerHTML = I.lock; b.appendChild(l); }
     tray.appendChild(b);
   });
   document.querySelectorAll('#ed .trayh .tab').forEach(function(t){ t.classList.toggle('on', t.dataset.tab === e.tab); });
@@ -3675,16 +3692,15 @@ function renderEditor(){
   if (!e) { el.className = ''; el.innerHTML = ''; document.body.style.overflow = ui.lb ? 'hidden' : ''; return; }
   el.className = 'on'; document.body.style.overflow = 'hidden';
   if (!STK.length) loadStickers().then(function(){ if (ui.ed) renderEditor(); });
-  var n = STK.length, en = STK.filter(function(s){ return s.l === 'en'; }).length;
+  var base = STK.filter(function(s){ return stkPack(s) === 'stickers'; }), n = base.length, en = base.filter(function(s){ return s.l === 'en'; }).length, emoN = STK.length - n;
   el.innerHTML = '<div class="edtop"><button class="ib" data-act="ed-close" aria-label="Cerrar el editor">' + I.x + '</button><h2>Editar foto</h2><button class="btn small primary" data-act="ed-save">Guardar</button></div>' +
     '<div class="edbody"><div class="edcv"><canvas id="ed-cv" aria-label="Tu foto con los stickers"></canvas></div>' +
     '<p class="muted small" style="text-align:center;margin:0">Toca un sticker para agregarlo. Arrástralo para moverlo y usa dos dedos para cambiar su tamaño y su giro.</p>' +
     '<div class="edtools"><button class="btn" data-act="ed-sm" data-need aria-label="Más pequeño">−</button><button class="btn" data-act="ed-bg" data-need aria-label="Más grande">+</button>' +
     '<button class="btn" data-act="ed-rl" data-need aria-label="Girar a la izquierda">↺</button><button class="btn" data-act="ed-rr" data-need aria-label="Girar a la derecha">↻</button>' +
     '<button class="btn" data-act="ed-front" data-need>Al frente</button><button class="btn danger" data-act="ed-del" data-need>Borrar</button></div>' +
-    '<nav class="tabs trayh" role="tablist"><button class="tab on" data-act="ed-tab" data-tab="todos">Todos<small>' + n + '</small></button><button class="tab" data-act="ed-tab" data-tab="en">English<small>' + en + '</small></button><button class="tab" data-act="ed-tab" data-tab="es">Español<small>' + (n - en) + '</small></button></nav>' +
-    '<div class="tray" id="ed-tray"></div>' +
-    (owned() ? '' : '<div class="unlock"><div><strong>Stickers de pago</strong><span>60 stickers por ' + PRICE + ', pago único</span></div><button class="btn primary" data-act="pay-open" data-pack="stickers">Desbloquear</button></div>') +
+    '<nav class="tabs trayh" role="tablist"><button class="tab on" data-act="ed-tab" data-tab="todos">Todos<small>' + n + '</small></button><button class="tab" data-act="ed-tab" data-tab="en">English<small>' + en + '</small></button><button class="tab" data-act="ed-tab" data-tab="es">Español<small>' + (n - en) + '</small></button><button class="tab" data-act="ed-tab" data-tab="emo">Emoticones<small>' + emoN + '</small></button></nav>' +
+    '<nav class="tabs" id="ed-cats" hidden></nav><div class="tray" id="ed-tray"></div><div id="ed-unlock"></div>' +
     (dl ? '<button class="btn block" data-act="ed-dl">Descargar la foto editada</button>' : '') + '</div>';
   e.cv = $('#ed-cv');
   edFit(); buildTray(); edTools(); edBind();
@@ -3767,7 +3783,7 @@ function payAct(a, t){
     case 'pay-ok':
       S.purchases = S.purchases || {}; S.purchases[packId] = {at: Date.now(), price: pack.price};
       save(); closePay();
-      if (ui.ed && packId === 'stickers') { renderEditor(); if (ui.ed.pending) { var pid = ui.ed.pending; ui.ed.pending = null; edAct('ed-add', {dataset: {id: pid}}); } } else render();
+      if (ui.ed && (packId === 'stickers' || packId === 'emoticones')) { renderEditor(); if (ui.ed.pending) { var pid = ui.ed.pending; ui.ed.pending = null; edAct('ed-add', {dataset: {id: pid}}); } } else render();
       toast(pack.live ? 'Stickers desbloqueados. ¡A decorar!' : pack.name + ' comprado. Avisamos cuando estén listos para usar.');
       break;
     case 'pay-reset':
@@ -3783,11 +3799,13 @@ function edAct(a, t){
       if (e && e.items.length && !e.discard) { e.discard = true; toast('Tienes cambios sin guardar. Toca otra vez para descartarlos.'); return; }
       closeEditor();
       break;
-    case 'ed-tab': e.tab = t.dataset.tab; buildTray(); break;
+    case 'ed-tab': e.tab = t.dataset.tab; e.cat = 'all'; buildTray(); break;
+    case 'ed-cat': e.cat = t.dataset.cat; buildTray(); break;
     case 'ed-add':
-      if (!owned()) { e.pending = t.dataset.id; openPay('stickers', 1); return; }
+      var s = stkById(t.dataset.id), spk = stkPack(s);
+      if (!owned(spk)) { e.pending = t.dataset.id; openPay(spk, 1); return; }
       if (e.items.length >= 40) { toast('Máximo 40 stickers por foto'); return; }
-      var s = stkById(t.dataset.id), asp = s.w / s.h, w = e.W * 0.55;
+      var asp = s.w / s.h, w = e.W * 0.55;
       if (w / asp > e.H * 0.5) w = e.H * 0.5 * asp;
       e.items.push({sid: s.id, x: e.W / 2 + (Math.random() - 0.5) * e.W * 0.12, y: e.H / 2 + (Math.random() - 0.5) * e.H * 0.12, w: w, a: asp, rot: 0});
       e.sel = e.items.length - 1; e.discard = false; edDraw(); edTools();
