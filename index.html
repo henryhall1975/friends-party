@@ -480,6 +480,8 @@ details.loc summary{cursor:pointer;font-weight:700;color:var(--accent);padding:8
 .paysheet p{margin:0}
 .paystrip{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;background:var(--bg);border-radius:14px;padding:10px}
 .paystrip img{width:100%;height:64px;object-fit:contain}
+.paygal{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;background:var(--bg);border-radius:14px;padding:10px;max-height:54vh;overflow-y:auto}
+.paygal img{width:100%;aspect-ratio:1;object-fit:contain}
 .paylist{margin:0;padding-left:20px;display:grid;gap:4px}
 .payrow{display:flex;justify-content:space-between;align-items:center;gap:12px;background:var(--bg);border-radius:12px;padding:12px 14px}
 .payrow span small{display:block;color:var(--muted);font-size:13px}
@@ -3630,8 +3632,14 @@ function stkImg(s){
 function payHTML(packId, step){
   var pack = packById(packId) || PACKS[0];
   var price = (ui.storePrices && ui.storePrices[IAP_ID[packId]]) || pack.price;
+  if (ui.payGallery && pack.live) {
+    var all = STK.filter(function(s){ return stkPack(s) === pack.id; });
+    return '<div class="payscrim" data-act="pay-x"></div><div class="paysheet" role="dialog" aria-modal="true" aria-label="Stickers de ' + esc(pack.name) + '"><h2>' + esc(pack.name) + '</h2>' +
+      (all.length ? '<div class="paygal">' + all.map(function(s){ return '<img src="' + s.d + '" alt="' + esc(s.t) + '" loading="lazy">'; }).join('') + '</div>' : '<p class="muted">Cargando…</p>') +
+      '<button class="btn primary block" data-act="pay-1" data-pack="' + pack.id + '">Comprar por ' + price + '</button><button class="link" data-act="pay-gal-back">Volver</button></div>';
+  }
   var preview = pack.live
-    ? '<div class="paystrip">' + (pack.preview || ['en-01-party-forever', 'es-04-amigas-por-siempre', 'en-03-incredible-night', 'en-04-friends-squad', 'es-01-fiesta-sin-fin', 'en-06-good-vibes-only']).map(stkById).filter(Boolean)
+    ? '<div class="paystrip">' + (pack.preview || ['st-01-blob-verde-bailando-con-disco-y-confeti', 'st-11-mascota-azul-celebrando-con-botella-espu', 'st-25-mascota-montanista-en-paisaje-alpino', 'st-33-mascota-naranja-brindando-en-fiesta', 'st-42-mascota-viajera-con-camara', 'st-55-a-bright-high-resolution-3d-cartoon-cgi-']).map(stkById).filter(Boolean)
         .map(function(s){ return '<img src="' + s.d + '" alt="' + esc(s.t) + '">'; }).join('') + '</div>'
     : '<div class="paystrip" style="grid-template-columns:1fr;justify-items:center;padding:26px 10px"><span style="font-size:64px;line-height:1">' + pack.emoji + '</span></div>';
   if (step === 2) {
@@ -3642,6 +3650,7 @@ function payHTML(packId, step){
   }
   return '<div class="payscrim" data-act="pay-x"></div><div class="paysheet" role="dialog" aria-modal="true" aria-label="' + esc(pack.name) + '"><h2>' + esc(pack.name) + '</h2>' +
     '<p class="muted">' + esc(pack.desc) + '.</p>' + preview +
+    (pack.live ? '<button class="link" data-act="pay-gal" data-pack="' + pack.id + '" style="justify-self:start">Ver todos los stickers antes de comprar</button>' : '') +
     '<ul class="paylist"><li>Se pegan encima de tus fotos y los mueves, agrandas y giras</li><li>Pago único de ' + price + ', sin suscripción</li>' +
     (pack.live ? '' : '<li>Aún estamos subiendo estos stickers a la app</li>') + '</ul>' +
     '<button class="btn primary block" data-act="pay-1" data-pack="' + pack.id + '">Comprar por ' + price + '</button><button class="link" data-act="pay-x">Ahora no</button></div>';
@@ -3652,7 +3661,7 @@ function openPay(packId, step){
   if (!STK.length) loadStickers().then(function(){ if (el.className === 'on') el.innerHTML = payHTML(ui.payPack, ui.payStep); });
   if (storeNative() && !ui.storePrices) webkit.messageHandlers.store.postMessage({cmd: 'products'});
 }
-function closePay(){ var el = $('#pay'); el.className = ''; el.innerHTML = ''; }
+function closePay(){ var el = $('#pay'); el.className = ''; el.innerHTML = ''; ui.payGallery = false; }
 function purchasesBlock(){
   return '<h3 class="pl-h">Compras</h3><ul class="people sec"><li><span class="nm">Stickers Friends Party<small>60 stickers en inglés y español, ' + PRICE + ', pago único</small></span>' +
     (owned() ? '<span class="pill va">Comprado</span>' : '<button class="btn small" data-act="pay-open" data-pack="stickers">Comprar</button>') + '</li></ul>' +
@@ -3817,7 +3826,9 @@ function payAct(a, t){
   var packId = (t && t.dataset && t.dataset.pack) || ui.payPack || 'stickers';
   var pack = packById(packId) || PACKS[0];
   switch (a) {
-    case 'pay-open': openPay(packId, 1); break;
+    case 'pay-open': ui.payGallery = false; openPay(packId, 1); break;
+    case 'pay-gal': ui.payGallery = true; openPay(packId, 1); break;
+    case 'pay-gal-back': ui.payGallery = false; openPay(packId, 1); break;
     case 'pay-1':
       if (storeNative() && pack.live && IAP_ID[packId]) {
         if (!S.session) { closePay(); toast('Conecta tu cuenta primero'); ui.sheet = 'srvconn'; renderSheet(); return; }
