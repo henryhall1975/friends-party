@@ -845,7 +845,7 @@ var SB = {
      (para cuando alguien entra desde un teléfono nuevo) */
   pullAll: function(){
     if (!SB.session || !SB.session.access_token || !S.serverId) return Promise.resolve();
-    SB.pullPremium();
+    SB.pullPremium(); SB.pullPurchases();
     return SB.rest('group_members', 'GET', null, '?user_id=eq.' + S.serverId + '&select=group_id').then(function(gm){
       var gids = (gm.data || []).map(function(r){ return r.group_id; });
       if (!gids.length) return [];
@@ -4125,6 +4125,20 @@ SB.pullPremium = function(){
     var u = r.data && r.data[0] && Date.parse(r.data[0].premium_until);
     var p = !!(u && u > Date.now());
     if (p !== !!S.premium) { S.premium = p; save(); render(false); }
+  }).catch(function(){});
+};
+/* trae de vuelta los paquetes ya comprados, por si esta cuenta se conecta en un teléfono nuevo */
+SB.pullPurchases = function(){
+  if (!SB.session || !SB.session.access_token || !S.serverId) return;
+  var REV_IAP = {}; Object.keys(IAP_ID).forEach(function(k){ if (k !== 'premium') REV_IAP[IAP_ID[k]] = k; });
+  SB.rest('purchases', 'GET', null, '?user_id=eq.' + S.serverId + '&select=product_id').then(function(r){
+    if (!r.ok || !r.data) return;
+    var changed = false; S.purchases = S.purchases || {};
+    r.data.forEach(function(row){
+      var packId = REV_IAP[row.product_id];
+      if (packId && !S.purchases[packId]) { S.purchases[packId] = {at: Date.now()}; changed = true; }
+    });
+    if (changed) { save(); render(false); }
   }).catch(function(){});
 };
 function clipUrl(c){
