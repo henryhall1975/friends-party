@@ -2225,7 +2225,7 @@ function groupAct(a, t){
 /* ---------- notificaciones (solo dentro de la app de iPhone; el navegador no las recibe) ---------- */
 function pushNative(){ return /FriendsPartyApp/.test(navigator.userAgent) && window.webkit && webkit.messageHandlers && webkit.messageHandlers.push; }
 function storeNative(){ return /FriendsPartyApp/.test(navigator.userAgent) && window.webkit && webkit.messageHandlers && webkit.messageHandlers.store; }
-var IAP_ID = {premium: 'com.henryhall.friendsparty.premium.monthly', stickers: 'com.henryhall.friendsparty.pack.stickers', emoticones: 'com.henryhall.friendsparty.pack.emoticones'};
+var IAP_ID = {premium: 'com.henryhall.friendsparty.premium.monthly', stickers: 'com.henryhall.friendsparty.pack.stickers', emoticones: 'com.henryhall.friendsparty.pack.emoticones', christmas: 'com.henryhall.friendsparty.pack.christmas'};
 SB.verifyPurchase = function(productId, transactionId){
   if (!SB.session || !SB.session.access_token) return Promise.resolve({ok: false, error: 'sin_sesion'});
   return fetch(SUPABASE_URL + '/functions/v1/verify-purchase', {
@@ -3599,9 +3599,14 @@ function loadStickers(){
   if (stkPromise) return stkPromise;
   stkPromise = Promise.all([
       fetch('stickers.json').then(function(r){ return r.json(); }),
-      fetch('stk-emoticones/index.json').then(function(r){ return r.json(); }).catch(function(){ return []; })
-    ]).then(function(r){ STK = r[0].concat(r[1].map(function(x){ x.p = 'emoticones'; return x; })); return STK; })
-    .catch(function(){ stkPromise = null; return []; });
+      fetch('stk-emoticones/index.json').then(function(r){ return r.json(); }).catch(function(){ return []; }),
+      fetch('stk-navidad/index.json').then(function(r){ return r.json(); }).catch(function(){ return []; })
+    ]).then(function(r){
+      STK = r[0]
+        .concat(r[1].map(function(x){ x.p = 'emoticones'; return x; }))
+        .concat(r[2].map(function(x){ x.p = 'christmas'; return x; }));
+      return STK;
+    }).catch(function(){ stkPromise = null; return []; });
   return stkPromise;
 }
 /* ---------- editor de fotos y stickers de pago ---------- */
@@ -3617,7 +3622,7 @@ var PACKS = [
   {id: 'stickers', name: 'Stickers Friends Party', desc: '60 stickers en inglés y español', emoji: '🎉', price: PRICE, live: true},
   {id: 'emoticones', name: 'Emoticones', desc: 'Más de 300 stickers: fiesta, emociones, oficios y viajes', emoji: '😀', price: '$1.99', live: true, preview: ['emo-fiesta-001', 'emo-emociones-002', 'emo-oficios-001', 'emo-viajes-002', 'emo-fiesta-010', 'emo-oficios-030']},
   {id: 'halloween', name: 'Stickers de Halloween', desc: '160 stickers para tus fotos de Halloween', emoji: '🎃', price: '$1.99', live: false},
-  {id: 'christmas', name: 'Stickers de Navidad', desc: '158 stickers para tus fotos de Navidad', emoji: '🎄', price: '$1.99', live: false}
+  {id: 'christmas', name: 'Stickers de Navidad', desc: '87 stickers festivos para diciembre', emoji: '🎄', price: '$1.99', live: true, preview: ['xmas-001', 'xmas-006', 'xmas-032', 'xmas-041', 'xmas-055', 'xmas-070']}
 ];
 function packById(id){ for (var i = 0; i < PACKS.length; i++) if (PACKS[i].id === id) return PACKS[i]; return null; }
 function owned(id){ return !!(S.premium || (S.purchases && S.purchases[id || 'stickers'])); }
@@ -3715,17 +3720,20 @@ function buildTray(){
   var tray = $('#ed-tray'), e = ui.ed; if (!tray || !e) return;
   tray.innerHTML = '';
   if (!STK.length) { tray.innerHTML = '<p class="muted small" style="padding:10px 4px">Cargando stickers…</p>'; return; }
-  var isEmo = e.tab === 'emo';
+  var extraPack = (e.tab !== 'todos' && e.tab !== 'en' && e.tab !== 'es') ? packById(e.tab) : null;
   var cats = document.getElementById('ed-cats');
   if (cats) {
-    var CATN = {all: 'Todos', fiesta: 'Fiesta', emociones: 'Emociones', oficios: 'Oficios', viajes: 'Viajes'};
-    cats.hidden = !isEmo;
-    if (isEmo) cats.innerHTML = Object.keys(CATN).map(function(k){ return '<button class="tab' + ((e.cat || 'all') === k ? ' on' : '') + '" data-act="ed-cat" data-cat="' + k + '">' + CATN[k] + '</button>'; }).join('');
+    var cies = extraPack ? Array.from(new Set(STK.filter(function(s){ return stkPack(s) === extraPack.id; }).map(function(s){ return s.l; }))) : [];
+    cats.hidden = !extraPack || cies.length < 2;
+    if (extraPack && cies.length >= 2) {
+      var CATN = {all: 'Todos'}; cies.forEach(function(k){ CATN[k] = k.charAt(0).toUpperCase() + k.slice(1); });
+      cats.innerHTML = Object.keys(CATN).map(function(k){ return '<button class="tab' + ((e.cat || 'all') === k ? ' on' : '') + '" data-act="ed-cat" data-cat="' + k + '">' + CATN[k] + '</button>'; }).join('');
+    }
   }
-  var un = document.getElementById('ed-unlock'), upk = packById(isEmo ? 'emoticones' : 'stickers');
+  var un = document.getElementById('ed-unlock'), upk = extraPack || packById('stickers');
   if (un) un.innerHTML = owned(upk.id) ? '' : '<div class="unlock"><div><strong>' + esc(upk.name) + '</strong><span>' + esc(upk.desc) + ' por ' + upk.price + ', pago único</span></div><button class="btn primary" data-act="pay-open" data-pack="' + upk.id + '">Desbloquear</button></div>';
   STK.filter(function(s){
-    if (isEmo) return stkPack(s) === 'emoticones' && (!e.cat || e.cat === 'all' || s.l === e.cat);
+    if (extraPack) return stkPack(s) === extraPack.id && (!e.cat || e.cat === 'all' || s.l === e.cat);
     return stkPack(s) === 'stickers' && (e.tab === 'todos' || s.l === e.tab);
   }).forEach(function(s){
     var b = document.createElement('button');
@@ -3741,14 +3749,18 @@ function renderEditor(){
   if (!e) { el.className = ''; el.innerHTML = ''; document.body.style.overflow = ui.lb ? 'hidden' : ''; return; }
   el.className = 'on'; document.body.style.overflow = 'hidden';
   if (!STK.length) loadStickers().then(function(){ if (ui.ed) renderEditor(); });
-  var base = STK.filter(function(s){ return stkPack(s) === 'stickers'; }), n = base.length, en = base.filter(function(s){ return s.l === 'en'; }).length, emoN = STK.length - n;
+  var base = STK.filter(function(s){ return stkPack(s) === 'stickers'; }), n = base.length, en = base.filter(function(s){ return s.l === 'en'; }).length;
+  var extraTabs = PACKS.filter(function(p){ return p.live && p.id !== 'stickers'; }).map(function(p){
+    var cnt = STK.filter(function(s){ return stkPack(s) === p.id; }).length;
+    return '<button class="tab" data-act="ed-tab" data-tab="' + p.id + '">' + esc(p.name) + '<small>' + cnt + '</small></button>';
+  }).join('');
   el.innerHTML = '<div class="edtop"><button class="ib" data-act="ed-close" aria-label="Cerrar el editor">' + I.x + '</button><h2>Editar foto</h2><button class="btn small primary" data-act="ed-save">Guardar</button></div>' +
     '<div class="edbody"><div class="edcv"><canvas id="ed-cv" aria-label="Tu foto con los stickers"></canvas></div>' +
     '<p class="muted small" style="text-align:center;margin:0">Toca un sticker para agregarlo. Arrástralo para moverlo y usa dos dedos para cambiar su tamaño y su giro.</p>' +
     '<div class="edtools"><button class="btn" data-act="ed-sm" data-need aria-label="Más pequeño">−</button><button class="btn" data-act="ed-bg" data-need aria-label="Más grande">+</button>' +
     '<button class="btn" data-act="ed-rl" data-need aria-label="Girar a la izquierda">↺</button><button class="btn" data-act="ed-rr" data-need aria-label="Girar a la derecha">↻</button>' +
     '<button class="btn" data-act="ed-front" data-need>Al frente</button><button class="btn danger" data-act="ed-del" data-need>Borrar</button></div>' +
-    '<nav class="tabs trayh" role="tablist"><button class="tab on" data-act="ed-tab" data-tab="todos">Todos<small>' + n + '</small></button><button class="tab" data-act="ed-tab" data-tab="en">English<small>' + en + '</small></button><button class="tab" data-act="ed-tab" data-tab="es">Español<small>' + (n - en) + '</small></button><button class="tab" data-act="ed-tab" data-tab="emo">Emoticones<small>' + emoN + '</small></button></nav>' +
+    '<nav class="tabs trayh" role="tablist"><button class="tab on" data-act="ed-tab" data-tab="todos">Todos<small>' + n + '</small></button><button class="tab" data-act="ed-tab" data-tab="en">English<small>' + en + '</small></button><button class="tab" data-act="ed-tab" data-tab="es">Español<small>' + (n - en) + '</small></button>' + extraTabs + '</nav>' +
     '<nav class="tabs" id="ed-cats" hidden></nav><div class="tray" id="ed-tray"></div><div id="ed-unlock"></div>' +
     (dl ? '<button class="btn block" data-act="ed-dl">Descargar la foto editada</button>' : '') + '</div>';
   e.cv = $('#ed-cv');
