@@ -2225,7 +2225,7 @@ function groupAct(a, t){
 /* ---------- notificaciones (solo dentro de la app de iPhone; el navegador no las recibe) ---------- */
 function pushNative(){ return /FriendsPartyApp/.test(navigator.userAgent) && window.webkit && webkit.messageHandlers && webkit.messageHandlers.push; }
 function storeNative(){ return /FriendsPartyApp/.test(navigator.userAgent) && window.webkit && webkit.messageHandlers && webkit.messageHandlers.store; }
-var IAP_ID = {premium: 'com.henryhall.friendsparty.premium.monthly', stickers: 'com.henryhall.friendsparty.pack.stickers', emoticones: 'com.henryhall.friendsparty.pack.emoticones', christmas: 'com.henryhall.friendsparty.pack.christmas'};
+var IAP_ID = {premium: 'com.henryhall.friendsparty.premium.monthly', stickers: 'com.henryhall.friendsparty.pack.stickers', emoticones: 'com.henryhall.friendsparty.pack.emoticones', christmas: 'com.henryhall.friendsparty.pack.christmas', halloween: 'com.henryhall.friendsparty.pack.halloween'};
 SB.verifyPurchase = function(productId, transactionId){
   if (!SB.session || !SB.session.access_token) return Promise.resolve({ok: false, error: 'sin_sesion'});
   return fetch(SUPABASE_URL + '/functions/v1/verify-purchase', {
@@ -3600,11 +3600,13 @@ function loadStickers(){
   stkPromise = Promise.all([
       fetch('stickers.json').then(function(r){ return r.json(); }),
       fetch('stk-emoticones/index.json').then(function(r){ return r.json(); }).catch(function(){ return []; }),
-      fetch('stk-navidad/index.json').then(function(r){ return r.json(); }).catch(function(){ return []; })
+      fetch('stk-navidad/index.json').then(function(r){ return r.json(); }).catch(function(){ return []; }),
+      fetch('stk-halloween/index.json').then(function(r){ return r.json(); }).catch(function(){ return []; })
     ]).then(function(r){
       STK = r[0]
         .concat(r[1].map(function(x){ x.p = 'emoticones'; return x; }))
-        .concat(r[2].map(function(x){ x.p = 'christmas'; return x; }));
+        .concat(r[2].map(function(x){ x.p = 'christmas'; return x; }))
+        .concat(r[3].map(function(x){ x.p = 'halloween'; return x; }));
       return STK;
     }).catch(function(){ stkPromise = null; return []; });
   return stkPromise;
@@ -3621,7 +3623,7 @@ I.lock = svg('<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a
 var PACKS = [
   {id: 'stickers', name: 'Stickers Friends Party', desc: '60 stickers en inglés y español', emoji: '🎉', price: PRICE, live: true},
   {id: 'emoticones', name: 'Emoticones', desc: 'Más de 300 stickers: fiesta, emociones, oficios y viajes', emoji: '😀', price: '$1.99', live: true, preview: ['emo-fiesta-001', 'emo-emociones-002', 'emo-oficios-001', 'emo-viajes-002', 'emo-fiesta-010', 'emo-oficios-030']},
-  {id: 'halloween', name: 'Stickers de Halloween', desc: '160 stickers para tus fotos de Halloween', emoji: '🎃', price: '$1.99', live: false},
+  {id: 'halloween', name: 'Stickers de Halloween', desc: '60 stickers para tus fotos de Halloween', emoji: '🎃', price: '$1.99', live: true, preview: ['hw-001', 'hw-002', 'hw-006', 'hw-023', 'hw-034', 'hw-039']},
   {id: 'christmas', name: 'Stickers de Navidad', desc: '87 stickers festivos para diciembre', emoji: '🎄', price: '$1.99', live: true, preview: ['xmas-001', 'xmas-006', 'xmas-032', 'xmas-041', 'xmas-055', 'xmas-070']}
 ];
 function packById(id){ for (var i = 0; i < PACKS.length; i++) if (PACKS[i].id === id) return PACKS[i]; return null; }
