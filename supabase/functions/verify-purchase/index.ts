@@ -55,13 +55,18 @@ async function appleGet(host: string, path: string, jwt: string) {
 Deno.serve(async (req) => {
   const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   const authJwt = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
+  console.log("verify-purchase: llego una solicitud, largo del token=" + authJwt.length);
   const userClient = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!);
   const { data: who, error: whoErr } = await userClient.auth.getUser(authJwt);
-  if (whoErr || !who?.user) return new Response(JSON.stringify({ ok: false, error: "sin_sesion" }), { status: 401 });
+  if (whoErr || !who?.user) {
+    console.log("verify-purchase: sin sesion, error=" + JSON.stringify(whoErr?.message || whoErr));
+    return new Response(JSON.stringify({ ok: false, error: "sin_sesion" }), { status: 401 });
+  }
   const uid = who.user.id;
 
   const { transactionId } = await req.json().catch(() => ({}));
   if (!transactionId) return new Response(JSON.stringify({ ok: false, error: "sin_transactionId" }), { status: 400 });
+  console.log("verify-purchase: uid=" + uid + " transactionId=" + JSON.stringify(transactionId));
 
   const jwt = await iapJwt();
   // Las compras hechas de prueba (Xcode, Sandbox) solo existen en el servidor de pruebas de Apple.
@@ -69,7 +74,11 @@ Deno.serve(async (req) => {
   // Antes de que la app se publique alguna vez, el servidor de producción de Apple
   // contesta 401 (no 404) para cualquier consulta, así que probamos también ahí.
   if (r.status === 404 || r.status === 401) r = await appleGet("api.storekit-sandbox.itunes.apple.com", `/inApps/v1/transactions/${transactionId}`, jwt);
-  if (!r.ok) return new Response(JSON.stringify({ ok: false, error: "apple_" + r.status }), { status: 200, headers: { "content-type": "application/json" } });
+  if (!r.ok) {
+    const t = await r.text().catch(() => "");
+    console.log("verify-purchase: apple respondio " + r.status + ": " + t.slice(0, 300));
+    return new Response(JSON.stringify({ ok: false, error: "apple_" + r.status }), { status: 200, headers: { "content-type": "application/json" } });
+  }
 
   const { signedTransactionInfo } = await r.json();
   const info = decodeJwsPayload(signedTransactionInfo);

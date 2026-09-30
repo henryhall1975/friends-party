@@ -4293,6 +4293,7 @@ $('#vfile').addEventListener('change', function(e){
 coverOn = true; renderCover();
 Promise.race([load(), new Promise(function(r){ setTimeout(function(){ r(null); }, 1500); })]).then(function(st){
   if (st && typeof st === 'object') S = Object.assign(S, st);
+  SB.session = S.session || null; /* se guardó en el teléfono, pero SB solo vive en memoria: hay que repoblarlo al abrir la app */
   ensureProfile(); ensureDemos();
   if (!S.me) { ui.acctPhoto = ''; ui.sheet = 'acct'; }
   else {
