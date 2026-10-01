@@ -2227,6 +2227,7 @@ function pushNative(){ return /FriendsPartyApp/.test(navigator.userAgent) && win
 function storeNative(){ return /FriendsPartyApp/.test(navigator.userAgent) && window.webkit && webkit.messageHandlers && webkit.messageHandlers.store; }
 var IAP_ID = {premium: 'com.henryhall.friendsparty.premium.monthly', stickers: 'com.henryhall.friendsparty.pack.stickers', emoticones: 'com.henryhall.friendsparty.pack.emoticones', christmas: 'com.henryhall.friendsparty.pack.christmas', halloween: 'com.henryhall.friendsparty.pack.halloween'};
 SB.verifyPurchase = function(productId, transactionId){
+  if ((!SB.session || !SB.session.access_token) && S.session) SB.session = S.session; /* por si SB se quedó desincronizado de lo guardado */
   if (!SB.session || !SB.session.access_token) return Promise.resolve({ok: false, error: 'sin_sesion'});
   return fetch(SUPABASE_URL + '/functions/v1/verify-purchase', {
     method: 'POST',
@@ -4307,7 +4308,14 @@ $('#vfile').addEventListener('change', function(e){
 
 /* ---------- inicio ---------- */
 coverOn = true; renderCover();
-Promise.race([load(), new Promise(function(r){ setTimeout(function(){ r(null); }, 1500); })]).then(function(st){
+var loadP = load();
+loadP.then(function(st){
+  /* si load() tardó más de 1500ms, esto llega DESPUÉS del arranque de abajo:
+     igual hay que aplicar los datos reales y repoblar SB.session cuando lleguen. */
+  if (st && typeof st === 'object') S = Object.assign(S, st);
+  SB.session = S.session || null;
+});
+Promise.race([loadP, new Promise(function(r){ setTimeout(function(){ r(null); }, 1500); })]).then(function(st){
   if (st && typeof st === 'object') S = Object.assign(S, st);
   SB.session = S.session || null; /* se guardó en el teléfono, pero SB solo vive en memoria: hay que repoblarlo al abrir la app */
   ensureProfile(); ensureDemos();
