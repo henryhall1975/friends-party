@@ -52,20 +52,30 @@ async function appleGet(host: string, path: string, jwt: string) {
   return await fetch(`https://${host}${path}`, { headers: { authorization: `Bearer ${jwt}` } });
 }
 
+// El navegador (y el WKWebView de la app) manda primero una solicitud OPTIONS de
+// "pre-verificación" antes de la solicitud real con el token. Si no la contestamos
+// bien, el navegador cancela la solicitud real sin ni siquiera enviarla.
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS_HEADERS });
   const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-  const authJwt = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
-  console.log("verify-purchase: llego una solicitud, largo del token=" + authJwt.length);
+  const rawAuth = req.headers.get("authorization");
+  const authJwt = (rawAuth || "").replace(/^Bearer\s+/i, "");
   const userClient = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!);
   const { data: who, error: whoErr } = await userClient.auth.getUser(authJwt);
   if (whoErr || !who?.user) {
     console.log("verify-purchase: sin sesion, error=" + JSON.stringify(whoErr?.message || whoErr));
-    return new Response(JSON.stringify({ ok: false, error: "sin_sesion" }), { status: 401 });
+    return new Response(JSON.stringify({ ok: false, error: "sin_sesion" }), { status: 401, headers: CORS_HEADERS });
   }
   const uid = who.user.id;
 
   const { transactionId } = await req.json().catch(() => ({}));
-  if (!transactionId) return new Response(JSON.stringify({ ok: false, error: "sin_transactionId" }), { status: 400 });
+  if (!transactionId) return new Response(JSON.stringify({ ok: false, error: "sin_transactionId" }), { status: 400, headers: CORS_HEADERS });
   console.log("verify-purchase: uid=" + uid + " transactionId=" + JSON.stringify(transactionId));
 
   const jwt = await iapJwt();
@@ -77,13 +87,13 @@ Deno.serve(async (req) => {
   if (!r.ok) {
     const t = await r.text().catch(() => "");
     console.log("verify-purchase: apple respondio " + r.status + ": " + t.slice(0, 300));
-    return new Response(JSON.stringify({ ok: false, error: "apple_" + r.status }), { status: 200, headers: { "content-type": "application/json" } });
+    return new Response(JSON.stringify({ ok: false, error: "apple_" + r.status }), { status: 200, headers: { ...CORS_HEADERS, "content-type": "application/json" } });
   }
 
   const { signedTransactionInfo } = await r.json();
   const info = decodeJwsPayload(signedTransactionInfo);
-  if (info.bundleId !== BUNDLE_ID) return new Response(JSON.stringify({ ok: false, error: "app_invalida" }), { status: 200 });
-  if (info.revocationDate) return new Response(JSON.stringify({ ok: false, error: "reembolsada" }), { status: 200 });
+  if (info.bundleId !== BUNDLE_ID) return new Response(JSON.stringify({ ok: false, error: "app_invalida" }), { status: 200, headers: CORS_HEADERS });
+  if (info.revocationDate) return new Response(JSON.stringify({ ok: false, error: "reembolsada" }), { status: 200, headers: CORS_HEADERS });
 
   const productId = info.productId as string;
 
@@ -108,16 +118,16 @@ Deno.serve(async (req) => {
     }
     const until = new Date(expiresMs).toISOString();
     await db.from("subscriptions").upsert({ user_id: uid, premium_until: until });
-    return new Response(JSON.stringify({ ok: true, kind: "premium", premiumUntil: until }), { headers: { "content-type": "application/json" } });
+    return new Response(JSON.stringify({ ok: true, kind: "premium", premiumUntil: until }), { headers: { ...CORS_HEADERS, "content-type": "application/json" } });
   }
 
   const packId = PACK_IDS[productId];
-  if (!packId) return new Response(JSON.stringify({ ok: false, error: "producto_desconocido" }), { status: 200 });
+  if (!packId) return new Response(JSON.stringify({ ok: false, error: "producto_desconocido" }), { status: 200, headers: CORS_HEADERS });
   // La tabla "purchases" ya existía, hecha justo para esto.
   const amount = typeof info.price === "number" ? info.price / 1000 : 1.99;
   await db.from("purchases").upsert(
     { user_id: uid, product_id: productId, amount_usd: amount, platform: "apple", transaction_id: String(info.transactionId) },
     { onConflict: "transaction_id" }
   );
-  return new Response(JSON.stringify({ ok: true, kind: "pack", packId }), { headers: { "content-type": "application/json" } });
+  return new Response(JSON.stringify({ ok: true, kind: "pack", packId }), { headers: { ...CORS_HEADERS, "content-type": "application/json" } });
 });
