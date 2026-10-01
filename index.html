@@ -3447,7 +3447,11 @@ function lgprovSheet(){
 }
 function forgotSheet(){
   return '<div class="scrim"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="Olvidé mi contraseña"><h2>¿Olvidaste tu contraseña?</h2>' +
-    '<p>Con el servidor te enviaremos un enlace a tu correo. Por ahora la contraseña solo existe en este teléfono, así que la única forma de entrar sin ella es borrar la cuenta de este teléfono. Se pierden las fotos y los datos guardados aquí.</p>' +
+    '<p class="muted small">Esta contraseña solo vive en este teléfono. Si ya conectaste tu cuenta al servidor, confírmalo aquí para quitar el candado sin perder tus fotos ni eventos.</p>' +
+    '<label>Correo de tu cuenta<input id="fg-mail" class="inp" type="email" autocomplete="email" placeholder="tu@correo.com" value="' + esc((S.profile && S.profile.email) || '') + '"></label>' +
+    '<label>Contraseña de tu cuenta<input id="fg-pw" class="inp" type="password" autocomplete="current-password" placeholder="Tu contraseña"></label>' +
+    '<button class="btn primary block" data-act="lg-recover">Confirmar y quitar el candado</button>' +
+    '<p class="muted small" style="margin:14px 0 0">¿Nunca conectaste tu cuenta al servidor? Entonces no hay forma de recuperar lo de este teléfono. Solo queda borrarlo y empezar de nuevo.</p>' +
     '<button class="btn block danger" data-act="lg-wipe">' + (ui.armed === 'lgwipe' ? 'Toca otra vez para borrar todo' : 'Borrar la cuenta de este teléfono') + '</button><button class="link" data-act="lg-back">Volver</button></div>';
 }
 function pwdSheet(){
@@ -3563,6 +3567,18 @@ function loginAct(a, t){
       else toast('Esta cuenta no se creó con ' + (ui.lgProv === 'apple' ? 'Apple' : 'Google') + '. Usa el método con el que la creaste.');
       break;
     case 'lg-forgot': ui.sheet = 'forgot'; renderSheet(); break;
+    case 'lg-recover':
+      var fm = ($('#fg-mail').value || '').trim(), fp = $('#fg-pw').value || '';
+      if (!fm || !fp) { toast('Escribe tu correo y tu contraseña'); return; }
+      toast('Verificando…');
+      SB.signIn(fm, fp).then(function(r){
+        if (!r.ok || !r.data || !r.data.access_token) { toast('El correo o la contraseña no coinciden'); return; }
+        SB.remember({access_token: r.data.access_token, refresh_token: r.data.refresh_token});
+        S.lock = {pw: null, bio: null}; save();
+        loginOk();
+        toast('Candado quitado. Ya puedes entrar normal.');
+      }).catch(function(){ toast('No se pudo conectar con el servidor'); });
+      break;
     case 'lg-back': ui.armed = null; ui.sheet = 'login'; renderSheet(); break;
     case 'lg-wipe':
       if (ui.armed !== 'lgwipe') { ui.armed = 'lgwipe'; renderSheet(); return; }
