@@ -603,7 +603,11 @@ var SB = {
   restore: function(){
     if (!S.session || !S.session.refresh_token) return Promise.resolve(false);
     return SB.call('token?grant_type=refresh_token', {refresh_token: S.session.refresh_token}).then(function(res){
-      if (res.ok && res.data && res.data.access_token) { SB.remember({access_token: res.data.access_token, refresh_token: res.data.refresh_token}); return true; }
+      if (res.ok && res.data && res.data.access_token) {
+        SB.remember({access_token: res.data.access_token, refresh_token: res.data.refresh_token});
+        if (res.data.user && res.data.user.id && S.serverId !== res.data.user.id) { S.serverId = res.data.user.id; save(); } /* por si quedó sin asignar (p.ej. tras un desbloqueo de candado) */
+        return true;
+      }
       return false;
     }).catch(function(){ return false; });
   },
@@ -3575,6 +3579,7 @@ function loginAct(a, t){
       SB.signIn(fm, fp).then(function(r){
         if (!r.ok || !r.data || !r.data.access_token) { toast('El correo o la contraseña no coinciden'); return; }
         SB.remember({access_token: r.data.access_token, refresh_token: r.data.refresh_token});
+        S.serverId = r.data.user && r.data.user.id;
         S.lock = {pw: null, bio: null}; save();
         loginOk();
         toast('Candado quitado. Ya puedes entrar normal.');
