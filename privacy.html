@@ -18,10 +18,15 @@
   .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin:16px 0}
   a{color:var(--accent)}
   .muted{color:var(--muted);font-size:13px}
+  .langs{display:flex;gap:6px;justify-content:flex-end;margin:0 0 18px}
+  .langs button{font:inherit;font-size:14px;min-height:36px;padding:0 12px;border-radius:99px;border:1px solid transparent;background:none;color:var(--muted);cursor:pointer}
+  .langs button[aria-pressed="true"]{border-color:var(--ink);color:var(--ink);font-weight:700}
 </style>
 </head>
 <body>
 <div class="wrap">
+  <p class="langs"><button type="button" data-set="es">Español</button><button type="button" data-set="en">English</button><button type="button" data-set="ko">한국어</button></p>
+<div data-l="es">
   <h1>Política de privacidad</h1>
   <p class="sub">Friends Party · Última actualización: 22 de septiembre de 2026</p>
 
@@ -72,5 +77,129 @@
 
   <p class="muted"><a href="terms.html">Ver también los Términos de uso</a></p>
 </div>
+<div data-l="en" hidden>
+  <h1>Privacy Policy</h1>
+  <p class="sub">Friends Party · Last updated: September 22, 2026</p>
+
+  <p>Friends Party is an app for sharing photos and organizing get-togethers with friends. This page explains, in plain language, what data we store and why.</p>
+
+  <h2>What data we store</h2>
+  <p>When you create an account we store:</p>
+  <ul>
+    <li>Your name, your username, your email and, if you enter them, your phone number and a short bio.</li>
+    <li>The profile photo you choose, if you choose one.</li>
+  </ul>
+  <p>When you use the app we store what you create yourself:</p>
+  <ul>
+    <li>The events you organize: name, place, date and notes.</li>
+    <li>The photos you upload to an event.</li>
+    <li>The messages you write in an event's chat or your group's chat.</li>
+    <li>The songs you share.</li>
+    <li>Who you invite to an event (email or phone, if you enter them when inviting).</li>
+  </ul>
+  <p>Location: if a photo has a location saved by your camera (EXIF), the app may use it to show where it was taken, inside the event. We never access your phone's GPS unless you explicitly allow it when using the event's location feature.</p>
+
+  <h2>Where that information lives</h2>
+  <p>The data is stored in Supabase, a database and file storage provider. We don't use ads or advertising networks, and we don't sell your information to anyone.</p>
+
+  <h2>Who can see what</h2>
+  <div class="card">
+    <p>Only the people who are part of an event can see its photos, its chat and its songs. Your email and your phone number are visible only to you; they are never shown to other users.</p>
+  </div>
+
+  <h2>In-app purchases</h2>
+  <p>Friends Party offers a paid sticker pack, a one-time purchase, processed by Apple or Google depending on the device. We don't see or store your card details: Apple or Google handles that directly.</p>
+
+  <h2>Face ID, Touch ID and password</h2>
+  <p>If you turn on Face ID or Touch ID, the key that makes it possible stays stored on your own phone; we never send it to our servers. Your password isn't stored as text either: we store only a fingerprint of it (a hash), which can't be read back.</p>
+
+  <h2>Deleting your account</h2>
+  <p>From your profile you can tap "Delete my account and my data": this deletes everything stored on your device right away.</p>
+  <p>To also delete your data from our servers (your profile, your events, your photos and your messages), write to us at <a href="mailto:friendspartysupport@gmail.com">friendspartysupport@gmail.com</a> from your account's email, and we'll do it in the following days.</p>
+
+  <h2>Minors</h2>
+  <p>Friends Party is not directed at children under 13, and we do not knowingly request data from children under that age.</p>
+
+  <h2>Changes to this policy</h2>
+  <p>If we change something important about how we handle your data, we'll let you know inside the app before it takes effect.</p>
+
+  <h2>Contact</h2>
+  <p>Questions about your privacy? Write to us at <a href="mailto:friendspartysupport@gmail.com">friendspartysupport@gmail.com</a>.</p>
+
+  <p class="muted"><a href="terms.html">See also the Terms of Use</a></p>
+</div>
+<div data-l="ko" hidden>
+  <h1>개인정보 처리방침</h1>
+  <p class="sub">Friends Party · 최종 업데이트: 2026년 9월 22일</p>
+
+  <p>Friends Party는 친구들과 사진을 공유하고 모임을 계획하는 앱입니다. 이 페이지에서는 저희가 어떤 정보를 왜 저장하는지 쉬운 말로 설명합니다.</p>
+
+  <h2>저장하는 정보</h2>
+  <p>계정을 만들 때 다음 정보를 저장합니다.</p>
+  <ul>
+    <li>이름, 사용자 이름, 이메일, 그리고 입력한 경우 전화번호와 소개 문구.</li>
+    <li>선택한 경우 프로필 사진.</li>
+  </ul>
+  <p>앱을 사용할 때는 사용자가 직접 만든 내용을 저장합니다.</p>
+  <ul>
+    <li>만든 이벤트: 이름, 장소, 날짜, 메모.</li>
+    <li>이벤트에 올린 사진.</li>
+    <li>이벤트 채팅이나 그룹 채팅에 쓴 메시지.</li>
+    <li>공유한 노래.</li>
+    <li>이벤트에 초대한 사람 (초대할 때 입력한 경우 이메일 또는 전화번호).</li>
+  </ul>
+  <p>위치: 사진에 카메라가 저장한 위치 정보(EXIF)가 있으면, 앱이 이벤트 안에서 사진을 찍은 곳을 보여 주는 데 사용할 수 있습니다. 이벤트의 위치 기능을 사용할 때 사용자가 명시적으로 허용하지 않는 한, 휴대폰의 GPS에 접근하지 않습니다.</p>
+
+  <h2>정보가 저장되는 곳</h2>
+  <p>데이터는 데이터베이스 및 파일 저장 서비스 제공업체인 Supabase에 저장됩니다. 저희는 광고나 광고 네트워크를 사용하지 않으며, 사용자의 정보를 누구에게도 판매하지 않습니다.</p>
+
+  <h2>누가 무엇을 볼 수 있나요</h2>
+  <div class="card">
+    <p>이벤트에 속한 사람만 해당 이벤트의 사진, 채팅, 노래를 볼 수 있습니다. 이메일과 전화번호는 본인만 볼 수 있으며, 다른 사용자에게는 절대 표시되지 않습니다.</p>
+  </div>
+
+  <h2>앱 내 구매</h2>
+  <p>Friends Party는 1회 결제 방식의 유료 스티커 팩을 제공하며, 결제는 기기에 따라 Apple 또는 Google이 처리합니다. 저희는 카드 정보를 보거나 저장하지 않습니다. 이는 Apple 또는 Google이 직접 처리합니다.</p>
+
+  <h2>Face ID, Touch ID 및 비밀번호</h2>
+  <p>Face ID 또는 Touch ID를 켜면 이를 가능하게 하는 키는 사용자의 휴대폰에만 저장되며, 저희 서버로 전송되지 않습니다. 비밀번호도 텍스트로 저장되지 않습니다. 다시 읽을 수 없는 지문 값(해시)만 저장합니다.</p>
+
+  <h2>계정 삭제</h2>
+  <p>프로필에서 "내 계정과 데이터 삭제"를 누르면 기기에 저장된 모든 내용이 즉시 삭제됩니다.</p>
+  <p>저희 서버에 있는 데이터(프로필, 이벤트, 사진, 메시지)까지 삭제하려면 계정의 이메일로 <a href="mailto:friendspartysupport@gmail.com">friendspartysupport@gmail.com</a>에 요청해 주세요. 며칠 안에 처리해 드립니다.</p>
+
+  <h2>미성년자</h2>
+  <p>Friends Party는 만 13세 미만 아동을 대상으로 하지 않으며, 해당 연령 미만 아동의 정보를 알면서 요청하지 않습니다.</p>
+
+  <h2>방침 변경</h2>
+  <p>데이터 처리 방식에 중요한 변경이 있으면, 적용되기 전에 앱 안에서 알려 드립니다.</p>
+
+  <h2>문의</h2>
+  <p>개인정보에 대해 궁금한 점이 있나요? <a href="mailto:friendspartysupport@gmail.com">friendspartysupport@gmail.com</a>으로 문의해 주세요.</p>
+
+  <p class="muted"><a href="terms.html">이용 약관도 확인하세요</a></p>
+</div>
+</div>
+<script>
+/* mismo idioma que la app: el elegido, o el del teléfono (español, coreano, o inglés para los demás) */
+(function(){
+  var L = ['es', 'en', 'ko'], T = {es: "Política de privacidad — Friends Party", en: "Privacy Policy — Friends Party", ko: "개인정보 처리방침 — Friends Party"};
+  function pick(){
+    var q = /[?&]lang=(es|en|ko)\b/.exec(location.search); if (q) return q[1];
+    try { var s = localStorage.getItem('fp_lang'); if (L.indexOf(s) >= 0) return s; } catch (e) {}
+    var n = String((navigator.languages && navigator.languages[0]) || navigator.language || 'es').toLowerCase().slice(0, 2);
+    return n === 'es' ? 'es' : n === 'ko' ? 'ko' : 'en';
+  }
+  function show(l){
+    document.documentElement.lang = l; document.title = T[l];
+    [].forEach.call(document.querySelectorAll('[data-l]'), function(d){ d.hidden = d.getAttribute('data-l') !== l; });
+    [].forEach.call(document.querySelectorAll('[data-set]'), function(b){ b.setAttribute('aria-pressed', b.getAttribute('data-set') === l); });
+  }
+  [].forEach.call(document.querySelectorAll('[data-set]'), function(b){
+    b.addEventListener('click', function(){ var l = b.getAttribute('data-set'); try { localStorage.setItem('fp_lang', l); } catch (e) {} show(l); });
+  });
+  show(pick());
+})();
+</script>
 </body>
 </html>

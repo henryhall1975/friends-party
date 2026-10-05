@@ -17,10 +17,15 @@
   li{margin:6px 0}
   a{color:var(--accent)}
   .muted{color:var(--muted);font-size:13px}
+  .langs{display:flex;gap:6px;justify-content:flex-end;margin:0 0 18px}
+  .langs button{font:inherit;font-size:14px;min-height:36px;padding:0 12px;border-radius:99px;border:1px solid transparent;background:none;color:var(--muted);cursor:pointer}
+  .langs button[aria-pressed="true"]{border-color:var(--ink);color:var(--ink);font-weight:700}
 </style>
 </head>
 <body>
 <div class="wrap">
+  <p class="langs"><button type="button" data-set="es">Español</button><button type="button" data-set="en">English</button><button type="button" data-set="ko">한국어</button></p>
+<div data-l="es">
   <h1>Términos de uso</h1>
   <p class="sub">Friends Party · Última actualización: 22 de septiembre de 2026</p>
 
@@ -62,5 +67,111 @@
 
   <p class="muted"><a href="privacy.html">Ver también la Política de privacidad</a></p>
 </div>
+<div data-l="en" hidden>
+  <h1>Terms of Use</h1>
+  <p class="sub">Friends Party · Last updated: September 22, 2026</p>
+
+  <p>By creating an account or using Friends Party, you accept these terms. They are written in plain language on purpose.</p>
+
+  <h2>What Friends Party is</h2>
+  <p>It's an app for organizing events with friends, sharing photos, chatting and sharing songs within those events.</p>
+
+  <h2>Your account</h2>
+  <ul>
+    <li>You must give a real name and email that are your own.</li>
+    <li>You are responsible for what you upload with your account: photos, messages and songs.</li>
+    <li>Don't share your password with anyone.</li>
+  </ul>
+
+  <h2>What is not allowed</h2>
+  <ul>
+    <li>Uploading photos or messages you don't have the right to share, or that show other people without their permission.</li>
+    <li>Using the app to harass, threaten or harm anyone.</li>
+    <li>Uploading illegal, violent or sexually explicit content.</li>
+    <li>Trying to get into someone else's account, or into events you weren't invited to.</li>
+  </ul>
+  <p>If any of this happens, we may suspend or close the account involved.</p>
+
+  <h2>Your photos and your content</h2>
+  <p>The photos and messages you upload remain yours. We only use them to show them to you and to the people in the same event, exactly as you uploaded them.</p>
+
+  <h2>Sticker purchase</h2>
+  <p>Friends Party offers a pack of 60 stickers for a one-time payment of $1.99, processed by Apple or Google. It's a single purchase, with no subscription or recurring charges.</p>
+
+  <h2>Prototype and availability</h2>
+  <p>We work to keep the app running at all times, but there may be interruptions or errors. We don't guarantee the service will be available without failures at all times.</p>
+
+  <h2>Changes to these terms</h2>
+  <p>If we make important changes, we'll let you know inside the app.</p>
+
+  <h2>Contact</h2>
+  <p>Questions about these terms? Write to us at <a href="mailto:friendspartysupport@gmail.com">friendspartysupport@gmail.com</a>.</p>
+
+  <p class="muted"><a href="privacy.html">See also the Privacy Policy</a></p>
+</div>
+<div data-l="ko" hidden>
+  <h1>이용 약관</h1>
+  <p class="sub">Friends Party · 최종 업데이트: 2026년 9월 22일</p>
+
+  <p>계정을 만들거나 Friends Party를 사용하면 이 약관에 동의하는 것입니다. 일부러 쉬운 말로 작성했습니다.</p>
+
+  <h2>Friends Party란</h2>
+  <p>친구들과 이벤트를 계획하고, 그 이벤트 안에서 사진을 공유하고, 채팅하고, 노래를 공유하는 앱입니다.</p>
+
+  <h2>내 계정</h2>
+  <ul>
+    <li>본인의 실제 이름과 이메일을 입력해야 합니다.</li>
+    <li>내 계정으로 올린 사진, 메시지, 노래에 대한 책임은 본인에게 있습니다.</li>
+    <li>비밀번호를 다른 사람과 공유하지 마세요.</li>
+  </ul>
+
+  <h2>허용되지 않는 행위</h2>
+  <ul>
+    <li>공유할 권리가 없는 사진이나 메시지, 또는 다른 사람의 허락 없이 그 사람이 나온 사진을 올리는 행위.</li>
+    <li>앱을 이용해 누군가를 괴롭히거나, 위협하거나, 해를 끼치는 행위.</li>
+    <li>불법적이거나 폭력적이거나 노골적으로 성적인 콘텐츠를 올리는 행위.</li>
+    <li>다른 사람의 계정이나 초대받지 않은 이벤트에 들어가려는 행위.</li>
+  </ul>
+  <p>이러한 일이 발생하면 해당 계정을 정지하거나 폐쇄할 수 있습니다.</p>
+
+  <h2>내 사진과 콘텐츠</h2>
+  <p>올린 사진과 메시지는 계속 사용자의 것입니다. 저희는 올린 그대로 본인과 같은 이벤트에 있는 사람들에게 보여 주는 용도로만 사용합니다.</p>
+
+  <h2>스티커 구매</h2>
+  <p>Friends Party는 스티커 60개 팩을 $1.99의 1회 결제로 제공하며, 결제는 Apple 또는 Google이 처리합니다. 한 번만 결제하는 구매이며, 구독이나 반복 결제는 없습니다.</p>
+
+  <h2>프로토타입 및 서비스 제공</h2>
+  <p>앱이 항상 작동하도록 노력하지만, 중단이나 오류가 있을 수 있습니다. 서비스가 언제나 오류 없이 제공된다고 보장하지는 않습니다.</p>
+
+  <h2>약관 변경</h2>
+  <p>중요한 변경이 있으면 앱 안에서 알려 드립니다.</p>
+
+  <h2>문의</h2>
+  <p>이 약관에 대해 궁금한 점이 있나요? <a href="mailto:friendspartysupport@gmail.com">friendspartysupport@gmail.com</a>으로 문의해 주세요.</p>
+
+  <p class="muted"><a href="privacy.html">개인정보 처리방침도 확인하세요</a></p>
+</div>
+</div>
+<script>
+/* mismo idioma que la app: el elegido, o el del teléfono (español, coreano, o inglés para los demás) */
+(function(){
+  var L = ['es', 'en', 'ko'], T = {es: "Términos de uso — Friends Party", en: "Terms of Use — Friends Party", ko: "이용 약관 — Friends Party"};
+  function pick(){
+    var q = /[?&]lang=(es|en|ko)\b/.exec(location.search); if (q) return q[1];
+    try { var s = localStorage.getItem('fp_lang'); if (L.indexOf(s) >= 0) return s; } catch (e) {}
+    var n = String((navigator.languages && navigator.languages[0]) || navigator.language || 'es').toLowerCase().slice(0, 2);
+    return n === 'es' ? 'es' : n === 'ko' ? 'ko' : 'en';
+  }
+  function show(l){
+    document.documentElement.lang = l; document.title = T[l];
+    [].forEach.call(document.querySelectorAll('[data-l]'), function(d){ d.hidden = d.getAttribute('data-l') !== l; });
+    [].forEach.call(document.querySelectorAll('[data-set]'), function(b){ b.setAttribute('aria-pressed', b.getAttribute('data-set') === l); });
+  }
+  [].forEach.call(document.querySelectorAll('[data-set]'), function(b){
+    b.addEventListener('click', function(){ var l = b.getAttribute('data-set'); try { localStorage.setItem('fp_lang', l); } catch (e) {} show(l); });
+  });
+  show(pick());
+})();
+</script>
 </body>
 </html>
