@@ -511,9 +511,18 @@ details.loc summary{cursor:pointer;font-weight:700;color:var(--accent);padding:8
 <input type="file" id="cfile" accept="image/*" hidden>
 <input type="file" id="qrfile" accept="image/*" capture="environment" hidden>
 
+<script src="i18n.js"></script>
 <script>
 (function(){
 'use strict';
+
+/* idiomas: i18n.js traduce lo que se pinta en pantalla; T() es para textos que no pasan por la pantalla.
+   Si i18n.js no carga, la app sigue igual en español. */
+var FPI = window.FP_I18N || {lang: 'es', locale: 'es', picker: function(){ return ''; }};
+var T = window.T || function(s, v){
+  v = v || {};
+  return s.replace(/\{(\w+)\|([^|}]*)\|([^}]*)\}/g, function(_, k, one, many){ return Number(v[k]) === 1 ? one : many; }).replace(/\{(\w+)\}/g, function(m, k){ return v[k] == null ? m : v[k]; });
+};
 
 /* ---------- utilidades ---------- */
 var $ = function(s){ return document.querySelector(s); };
@@ -553,9 +562,9 @@ function iconInfo(e){ for (var i = 0; i < ICONS.length; i++) if (ICONS[i].e === 
 var PARTY = ['🎂', '🎈', '🎉', '🍕', '📸', '🥳', '🍰', '🎁', '🍹'];
 var colorFor = function(n){ var h = 0; for (var i = 0; i < n.length; i++) h = (h * 31 + n.charCodeAt(i)) >>> 0; return PAL[h % PAL.length]; };
 var av = function(n, size){ if (S.profile && S.profile.photo && n === S.me) return '<img class="av" src="' + S.profile.photo + '" alt="" style="width:' + size + 'px;height:' + size + 'px;object-fit:cover">'; var ch = (String(n).trim()[0] || '?').toUpperCase(); return '<span class="av" style="width:' + size + 'px;height:' + size + 'px;font-size:' + Math.round(size * 0.44) + 'px;background:' + colorFor(String(n)) + '">' + esc(ch) + '</span>'; };
-var fmtDate = function(iso){ if (!iso) return ''; var p = iso.split('-').map(Number); return new Date(p[0], p[1] - 1, p[2]).toLocaleDateString('es', {day: 'numeric', month: 'long', year: 'numeric'}); };
-var fmtTime = function(at){ return new Date(at).toLocaleString('es', {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'}); };
-var hhmm = function(at){ return new Date(at).toLocaleTimeString('es', {hour: '2-digit', minute: '2-digit'}); };
+var fmtDate = function(iso){ if (!iso) return ''; var p = iso.split('-').map(Number); return new Date(p[0], p[1] - 1, p[2]).toLocaleDateString(FPI.locale, {day: 'numeric', month: 'long', year: 'numeric'}); };
+var fmtTime = function(at){ return new Date(at).toLocaleString(FPI.locale, {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'}); };
+var hhmm = function(at){ return new Date(at).toLocaleTimeString(FPI.locale, {hour: '2-digit', minute: '2-digit'}); };
 var slug = function(s){ return String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'evento'; };
 
 function svg(d, size){ size = size || 20; return '<svg viewBox="0 0 24 24" width="' + size + '" height="' + size + '" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + '</svg>'; }
@@ -1020,7 +1029,7 @@ function newEvent(o){
   return ev;
 }
 function seedDemo(){
-  var ev = newEvent({name: 'Cumpleaños de José', place: 'Casa de José', date: todayISO(), emoji: '🎂', code: 'JOSE24'});
+  var ev = newEvent({name: T('Cumpleaños de José'), place: T('Casa de José'), date: todayISO(), emoji: '🎂', code: 'JOSE24'});
   ev.members = [S.me, 'José', 'Ana', 'Luis', 'Marta'];
   var authors = ['José', 'Ana', 'Luis', 'Marta', 'Ana', 'Luis', 'José', 'Marta'];
   var now = Date.now();
@@ -1028,9 +1037,9 @@ function seedDemo(){
     ev.photos.push({id: uid(), by: a, at: now - (authors.length - i) * 240000, data: makePhoto(PARTY[i % PARTY.length], i)});
   });
   ev.chat = [
-    {id: uid(), by: 'Ana', at: now - 900000, text: '¡Qué buena fiesta! Ya subí las fotos del pastel.'},
-    {id: uid(), by: 'Luis', at: now - 780000, text: 'Yo subí las del brindis.'},
-    {id: uid(), by: 'José', at: now - 600000, text: 'Gracias a todos por venir.'}
+    {id: uid(), by: 'Ana', at: now - 900000, text: T('¡Qué buena fiesta! Ya subí las fotos del pastel.')},
+    {id: uid(), by: 'Luis', at: now - 780000, text: T('Yo subí las del brindis.')},
+    {id: uid(), by: 'José', at: now - 600000, text: T('Gracias a todos por venir.')}
   ];
   S.events.push(ev);
 }
@@ -1061,7 +1070,7 @@ function eventView(){
   if (ui.tab === 'fotos') bar = fotosBar();
   if (ui.tab === 'chat') bar = '<div class="bar"><div class="wrap comp"><button class="btn sq" data-act="ch-attach" data-k="ev" aria-label="Enviar una foto">' + I.image + '</button><input id="chatin" class="inp" placeholder="Escribe un mensaje" aria-label="Mensaje" autocomplete="off" value="' + esc(ui.draft) + '"><button class="btn primary sq" data-act="send" aria-label="Enviar">' + I.send + '</button></div></div>';
   if (ui.tab === 'plan') bar = '<div class="bar"><div class="wrap"><button class="btn primary block" data-act="pl-invite">' + I.plus + ' Invitar amigos</button></div></div>';
-  return '<header class="top"><div class="wrap"><div class="bar1"><button class="ib" data-act="back" aria-label="Volver a eventos">' + I.back + '</button><div class="tt"><div class="ttl">' + ev.emoji + ' ' + esc(ev.name) + '</div><div class="meta">' +
+  return '<header class="top"><div class="wrap"><div class="bar1"><button class="ib" data-act="back" aria-label="Volver a eventos">' + I.back + '</button><div class="tt"><div class="ttl" data-nt>' + ev.emoji + ' ' + esc(ev.name) + '</div><div class="meta">' +
     (ev.place ? '<span>' + I.pin + esc(ev.place) + '</span>' : '') + (ev.date ? '<span>' + I.cal + esc(fmtDate(ev.date) + (ev.time ? ', ' + fmtHour(ev.time) : '')) + '</span>' : '') +
     '</div></div></div><nav class="tabs" role="tablist">' + tab('plan', 'Plan', '') + tab('fotos', 'Fotos', ev.photos.length) + tab('chat', 'Chat', ev.chat.length || '') + '</nav></div></header>' +
     '<main class="wrap">' + body + '</main>' + bar;
@@ -1218,7 +1227,7 @@ function act(a, t){
       if (ev.members.indexOf(who) < 0) ev.members.push(who);
       var em = [ev.emoji].concat(PARTY);
       for (var k = 0; k < 2; k++) ev.photos.push({id: uid(), by: who, at: Date.now() + k, data: makePhoto(em[Math.floor(Math.random() * em.length)], k)});
-      ev.chat.push({id: uid(), by: who, at: Date.now(), text: '¡Ya subí mis fotos!'});
+      ev.chat.push({id: uid(), by: who, at: Date.now(), text: T('¡Ya subí mis fotos!')});
       save(); render(); toast(who + ' subió 2 fotos');
       break;
     case 'ev-del':
@@ -1409,7 +1418,7 @@ function drawPhoto(x, im, p, i, u, alpha, ev){
   x.drawImage(im, -fw / 2 + 22, -fh / 2 + 22, pw, ph);
   x.fillStyle = '#2B2A6B'; x.textAlign = 'center'; x.textBaseline = 'middle';
   x.font = '700 34px "Bricolage Grotesque",system-ui,sans-serif';
-  x.fillText('de ' + p.by, 0, fh / 2 - 46);
+  x.fillText(T('de {x}', {x: p.by}), 0, fh / 2 - 46);
   x.restore();
   x.globalAlpha = alpha;
   fitText(x, ev.emoji + ' ' + ev.name, VW / 2, 110, VW - 100, 46, 800, '#fff');
@@ -1421,7 +1430,7 @@ function drawOutro(x, ev, n, u, alpha){
   x.globalAlpha = alpha;
   fitText(x, 'Friends Party', VW / 2, VH * 0.42, VW - 100, 100, 800, '#fff');
   fitText(x, ev.name, VW / 2, VH * 0.52, VW - 120, 48, 500, 'rgba(255,255,255,.92)');
-  fitText(x, n + (n === 1 ? ' foto' : ' fotos') + ' de ' + ev.members.length + (ev.members.length === 1 ? ' persona' : ' amigos'), VW / 2, VH * 0.58, VW - 140, 38, 500, 'rgba(255,255,255,.85)');
+  fitText(x, T('{n} {n|foto|fotos} de {m} {m|persona|amigos}', {n: n, m: ev.members.length}), VW / 2, VH * 0.58, VW - 140, 38, 500, 'rgba(255,255,255,.85)');
   x.globalAlpha = 1;
 }
 function drawFrame(x, ims, ps, ev, t){
@@ -1446,7 +1455,7 @@ function stFoot(){
   if (b) { b.disabled = !n; b.textContent = n ? 'Crear video de ' + Math.round(storyDur(n)) + ' segundos' : 'Elige al menos una foto'; }
 }
 function caption(ev){
-  return ev.emoji + ' ' + ev.name + (ev.place ? ' en ' + ev.place : '') + (ev.date ? ' (' + fmtDate(ev.date) + ')' : '') + '\nLas fotos de todos, juntas en Friends Party.\n#FriendsParty';
+  return ev.emoji + ' ' + ev.name + (ev.place ? T(' en {x}', {x: ev.place}) : '') + (ev.date ? ' (' + fmtDate(ev.date) + ')' : '') + '\n' + T('Las fotos de todos, juntas en Friends Party.') + '\n#FriendsParty';
 }
 function renderStory(){
   var el = $('#story'), st = ui.story;
@@ -1707,7 +1716,7 @@ function coverHTML(){
     /* la primera vez solo se ve "Comenzar"; "Iniciar sesión" y "Crear cuenta" aparecen
        al volver a esta misma portada, después del tutorial */
     (S.tourSeen ? '<div class="cv-two"><button class="cv-ghost" data-act="cv-login">Iniciar sesión</button><button class="cv-ghost" data-act="cv-signup">Crear cuenta</button></div>' : '') +
-    '<p class="cv-foot"><span></span>UN MUNDO MÁS DIVERTIDO JUNTOS<span></span></p></div></div>';
+    '<p class="cv-foot"><span></span>UN MUNDO MÁS DIVERTIDO JUNTOS<span></span></p>' + FPI.picker(true) + '</div></div>';
 }
 function renderCover(){
   var el = $('#cover');
@@ -1795,12 +1804,15 @@ function countdown(ev){
 function fmtHour(h){
   if (!h) return '';
   var p = h.split(':').map(Number), hh = p[0] % 12 || 12;
-  return hh + ':' + String(p[1] || 0).padStart(2, '0') + (p[0] < 12 ? ' a. m.' : ' p. m.');
+  var hm = hh + ':' + String(p[1] || 0).padStart(2, '0');
+  if (FPI.lang === 'ko') return (p[0] < 12 ? '오전 ' : '오후 ') + hm;
+  if (FPI.lang === 'en') return hm + (p[0] < 12 ? ' AM' : ' PM');
+  return hm + (p[0] < 12 ? ' a. m.' : ' p. m.');
 }
 function fmtDay(iso){
   if (!iso) return '';
   var p = iso.split('-').map(Number);
-  var s = new Date(p[0], p[1] - 1, p[2]).toLocaleDateString('es', {weekday: 'long', day: 'numeric', month: 'long', year: p[0] !== new Date().getFullYear() ? 'numeric' : undefined});
+  var s = new Date(p[0], p[1] - 1, p[2]).toLocaleDateString(FPI.locale, {weekday: 'long', day: 'numeric', month: 'long', year: p[0] !== new Date().getFullYear() ? 'numeric' : undefined});
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 function norm(ev){
@@ -1819,11 +1831,11 @@ function recipients(ev){
   return ev.members.filter(function(m){ var s = ev.rsvp[m] || 'va'; return s === 'va' || s === 'tal vez'; });
 }
 function seedPlan(){
-  var ev = newEvent({name: 'Asado en la finca', place: 'Finca de Luis', date: isoPlus(5), time: '18:00', notes: 'Cada quien lleva algo para la parrilla.', emoji: '🍻', code: 'ASADO5'});
+  var ev = newEvent({name: T('Asado en la finca'), place: T('Finca de Luis'), date: isoPlus(5), time: '18:00', notes: T('Cada quien lleva algo para la parrilla.'), emoji: '🍻', code: 'ASADO5'});
   ev.members = [S.me, 'Luis', 'Ana'];
   ev.rsvp = {}; ev.rsvp[S.me] = 'va'; ev.rsvp.Luis = 'va'; ev.rsvp.Ana = 'tal vez';
   ev.invites = [{id: uid(), who: 'Marta', via: 'whatsapp', at: Date.now()}];
-  ev.chat = [{id: uid(), by: 'Luis', at: Date.now() - 3600000, text: 'Yo llevo la carne.'}];
+  ev.chat = [{id: uid(), by: 'Luis', at: Date.now() - 3600000, text: T('Yo llevo la carne.')}];
   S.events.push(ev);
 }
 function ensureDemos(){
@@ -1833,16 +1845,16 @@ function ensureDemos(){
 
 /* mensajes */
 function inviteText(ev){
-  var l = ['¡Te invito a "' + ev.name + '"!'];
+  var l = [T('¡Te invito a "{x}"!', {x: ev.name})];
   if (ev.date) l.push('📅 ' + fmtDay(ev.date) + (ev.time ? ', ' + fmtHour(ev.time) : ''));
   if (ev.place) l.push('📍 ' + ev.place);
-  l.push('Únete en Friends Party con el código ' + groupCode() + '.');
+  l.push(T('Únete en Friends Party con el código {c}.', {c: groupCode()}));
   l.push(joinUrl(groupCode()));
   return l.join('\n');
 }
 function remindMsg(ev, k){
-  var head = {d3: 'Faltan 3 días para «' + ev.name + '».', d1: 'Mañana es «' + ev.name + '».', d0: 'Hoy es «' + ev.name + '».'}[k];
-  var when = (ev.date ? fmtDay(ev.date) : '') + (ev.time ? ', ' + fmtHour(ev.time) : '') + (ev.place ? ', en ' + ev.place : '');
+  var head = T({d3: 'Faltan 3 días para «{x}».', d1: 'Mañana es «{x}».', d0: 'Hoy es «{x}».'}[k], {x: ev.name});
+  var when = (ev.date ? fmtDay(ev.date) : '') + (ev.time ? ', ' + fmtHour(ev.time) : '') + (ev.place ? T(', en {x}', {x: ev.place}) : '');
   return head + (when ? ' ' + when + '.' : '');
 }
 function copyText(t, okMsg){
@@ -1878,7 +1890,7 @@ function card(ev){
   var dt = '';
   if (ev.date) {
     var p = ev.date.split('-').map(Number), dd = new Date(p[0], p[1] - 1, p[2]);
-    dt = '<small>' + esc(dd.toLocaleDateString('es', {weekday: 'short'}).replace('.', '')) + '</small><b>' + p[2] + '</b><small>' + esc(dd.toLocaleDateString('es', {month: 'short'}).replace('.', '') + ' ' + p[0]) + '</small>';
+    dt = '<small>' + esc(dd.toLocaleDateString(FPI.locale, {weekday: 'short'}).replace('.', '')) + '</small><b>' + p[2] + '</b><small>' + esc(dd.toLocaleDateString(FPI.locale, {month: 'short'}).replace('.', '') + ' ' + p[0]) + '</small>';
   } else dt = '<small>Sin</small><b>—</b><small>fecha</small>';
   var shown = ev.members.slice(0, 3), more = m - shown.length;
   return '<button class="ecard" data-act="open" data-id="' + ev.id + '">' + cover +
@@ -2054,7 +2066,7 @@ function planAct(a, t){
       ph = ''; mail = '';
       text = inviteText(ev);
       if (a === 'pl-wa') { openLink('https://wa.me/' + ph + '?text=' + encodeURIComponent(text)); }
-      else if (a === 'pl-mail') { openLink('mailto:' + mail + '?subject=' + encodeURIComponent('Te invito a ' + ev.name) + '&body=' + encodeURIComponent(text)); }
+      else if (a === 'pl-mail') { openLink('mailto:' + mail + '?subject=' + encodeURIComponent(T('Te invito a {x}', {x: ev.name})) + '&body=' + encodeURIComponent(text)); }
       if (nm.charAt(0) === '@') {
         SB.sendUserInvite(nm).then(function(r){
           if (!r.ok) { toast(r.msg); return; }
@@ -2121,13 +2133,13 @@ function ensureGroup(){
 /* código real del grupo (del servidor) si ya lo tenemos; si no, el local, de respaldo, solo para no dejar la pantalla vacía */
 function groupCode(){ return S.groupCode || S.group.code; }
 function groupMsg(){
-  return (S.me || 'Un amigo') + ' te invita a su grupo en Friends Party. Aquí planeamos fiestas y guardamos las fotos juntos.\nCódigo del grupo: ' + groupCode() + '.\n' + joinUrl(groupCode());
+  return T('{x} te invita a su grupo en Friends Party. Aquí planeamos fiestas y guardamos las fotos juntos.', {x: S.me || T('Un amigo')}) + '\n' + T('Código del grupo: {c}.', {c: groupCode()}) + '\n' + joinUrl(groupCode());
 }
 function joinUrl(code){ return location.origin + location.pathname + '?join=' + encodeURIComponent(code); }
 function pendingCount(){ return (S.inbox || []).length; }
 function groupSend(via, contact, text){
   if (via === 'whatsapp') openLink('https://wa.me/' + String(contact || '').replace(/\D/g, '') + '?text=' + encodeURIComponent(text));
-  else if (via === 'correo') openLink('mailto:' + (contact || '') + '?subject=' + encodeURIComponent('Te invito a mi grupo en Friends Party') + '&body=' + encodeURIComponent(text));
+  else if (via === 'correo') openLink('mailto:' + (contact || '') + '?subject=' + encodeURIComponent(T('Te invito a mi grupo en Friends Party')) + '&body=' + encodeURIComponent(text));
 }
 function groupChips(){
   var ev = cur();
@@ -2512,11 +2524,11 @@ function seedMusic(){
   var mk = function(t, a, p, who, note, ago){ return {id: uid(), title: t, artist: a, platform: p, url: '', note: note, by: who, at: now - ago, likes: []}; };
   var b = by('JOSE24'), c = by('ASADO5');
   if (b) b.songs = (b.songs || []).concat([
-    mk('Danza Kuduro', 'Don Omar', 'spotify', 'José', 'La bailamos toda la noche.', 7200000),
-    mk('Vivir mi vida', 'Marc Anthony', 'youtube', 'Ana', 'Cuando trajeron el pastel.', 5400000),
+    mk('Danza Kuduro', 'Don Omar', 'spotify', 'José', T('La bailamos toda la noche.'), 7200000),
+    mk('Vivir mi vida', 'Marc Anthony', 'youtube', 'Ana', T('Cuando trajeron el pastel.'), 5400000),
     mk('Suavemente', 'Elvis Crespo', 'apple', 'Luis', '', 3600000)
   ]);
-  if (c) c.songs = (c.songs || []).concat([mk('El Rey', 'Vicente Fernández', 'amazon', 'Luis', 'Para cantar en la finca.', 1800000)]);
+  if (c) c.songs = (c.songs || []).concat([mk('El Rey', 'Vicente Fernández', 'amazon', 'Luis', T('Para cantar en la finca.'), 1800000)]);
   S.seededMusic = true; save();
 }
 function setPlat(k){
@@ -2554,7 +2566,7 @@ function musicView(){
     return '<li class="song"><div class="sg-top"><span class="pf" style="--pc:' + PLAT[sg.platform].c + '">' + PLAT[sg.platform].n + '</span><span>' + esc(ev.emoji + ' ' + ev.name) + '</span></div>' +
       '<div class="sg-t">' + esc(sg.title) + '</div>' + (sg.artist ? '<div class="sg-a">' + esc(sg.artist) + '</div>' : '') +
       (sg.note ? '<p class="sg-n">' + esc(sg.note) + '</p>' : '') +
-      '<div class="sg-b">' + av(sg.by, 26) + '<span class="by2">' + esc(mine ? 'Tú' : sg.by) + ', ' + esc(new Date(sg.at).toLocaleDateString('es', {day: 'numeric', month: 'short'})) + '</span>' +
+      '<div class="sg-b">' + av(sg.by, 26) + '<span class="by2">' + esc(mine ? 'Tú' : sg.by) + ', ' + esc(new Date(sg.at).toLocaleDateString(FPI.locale, {day: 'numeric', month: 'short'})) + '</span>' +
       '<button class="btn small heart" aria-pressed="' + liked + '" aria-label="Me recuerda lo mismo" data-act="mu-like" data-e="' + ev.id + '" data-id="' + sg.id + '">' + I.heart + (sg.likes.length ? ' ' + sg.likes.length : '') + '</button>' +
       '<button class="btn small" data-act="mu-listen" data-e="' + ev.id + '" data-id="' + sg.id + '">' + I.play + ' Escuchar</button>' +
       (mine ? '<button class="link small" data-act="mu-del" data-e="' + ev.id + '" data-id="' + sg.id + '">' + (ui.armed === 's' + sg.id ? 'Toca otra vez' : 'Quitar') + '</button>' : '') +
@@ -2711,7 +2723,7 @@ function placesView(){
   S.events.forEach(function(ev){ if ((ev.place || '').trim()) names[ev.place.trim().toLowerCase()] = 1; exact += ev.photos.filter(function(p){ return p.geo; }).length; });
   var nl = Object.keys(names).length;
   var next = evs.filter(isUpcoming)[0];
-  var nextCard = next ? '<div class="nextev"><div class="muted small">Próximo evento</div><div class="t">' + esc(next.emoji + ' ' + next.name) + '</div><div>' + esc(placeStatus(next)) + (next.date ? ', ' + esc(fmtDay(next.date)) : '') + (next.time ? ', ' + esc(fmtHour(next.time)) : '') + '</div><button class="link" data-act="pc-open" data-id="' + next.id + '">Ver el lugar</button></div>' : '';
+  var nextCard = next ? '<div class="nextev"><div class="muted small">Próximo evento</div><div class="t" data-nt>' + esc(next.emoji + ' ' + next.name) + '</div><div>' + esc(placeStatus(next)) + (next.date ? ', ' + esc(fmtDay(next.date)) : '') + (next.time ? ', ' + esc(fmtHour(next.time)) : '') + '</div><button class="link" data-act="pc-open" data-id="' + next.id + '">Ver el lugar</button></div>' : '';
   var list = evs.length ? '<div class="list" style="padding-bottom:40px">' + evs.map(function(ev){
     var k = ev.photos.filter(function(p){ return p.geo; }).length, n = ev.photos.length;
     return '<button class="card" data-act="pc-open" data-id="' + ev.id + '">' + stack(ev) + '<div class="ct"><div class="t">' + esc(ev.name) + '</div><div class="s">' + esc(placeStatus(ev)) + '</div>' +
@@ -2765,7 +2777,7 @@ function placeView(){
   var ev = S.events.filter(function(e){ return e.id === ui.eid; })[0];
   if (!ev) { ui.view = 'places'; return placesView(); }
   var up = isUpcoming(ev), place = (ev.place || '').trim();
-  var head = '<header class="top"><div class="wrap"><div class="bar1"><button class="ib" data-act="pc-back" aria-label="Volver a lugares">' + I.back + '</button><div class="tt"><div class="ttl">' + esc(ev.emoji + ' ' + ev.name) + '</div><div class="meta"><span>' + I.pin + esc(place || 'Sin lugar escrito') + '</span></div></div></div></div></header>';
+  var head = '<header class="top"><div class="wrap"><div class="bar1"><button class="ib" data-act="pc-back" aria-label="Volver a lugares">' + I.back + '</button><div class="tt"><div class="ttl" data-nt>' + esc(ev.emoji + ' ' + ev.name) + '</div><div class="meta"><span>' + I.pin + esc(place || 'Sin lugar escrito') + '</span></div></div></div></div></header>';
   var sentence = up ? (place ? 'El evento será en ' + place + '.' : 'El lugar del evento está por definir.') : (place ? 'Las fotos de este evento se tomaron en ' + place + '.' : 'Este evento no tiene un lugar escrito.');
   var when = (ev.date ? fmtDay(ev.date) : '') + (ev.time ? ', ' + fmtHour(ev.time) : '');
   var exactBlock = ev.geo
@@ -2849,7 +2861,7 @@ function shareFiles(ev, ps){
   try {
     var files = ps.map(function(p, i){ return new File([dataToBytes(p.data)], photoName(ev, p, i + 1), {type: 'image/jpeg'}); });
     if (navigator.canShare && navigator.canShare({files: files})) {
-      navigator.share({files: files, title: ev.name, text: ev.emoji + ' ' + ev.name + ' en Friends Party'}).catch(function(e){ if (e && e.name !== 'AbortError') shareFail(); });
+      navigator.share({files: files, title: ev.name, text: T('{x} en Friends Party', {x: ev.emoji + ' ' + ev.name})}).catch(function(e){ if (e && e.name !== 'AbortError') shareFail(); });
     } else shareFail();
   } catch (e) { shareFail(); }
 }
@@ -2902,7 +2914,7 @@ function fotosView(){
     var up = Object.keys(seen).length, last = ev.photos.slice().sort(function(a, b){ return b.at - a.at; })[0];
     return '<div class="album"><button class="card" data-act="fo-open" data-id="' + ev.id + '">' + stack(ev) + '<div class="ct"><div class="t">' + esc(ev.name) + '</div>' +
       '<div class="s">' + (n ? n + (n === 1 ? ' foto' : ' fotos') + ' de ' + up + (up === 1 ? ' persona' : ' personas') : 'Sin fotos todavía') + '</div>' +
-      (last ? '<div class="s">Última: ' + esc(last.by === S.me ? 'tú' : last.by) + ', ' + esc(new Date(last.at).toLocaleDateString('es', {day: 'numeric', month: 'short'})) + '</div>' : '') +
+      (last ? '<div class="s">Última: ' + esc(last.by === S.me ? 'tú' : last.by) + ', ' + esc(new Date(last.at).toLocaleDateString(FPI.locale, {day: 'numeric', month: 'short'})) + '</div>' : '') +
       '<div class="chips"><span class="chip">' + ev.members.length + (ev.members.length === 1 ? ' persona lo ve' : ' personas lo ven') + '</span></div></div></button>' +
       '<div class="abar"><button class="btn small primary" data-act="fo-upload" data-id="' + ev.id + '">' + I.image + ' Subir fotos</button><button class="btn small" data-act="fo-open" data-id="' + ev.id + '">Abrir álbum</button></div></div>';
   }).join('') + '</div>' : '<div class="empty"><p><strong>Todavía no tienes eventos.</strong></p><p class="muted">Crea uno y ahí subes las fotos.</p></div>';
@@ -3537,7 +3549,7 @@ function legalBlock(){
     '<li><a class="nm" ' + lnk + ' href="privacy.html" target="_blank" rel="noopener">Política de privacidad</a></li>' +
     '<li><a class="nm" ' + lnk + ' href="terms.html" target="_blank" rel="noopener">Términos de uso</a></li>' +
     '<li><a class="nm" ' + lnk + ' href="mailto:friendspartysupport@gmail.com">Escríbenos<small>friendspartysupport@gmail.com</small></a></li>' +
-    '</ul>';
+    '</ul>' + (FPI.picker() ? '<h3 class="pl-h">Idioma</h3>' + FPI.picker() : '');
 }
 
 /* acciones */
@@ -3932,7 +3944,7 @@ window.addEventListener('resize', function(){ if (ui.ed) edFit(); });
 
 /* ---------- chat: el grupo y cada evento ---------- */
 ui.gdraft = ''; ui.pick = null;
-var PHRASES = ['¡Qué buena estuvo!', 'Mándenme las fotos, por favor', '¿Quién lleva el pastel?', 'Ya llegué', 'Jajaja, buenísima esa foto', '¿A qué hora nos vemos?', 'Cuenten conmigo', 'Gracias por invitarme'];
+var PHRASES = ['¡Qué buena estuvo!', 'Mándenme las fotos, por favor', '¿Quién lleva el pastel?', 'Ya llegué', 'Jajaja, buenísima esa foto', '¿A qué hora nos vemos?', 'Cuenten conmigo', 'Gracias por invitarme'].map(function(p){ return T(p); });
 
 function markRead(id){ S.reads = S.reads || {}; S.reads[id] = Date.now(); }
 function convs(){
@@ -3946,7 +3958,7 @@ function lastAt(c){ var m = c.msgs[c.msgs.length - 1]; return m ? m.at : 0; }
 function whenLbl(at){
   if (!at) return '';
   var d = new Date(at), n = new Date();
-  return d.toDateString() === n.toDateString() ? hhmm(at) : d.toLocaleDateString('es', {day: 'numeric', month: 'short'});
+  return d.toDateString() === n.toDateString() ? hhmm(at) : d.toLocaleDateString(FPI.locale, {day: 'numeric', month: 'short'});
 }
 
 /* burbujas (sirven para el chat del grupo y el de cada evento) */

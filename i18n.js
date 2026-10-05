@@ -1,0 +1,924 @@
+/* ---------- Friends Party: idiomas (español, inglés, coreano) ----------
+   La app está escrita en español. Este archivo la muestra en inglés o coreano sin tocar su lógica:
+   1) D: diccionario de textos fijos, con la frase en español como llave -> [inglés, coreano].
+   2) P: patrones para textos con datos en medio ("3 fotos de 2 personas").
+   3) Un observador revisa lo que la app pinta en pantalla y lo cambia al idioma elegido.
+   4) T('texto {x}', {x: valor}): para textos que no pasan por la pantalla (mensajes para compartir, video).
+   En español no hace nada: la app se ve exactamente igual que antes.
+   Para agregar un texto nuevo: escríbelo en español en index.html y agrega aquí su traducción. */
+(function(){
+'use strict';
+
+var LANGS = ['es', 'en', 'ko'];
+var NAMES = {es: 'Español', en: 'English', ko: '한국어'};
+function detect(){
+  var q = /[?&]lang=(es|en|ko)\b/.exec(location.search);
+  if (q) return q[1];
+  try { var s = localStorage.getItem('fp_lang'); if (LANGS.indexOf(s) >= 0) return s; } catch (e) {}
+  var n = (navigator.languages && navigator.languages[0]) || navigator.language || 'es';
+  n = String(n).toLowerCase().slice(0, 2);
+  return n === 'es' ? 'es' : n === 'ko' ? 'ko' : 'en';
+}
+var lang = detect(), LI = lang === 'en' ? 0 : 1;
+
+/* ---------- 1) textos fijos ---------- */
+var D = {
+  /* íconos de evento */
+  'Fiesta': ['Party', '파티'],
+  'Cumpleaños': ['Birthday', '생일'],
+  'Viaje': ['Trip', '여행'],
+  'Playa': ['Beach', '바다'],
+  'Asado / BBQ': ['BBQ', '바비큐'],
+  'Cena': ['Dinner', '저녁 식사'],
+  'Salida con amigos': ['Night out', '친구 모임'],
+  'Concierto': ['Concert', '콘서트'],
+  'Discoteca / Club': ['Club', '클럽'],
+  'Reunión en casa': ['House party', '홈파티'],
+  'Deportes': ['Sports', '스포츠'],
+  'Graduación': ['Graduation', '졸업'],
+  'Boda / compromiso': ['Wedding / engagement', '결혼 / 약혼'],
+  'Navidad': ['Christmas', '크리스마스'],
+  'Año Nuevo': ['New Year', '새해'],
+  'Reunión / café': ['Meetup / coffee', '모임 / 카페'],
+  'Gaming': ['Gaming', '게임'],
+  'Cine': ['Movies', '영화'],
+  'Otro': ['Other', '기타'],
+
+  /* servidor y avisos generales */
+  'Mi grupo': ['My group', '내 그룹'],
+  'Escribe o escanea un código': ['Type or scan a code', '코드를 입력하거나 스캔하세요'],
+  'Inicia sesión primero': ['Log in first', '먼저 로그인하세요'],
+  'Ese código no existe. Revísalo con quien te invitó.': ['That code doesn\'t exist. Check it with the person who invited you.', '없는 코드예요. 초대한 친구에게 다시 확인해 보세요.'],
+  'No se pudo conectar con el servidor': ['Couldn\'t connect to the server', '서버에 연결하지 못했어요'],
+  'Teléfono registrado para avisos ✅': ['Phone registered for notifications ✅', '알림을 받을 휴대폰이 등록됐어요 ✅'],
+  'No se pudo registrar el teléfono: sin conexión': ['Couldn\'t register the phone: no connection', '휴대폰을 등록하지 못했어요: 연결 없음'],
+  'Esa eres tú': ['That\'s you', '본인이에요'],
+  'No se pudo enviar la invitación. Intenta de nuevo.': ['Couldn\'t send the invite. Try again.', '초대를 보내지 못했어요. 다시 시도해 주세요.'],
+  'Alguien': ['Someone', '누군가'],
+  'sin conexión': ['no connection', '연결 없음'],
+  'No se pudo conectar con el servidor. Sigue guardado en tu teléfono; lo intentaremos de nuevo.': ['Couldn\'t connect to the server. It\'s still saved on your phone; we\'ll try again.', '서버에 연결하지 못했어요. 휴대폰에는 저장되어 있고, 다시 시도할게요.'],
+  'No se pudo guardar este evento en el servidor. Sigue en tu teléfono; lo intentaremos de nuevo.': ['Couldn\'t save this event to the server. It\'s still on your phone; we\'ll try again.', '이 이벤트를 서버에 저장하지 못했어요. 휴대폰에는 남아 있고, 다시 시도할게요.'],
+  'No se pudo subir esta foto al servidor. Sigue guardada en tu teléfono; lo intentaremos de nuevo.': ['Couldn\'t upload this photo to the server. It\'s still saved on your phone; we\'ll try again.', '이 사진을 서버에 올리지 못했어요. 휴대폰에는 저장되어 있고, 다시 시도할게요.'],
+  'No se pudo conectar con el servidor. Lo intentaremos de nuevo.': ['Couldn\'t connect to the server. We\'ll try again.', '서버에 연결하지 못했어요. 다시 시도할게요.'],
+
+  /* evento: pestañas, visor de fotos, acciones */
+  'Plan': ['Plan', '계획'],
+  'Fotos': ['Photos', '사진'],
+  'Chat': ['Chat', '채팅'],
+  'Tú': ['You', '나'],
+  'tú': ['you', '나'],
+  '(tú)': ['(you)', '(나)'],
+  '¿Eliminar?': ['Delete?', '삭제할까요?'],
+  'Eliminar': ['Delete', '삭제'],
+  '⚑ Reportar': ['⚑ Report', '⚑ 신고'],
+  'Reportar': ['Report', '신고'],
+  'Guardar': ['Save', '저장'],
+  'Editar': ['Edit', '편집'],
+  'Compartir': ['Share', '공유'],
+  'Al chat': ['To chat', '채팅으로'],
+  'Invitar amigos': ['Invite friends', '친구 초대'],
+  'Guardar fotos no está disponible en esta vista.': ['Saving photos isn\'t available in this view.', '이 화면에서는 사진을 저장할 수 없어요.'],
+  'No se pudo guardar el archivo': ['Couldn\'t save the file', '파일을 저장하지 못했어요'],
+  'Foto guardada': ['Photo saved', '사진을 저장했어요'],
+  'Fotos guardadas': ['Photos saved', '사진을 저장했어요'],
+  'Escribe tu nombre para continuar': ['Enter your name to continue', '계속하려면 이름을 입력하세요'],
+  'Ponle un nombre al evento': ['Give the event a name', '이벤트 이름을 입력하세요'],
+  'Cambios guardados': ['Changes saved', '변경 내용을 저장했어요'],
+  'Foto compartida en el chat': ['Photo shared in the chat', '채팅에 사진을 공유했어요'],
+  'Foto eliminada': ['Photo deleted', '삭제된 사진'],
+  'Invitación copiada': ['Invite copied', '초대 메시지를 복사했어요'],
+  'Evento eliminado': ['Event deleted', '이벤트를 삭제했어요'],
+  'Subiendo fotos…': ['Uploading photos…', '사진 올리는 중…'],
+  'No se pudo leer esa imagen': ['Couldn\'t read that image', '이미지를 읽지 못했어요'],
+  '1 foto subida': ['1 photo uploaded', '사진 1장을 올렸어요'],
+  'Enviar una foto': ['Send a photo', '사진 보내기'],
+  'Escribe un mensaje': ['Write a message', '메시지 입력'],
+  'Mensaje': ['Message', '메시지'],
+  'Enviar': ['Send', '보내기'],
+  'Volver a eventos': ['Back to events', '이벤트로 돌아가기'],
+  'Cerrar': ['Close', '닫기'],
+  'Foto anterior': ['Previous photo', '이전 사진'],
+  'Foto siguiente': ['Next photo', '다음 사진'],
+
+  /* historias con música */
+  'Relajado': ['Chill', '잔잔하게'],
+  'Romántico': ['Romantic', '로맨틱'],
+  'Sin música': ['No music', '음악 없음'],
+  'Crea una historia con música': ['Make a story with music', '음악과 함께 스토리 만들기'],
+  'Un video con las fotos del evento, listo para publicar.': ['A video with the event\'s photos, ready to post.', '이벤트 사진으로 만든 영상, 바로 올릴 수 있어요.'],
+  'Elige al menos una foto': ['Pick at least one photo', '사진을 한 장 이상 골라 주세요'],
+  'Crear historia': ['Create story', '스토리 만들기'],
+  'Quitar todas': ['Clear all', '모두 해제'],
+  'Música': ['Music', '음악'],
+  'Escuchar muestra': ['Play sample', '미리 듣기'],
+  'Detener muestra': ['Stop sample', '미리 듣기 중지'],
+  'Preparando…': ['Preparing…', '준비 중…'],
+  'Tu historia se crea en tiempo real. Mantén esta pantalla abierta.': ['Your story is created in real time. Keep this screen open.', '스토리는 실시간으로 만들어져요. 이 화면을 켜 두세요.'],
+  'Cancelar': ['Cancel', '취소'],
+  'Guardar no está disponible en esta vista.': ['Saving isn\'t available in this view.', '이 화면에서는 저장할 수 없어요.'],
+  'Guardar video': ['Save video', '영상 저장'],
+  'Compartir en redes': ['Share to social', 'SNS에 공유'],
+  'Copiar texto para la publicación': ['Copy caption for the post', '게시글 문구 복사'],
+  'Hacer otra historia': ['Make another story', '스토리 하나 더 만들기'],
+  'La vista previa no se puede mostrar aquí, pero el video está listo para guardar.': ['The preview can\'t be shown here, but the video is ready to save.', '여기서는 미리보기를 볼 수 없지만, 영상은 저장할 준비가 됐어요.'],
+  'Elegiste crear el video sin música': ['You chose to make the video without music', '음악 없이 영상을 만들기로 했어요'],
+  'Este navegador no puede reproducir la muestra': ['This browser can\'t play the sample', '이 브라우저에서는 미리 듣기를 할 수 없어요'],
+  'Este navegador no puede crear videos': ['This browser can\'t create videos', '이 브라우저에서는 영상을 만들 수 없어요'],
+  'No se pudieron leer las fotos': ['Couldn\'t read the photos', '사진을 읽지 못했어요'],
+  'No se pudo iniciar la grabación': ['Couldn\'t start recording', '녹화를 시작하지 못했어요'],
+  'No se pudo crear el video': ['Couldn\'t create the video', '영상을 만들지 못했어요'],
+  'Video guardado': ['Video saved', '영상을 저장했어요'],
+  'No se pudo compartir. Guarda el video y súbelo desde la app.': ['Couldn\'t share. Save the video and upload it from the app.', '공유하지 못했어요. 영상을 저장한 뒤 앱에서 올려 주세요.'],
+  'Compartir no está disponible aquí. Guarda el video y súbelo desde la app.': ['Sharing isn\'t available here. Save the video and upload it from the app.', '여기서는 공유할 수 없어요. 영상을 저장한 뒤 앱에서 올려 주세요.'],
+  'Texto copiado': ['Text copied', '문구를 복사했어요'],
+  'No se pudo copiar el texto': ['Couldn\'t copy the text', '문구를 복사하지 못했어요'],
+
+  /* portada y menú */
+  'Eventos': ['Events', '이벤트'],
+  'Invitaciones': ['Invites', '초대'],
+  'Lugares': ['Places', '장소'],
+  'Tienda': ['Shop', '스토어'],
+  'Más que eventos,': ['More than events,', '이벤트 그 이상,'],
+  'mejores historias': ['better stories', '더 멋진 이야기'],
+  'GENTE · PLANES · FIESTAS · SIEMPRE JUNTOS': ['PEOPLE · PLANS · PARTIES · ALWAYS TOGETHER', '사람 · 계획 · 파티 · 언제나 함께'],
+  'La fiesta': ['The party', '파티는'],
+  'empieza': ['starts', '바로'],
+  'aquí': ['here', '여기서'],
+  'Descubre eventos, conecta con amigos y vive experiencias inolvidables.': ['Discover events, connect with friends and live unforgettable moments.', '이벤트를 찾고, 친구들과 이어지고, 잊지 못할 순간을 만들어 보세요.'],
+  'Comenzar': ['Get started', '시작하기'],
+  'Iniciar sesión': ['Log in', '로그인'],
+  'Crear cuenta': ['Sign up', '가입하기'],
+  'UN MUNDO MÁS DIVERTIDO JUNTOS': ['A MORE FUN WORLD TOGETHER', '함께라서 더 즐거운 세상'],
+  'Todavía no hay una cuenta en este teléfono. Toca «Crear cuenta» para empezar.': ['There\'s no account on this phone yet. Tap "Sign up" to get started.', '이 휴대폰에는 아직 계정이 없어요. "가입하기"를 눌러 시작하세요.'],
+  'Secciones': ['Sections', '메뉴'],
+
+  /* tutorial */
+  'Crea tu primer evento': ['Create your first event', '첫 이벤트를 만들어 보세요'],
+  'Ponle nombre, fecha y lugar. En segundos tienes un espacio para tu fiesta.': ['Give it a name, date and place. In seconds you have a space for your party.', '이름, 날짜, 장소만 정하면 돼요. 몇 초 만에 파티 공간이 생겨요.'],
+  'Invita a tus amigos': ['Invite your friends', '친구를 초대하세요'],
+  'Comparte el código o muéstrales el QR desde Invitaciones. Al escanearlo con la cámara, ya son parte del grupo.': ['Share the code or show them the QR from Invites. Once they scan it with the camera, they\'re part of the group.', '초대 메뉴에서 코드를 공유하거나 QR을 보여 주세요. 카메라로 스캔하면 바로 그룹에 들어와요.'],
+  'Todos suben sus fotos': ['Everyone uploads their photos', '모두가 사진을 올려요'],
+  'Cada quien sube las que tomó. Se guardan juntas, en un solo álbum del evento.': ['Everyone uploads the ones they took. They\'re kept together in a single event album.', '각자 찍은 사진을 올리면 이벤트 앨범 하나에 함께 모여요.'],
+  'Comparte o descarga el álbum': ['Share or download the album', '앨범을 공유하거나 내려받으세요'],
+  'Bájalas a tu teléfono o compártelas directo a tus redes cuando quieras.': ['Save them to your phone or share them straight to your socials whenever you like.', '언제든 휴대폰에 저장하거나 SNS에 바로 공유할 수 있어요.'],
+  'Tu perfil': ['Your profile', '내 프로필'],
+  'Ahí ves tus propios eventos, tus fotos, y quién te sigue.': ['There you see your own events, your photos, and who follows you.', '내 이벤트와 사진, 나를 팔로우하는 사람을 볼 수 있어요.'],
+  'Tu estatus de fiesta': ['Your party status', '나의 파티 등급'],
+  'Cada evento al que vas y en el que subes fotos te sube de nivel, tú solo: de Party Rookie a Party Icon. Tu trofeo aparece en tu perfil.': ['Every event you attend and upload photos to levels you up automatically: from Party Rookie to Party Icon. Your trophy shows on your profile.', '이벤트에 참석하고 사진을 올릴 때마다 등급이 자동으로 올라가요. Party Rookie부터 Party Icon까지! 트로피는 프로필에 표시돼요.'],
+  'Empezar': ['Start', '시작'],
+  'Siguiente': ['Next', '다음'],
+  'Anterior': ['Previous', '이전'],
+
+  /* inicio, tarjetas y plan */
+  'Es mañana': ['It\'s tomorrow', '내일이에요'],
+  'Es hoy': ['It\'s today', '오늘이에요'],
+  'Fue ayer': ['It was yesterday', '어제였어요'],
+  'Faltan 3 días': ['3 days to go', '3일 남았어요'],
+  'No se pudo copiar': ['Couldn\'t copy', '복사하지 못했어요'],
+  'Sin': ['No', '날짜'],
+  'fecha': ['date', '미정'],
+  'Eventos que te unen': ['Events that bring you together', '우리를 이어 주는 이벤트'],
+  'Todavía no tienes eventos.': ['You don\'t have any events yet.', '아직 이벤트가 없어요.'],
+  'Crea uno y comparte su código con tus amigos.': ['Create one and share its code with your friends.', '하나 만들어서 친구들에게 코드를 공유해 보세요.'],
+  'Nuevo evento': ['New event', '새 이벤트'],
+  'Sin fecha': ['No date', '날짜 미정'],
+  'Faltan': ['Coming up in', '남은 기간'],
+  '¿Vas a ir?': ['Are you going?', '참석하시나요?'],
+  'Tu respuesta': ['Your answer', '내 응답'],
+  'Voy': ['Going', '갈게요'],
+  'Tal vez': ['Maybe', '미정'],
+  'No voy': ['Not going', '못 가요'],
+  'Va': ['Going', '참석'],
+  'No va': ['Not going', '불참'],
+  'va': ['going', '참석'],
+  'tal vez': ['maybe', '미정'],
+  'no va': ['not going', '불참'],
+  'Personas': ['People', '참석자'],
+  'Sin responder': ['No reply yet', '미응답'],
+  'Recordatorios': ['Reminders', '리마인더'],
+  '3 días antes': ['3 days before', '3일 전'],
+  '1 día antes': ['1 day before', '1일 전'],
+  'El mismo día': ['Same day', '당일'],
+  'Ver cómo llegan los avisos': ['See how reminders arrive', '알림이 어떻게 오는지 보기'],
+  'Editar evento': ['Edit event', '이벤트 편집'],
+  'Toca otra vez para eliminar': ['Tap again to delete', '삭제하려면 한 번 더 누르세요'],
+  'Eliminar evento': ['Delete event', '이벤트 삭제'],
+  'Invitar a un amigo': ['Invite a friend', '친구 초대하기'],
+  'Que tu amigo escanee este código con la cámara. Al entrar, ve este evento y los demás de tu grupo.': ['Have your friend scan this code with their camera. Once in, they\'ll see this event and the rest of your group\'s.', '친구가 카메라로 이 코드를 스캔하면 돼요. 들어오면 이 이벤트와 그룹의 다른 이벤트도 볼 수 있어요.'],
+  'Generando…': ['Generating…', '만드는 중…'],
+  'Invitar por usuario': ['Invite by username', '사용자 이름으로 초대'],
+  'Usuario de Friends Party': ['Friends Party username', 'Friends Party 사용자 이름'],
+  '@usuario': ['@username', '@사용자이름'],
+  'Invitar': ['Invite', '초대'],
+  'Así llegan los avisos': ['How reminders arrive', '알림은 이렇게 와요'],
+  'No tienes avisos activos.': ['You have no active reminders.', '켜져 있는 알림이 없어요.'],
+  'nadie todavía': ['no one yet', '아직 없음'],
+  'Los avisos aparecen arriba en la pantalla de inicio. Si activas las notificaciones, también te llegan al teléfono.': ['Reminders appear at the top of the home screen. If you turn on notifications, you\'ll also get them on your phone.', '알림은 홈 화면 위쪽에 표시돼요. 알림을 켜면 휴대폰으로도 받을 수 있어요.'],
+  'Entendido': ['Got it', '확인'],
+  '¿Cómo te llamas?': ['What\'s your name?', '이름이 뭐예요?'],
+  'Tus amigos verán este nombre junto a tus fotos y mensajes.': ['Your friends will see this name next to your photos and messages.', '친구들에게 사진과 메시지 옆에 이 이름이 표시돼요.'],
+  'Continuar': ['Continue', '계속'],
+  'Tu nombre': ['Your name', '이름'],
+  'Nombre': ['Name', '이름'],
+  'Fecha': ['Date', '날짜'],
+  'Hora': ['Time', '시간'],
+  'Lugar': ['Place', '장소'],
+  'Detalles (opcional)': ['Details (optional)', '상세 내용 (선택)'],
+  'Ícono': ['Icon', '아이콘'],
+  'Elige un ícono': ['Choose an icon', '아이콘 선택'],
+  'Guardar cambios': ['Save changes', '변경 내용 저장'],
+  'Crear evento': ['Create event', '이벤트 만들기'],
+  'Asado en la finca': ['BBQ at the farm', '농장 바비큐 파티'],
+  'Casa de José, restaurante, parque…': ['José\'s place, restaurant, park…', '친구 집, 식당, 공원…'],
+  'Qué llevar, cómo llegar…': ['What to bring, how to get there…', '준비물, 오는 길…'],
+  'Mensaje copiado': ['Message copied', '메시지를 복사했어요'],
+  'Escribe el usuario de tu amigo': ['Enter your friend\'s username', '친구의 사용자 이름을 입력하세요'],
+  'No hay invitaciones sin responder': ['There are no unanswered invites', '응답을 기다리는 초대가 없어요'],
+  'Mi perfil': ['My profile', '내 프로필'],
+  'WhatsApp': ['WhatsApp', 'WhatsApp'],
+  'correo': ['email', '이메일'],
+  'la app': ['the app', '앱'],
+
+  /* invitaciones y grupo */
+  'De tu grupo (toca para invitar)': ['From your group (tap to invite)', '내 그룹 (눌러서 초대)'],
+  'Te invitó a su grupo': ['Invited you to their group', '그룹에 초대했어요'],
+  'Aceptar': ['Accept', '수락'],
+  'Rechazar': ['Decline', '거절'],
+  'En el grupo': ['In the group', '그룹 멤버'],
+  'Aún no tienes a nadie en tu grupo.': ['You don\'t have anyone in your group yet.', '아직 그룹에 아무도 없어요.'],
+  'Reenviar': ['Resend', '다시 보내기'],
+  'No hay invitaciones pendientes.': ['There are no pending invites.', '대기 중인 초대가 없어요.'],
+  'No hay invitaciones pendientes': ['There are no pending invites', '대기 중인 초대가 없어요'],
+  'Tu grupo de la party': ['Your party group', '나의 파티 그룹'],
+  'Comparte tu grupo': ['Share your group', '내 그룹 공유하기'],
+  'Que tu amigo escanee este código con la cámara para unirse. Al entrar, ve tus eventos y fotos.': ['Have your friend scan this code with their camera to join. Once in, they\'ll see your events and photos.', '친구가 카메라로 이 코드를 스캔하면 참여할 수 있어요. 들어오면 내 이벤트와 사진을 볼 수 있어요.'],
+  'Otras formas de compartir': ['Other ways to share', '다른 방법으로 공유'],
+  'Copiar invitación': ['Copy invite', '초대 메시지 복사'],
+  'Usuario de Friends Party (o el nombre)': ['Friends Party username (or name)', 'Friends Party 사용자 이름 (또는 이름)'],
+  '@usuario o Ana': ['@username or Ana', '@사용자이름 또는 이름'],
+  'WhatsApp (con código de país)': ['WhatsApp (with country code)', 'WhatsApp (국가 번호 포함)'],
+  'Correo': ['Email', '이메일'],
+  'ana@correo.com': ['ana@email.com', 'ana@email.com'],
+  'tu@correo.com': ['you@email.com', 'you@email.com'],
+  'En la app': ['In the app', '앱에서'],
+  '«En la app» le llega a tu amigo dentro de Friends Party si ya la tiene descargada. Si WhatsApp o el correo no se abren, copia el mensaje y pégalo ahí.': ['"In the app" reaches your friend inside Friends Party if they already have it. If WhatsApp or email doesn\'t open, copy the message and paste it there.', '"앱에서"는 친구가 이미 Friends Party를 설치했다면 앱 안으로 전달돼요. WhatsApp이나 이메일이 열리지 않으면 메시지를 복사해서 붙여 넣으세요.'],
+  '¿Tienes un código?': ['Have a code?', '코드가 있나요?'],
+  'Si un amigo te compartió un código o un QR, únete aquí y verás sus fotos y eventos.': ['If a friend shared a code or QR with you, join here and you\'ll see their photos and events.', '친구가 코드나 QR을 공유했다면 여기서 참여하세요. 친구의 사진과 이벤트를 볼 수 있어요.'],
+  'Unirme con un código': ['Join with a code', '코드로 참여하기'],
+  'Escribe el nombre de tu amigo': ['Enter your friend\'s name', '친구 이름을 입력하세요'],
+  'Revisa el correo': ['Check the email address', '이메일 주소를 확인하세요'],
+  '1 amigo aceptó y ya está en tu grupo': ['1 friend accepted and is now in your group', '친구 1명이 수락해서 그룹에 들어왔어요'],
+  'Volver al inicio': ['Back to home', '홈으로 돌아가기'],
+  'Un amigo': ['A friend', '친구'],
+
+  /* compras y avisos del teléfono */
+  'No se pudo completar la compra': ['Couldn\'t complete the purchase', '구매를 완료하지 못했어요'],
+  'No encontramos compras para restaurar': ['We found no purchases to restore', '복원할 구매 내역이 없어요'],
+  'Conecta tu cuenta para guardar la compra': ['Connect your account to save the purchase', '구매를 저장하려면 계정을 연결하세요'],
+  'No pudimos confirmar la compra con Apple. Intenta de nuevo en un momento.': ['We couldn\'t confirm the purchase with Apple. Try again in a moment.', 'Apple에서 구매를 확인하지 못했어요. 잠시 후 다시 시도해 주세요.'],
+  'Tus compras ya están de vuelta': ['Your purchases are back', '구매 항목을 복원했어요'],
+  '¡Listo! Ya puedes disfrutarlo.': ['Done! Enjoy it.', '완료! 이제 사용할 수 있어요.'],
+  'Los avisos están apagados. Actívalos en Ajustes del iPhone → Friends Party → Notificaciones': ['Notifications are off. Turn them on in iPhone Settings → Friends Party → Notifications', '알림이 꺼져 있어요. iPhone 설정 → Friends Party → 알림에서 켜 주세요'],
+  'Permiso concedido, registrando tu teléfono…': ['Permission granted, registering your phone…', '권한이 허용됐어요. 휴대폰 등록 중…'],
+  'El teléfono no recibió su identificador de Apple. Revisa que tenga internet y vuelve a intentar': ['The phone didn\'t get its Apple identifier. Check your internet and try again', '휴대폰이 Apple 식별자를 받지 못했어요. 인터넷 연결을 확인하고 다시 시도해 주세요'],
+  'Conecta tu cuenta': ['Connect your account', '계정 연결하기'],
+  'Conectar tu cuenta': ['Connect your account', '계정 연결하기'],
+  'Tu cuenta hoy vive solo en este teléfono. Para recibir invitaciones y avisos, conéctala al servidor con tu correo y contraseña.': ['Right now your account lives only on this phone. To get invites and notifications, connect it to the server with your email and password.', '지금은 계정이 이 휴대폰에만 있어요. 초대와 알림을 받으려면 이메일과 비밀번호로 서버에 연결하세요.'],
+  'Contraseña': ['Password', '비밀번호'],
+  'Tu contraseña': ['Your password', '비밀번호'],
+  'Conectar': ['Connect', '연결'],
+  'Ahora no': ['Not now', '나중에'],
+  '¿Quieres que te avisemos?': ['Want us to notify you?', '알림을 받으시겠어요?'],
+  'Avisos': ['Notifications', '알림'],
+  'Te mandamos una notificación cuando un amigo te invite a su grupo o a un evento, para que no se te pase.': ['We\'ll send you a notification when a friend invites you to their group or an event, so you don\'t miss it.', '친구가 그룹이나 이벤트에 초대하면 놓치지 않도록 알림을 보내 드려요.'],
+  'Activar avisos': ['Turn on notifications', '알림 켜기'],
+
+  /* unirse con código o QR */
+  '¡Listo! Ya eres parte de ese evento.': ['Done! You\'re now part of that event.', '완료! 이제 이 이벤트의 멤버예요.'],
+  '¡Listo! Ya eres parte del grupo.': ['Done! You\'re now part of the group.', '완료! 이제 그룹의 멤버예요.'],
+  'No se pudo unir': ['Couldn\'t join', '참여하지 못했어요'],
+  'Entrando…': ['Joining…', '참여하는 중…'],
+  'Código': ['Code', '코드'],
+  'Ej. 7ed556c7': ['E.g. 7ed556c7', '예: 7ed556c7'],
+  'Unirme': ['Join', '참여'],
+  '📷 Escanear código QR': ['📷 Scan QR code', '📷 QR 코드 스캔'],
+  'Pide a tu amigo su código (lo ve en Invitaciones, o al abrir un evento) o que te muestre el QR.': ['Ask your friend for their code (they\'ll find it in Invites, or when opening an event) or to show you the QR.', '친구에게 코드를 물어보거나(초대 메뉴나 이벤트 화면에 있어요) QR을 보여 달라고 하세요.'],
+  'Código QR': ['QR code', 'QR 코드'],
+  'No se pudo generar el QR. Usa el código de abajo.': ['Couldn\'t generate the QR. Use the code below.', 'QR을 만들지 못했어요. 아래 코드를 사용하세요.'],
+  'Escribe tu correo y tu contraseña': ['Enter your email and password', '이메일과 비밀번호를 입력하세요'],
+  'Conectando…': ['Connecting…', '연결 중…'],
+  'El correo o la contraseña no coinciden': ['The email or password doesn\'t match', '이메일 또는 비밀번호가 맞지 않아요'],
+  'Cuenta conectada ✅': ['Account connected ✅', '계정이 연결됐어요 ✅'],
+  'No se pudo aceptar. Intenta de nuevo.': ['Couldn\'t accept. Try again.', '수락하지 못했어요. 다시 시도해 주세요.'],
+  'Invitación rechazada': ['Invite declined', '초대를 거절했어요'],
+  'Leyendo el código…': ['Reading the code…', '코드 읽는 중…'],
+  'No se pudo leer ese QR. Intenta con otra foto o escribe el código.': ['Couldn\'t read that QR. Try another photo or type the code.', 'QR을 읽지 못했어요. 다른 사진으로 시도하거나 코드를 입력하세요.'],
+
+  /* música del evento */
+  'Música del evento': ['Event music', '이벤트 음악'],
+  '1 canción compartida.': ['1 song shared.', '공유된 노래 1곡.'],
+  'Aún nadie compartió una canción.': ['No one has shared a song yet.', '아직 공유된 노래가 없어요.'],
+  'Ver canciones': ['See songs', '노래 보기'],
+  'Compartir una canción': ['Share a song', '노래 공유하기'],
+  '¿De qué evento te acuerdas?': ['Which event does it remind you of?', '어떤 이벤트가 떠오르나요?'],
+  'Canción': ['Song', '노래'],
+  'Nombre de la canción': ['Song title', '노래 제목'],
+  'Artista (opcional)': ['Artist (optional)', '아티스트 (선택)'],
+  'Artista o grupo': ['Artist or band', '아티스트 또는 그룹'],
+  'Dónde la escuchas': ['Where you listen to it', '듣는 곳'],
+  'Enlace (opcional)': ['Link (optional)', '링크 (선택)'],
+  'Pega aquí el enlace de la canción': ['Paste the song link here', '노래 링크를 여기에 붙여 넣으세요'],
+  '¿Por qué te recuerda esa fiesta? (opcional)': ['Why does it remind you of that party? (optional)', '왜 그 파티가 떠오르나요? (선택)'],
+  'Sonaba cuando…': ['It was playing when…', '이 노래가 나올 때…'],
+  'Compartir canción': ['Share song', '노래 공유'],
+  'Crea un evento primero para compartir canciones.': ['Create an event first to share songs.', '노래를 공유하려면 먼저 이벤트를 만드세요.'],
+  'Todos': ['All', '전체'],
+  'Toca otra vez': ['Tap again', '한 번 더 누르세요'],
+  'Quitar': ['Remove', '삭제'],
+  'Escuchar': ['Listen', '듣기'],
+  'Me recuerda lo mismo': ['Reminds me of the same', '나도 같은 기억이에요'],
+  'Todavía no hay canciones aquí.': ['There are no songs here yet.', '아직 노래가 없어요.'],
+  'Comparte la primera que te recuerde una fiesta.': ['Share the first one that reminds you of a party.', '파티가 떠오르는 첫 곡을 공유해 보세요.'],
+  'Las canciones que te recuerdan cada fiesta': ['The songs that remind you of each party', '파티마다 떠오르는 노래'],
+  'Comparte una canción': ['Share a song', '노래 공유하기'],
+  'Canciones del grupo': ['Group songs', '그룹의 노래'],
+  'Escribe primero el nombre de la canción': ['Type the song title first', '먼저 노래 제목을 입력하세요'],
+  'Elige un evento': ['Choose an event', '이벤트를 선택하세요'],
+  'Escribe el nombre de la canción': ['Enter the song title', '노래 제목을 입력하세요'],
+  'El enlace debe empezar con https://': ['The link must start with https://', '링크는 https://로 시작해야 해요'],
+  'Canción quitada': ['Song removed', '노래를 삭제했어요'],
+
+  /* lugares */
+  'Ubicación': ['Location', '위치'],
+  'Este dispositivo no permite obtener la ubicación aquí': ['This device can\'t get your location here', '이 기기에서는 여기서 위치를 가져올 수 없어요'],
+  'Buscando tu ubicación…': ['Finding your location…', '현재 위치 찾는 중…'],
+  'No se pudo obtener tu ubicación. Pega el enlace o las coordenadas.': ['Couldn\'t get your location. Paste the link or the coordinates.', '위치를 가져오지 못했어요. 링크나 좌표를 붙여 넣으세요.'],
+  'Lugar por definir': ['Place to be decided', '장소 미정'],
+  'Fotos sin lugar escrito': ['Photos with no place written', '장소가 입력되지 않은 사진'],
+  'Sin lugar escrito': ['No place written', '장소 없음'],
+  'Próximo evento': ['Next event', '다음 이벤트'],
+  'Ver el lugar': ['See the place', '장소 보기'],
+  'Ubicación guardada': ['Location saved', '위치 저장됨'],
+  'Sin ubicación exacta': ['No exact location', '정확한 위치 없음'],
+  'Crea uno y escribe dónde será.': ['Create one and write where it will be.', '하나 만들고 장소를 적어 보세요.'],
+  'Dónde será y dónde se tomaron las fotos': ['Where it will be and where the photos were taken', '이벤트 장소와 사진을 찍은 곳'],
+  'El lugar del evento está por definir.': ['The event\'s place is still to be decided.', '이벤트 장소는 아직 정해지지 않았어요.'],
+  'Este evento no tiene un lugar escrito.': ['This event has no place written.', '이 이벤트에는 장소가 적혀 있지 않아요.'],
+  'Ejemplo': ['Example', '예시'],
+  'Todavía no guardas la ubicación exacta.': ['You haven\'t saved the exact location yet.', '아직 정확한 위치를 저장하지 않았어요.'],
+  'Cambiar la ubicación': ['Change the location', '위치 변경'],
+  'Guardar la ubicación exacta': ['Save the exact location', '정확한 위치 저장'],
+  'Usar mi ubicación actual': ['Use my current location', '현재 위치 사용'],
+  'Pega el enlace del mapa o las coordenadas': ['Paste the map link or the coordinates', '지도 링크 또는 좌표 붙여 넣기'],
+  'Guardar ubicación': ['Save location', '위치 저장'],
+  'Busca el lugar en el mapa, toca «Compartir» y copia el enlace largo. Si solo te da un enlace corto, mantén presionado el punto en el mapa para copiar las coordenadas.': ['Find the place on the map, tap "Share" and copy the long link. If you only get a short link, press and hold the spot on the map to copy the coordinates.', '지도에서 장소를 찾아 "공유"를 누르고 긴 링크를 복사하세요. 짧은 링크만 나온다면 지도에서 해당 지점을 길게 눌러 좌표를 복사하세요.'],
+  'Quitar la ubicación exacta': ['Remove the exact location', '정확한 위치 삭제'],
+  'Plano del evento': ['Event map', '이벤트 약도'],
+  'Pin rosa: el evento. Puntos verdes: fotos con ubicación exacta (tócalos para verlas). Es un plano sin calles: el mapa completo llega con la versión real.': ['Pink pin: the event. Green dots: photos with an exact location (tap them to see them). It\'s a map without streets: the full map comes with the real version.', '분홍 핀: 이벤트. 초록 점: 정확한 위치가 있는 사진(누르면 볼 수 있어요). 도로가 없는 약도이고, 전체 지도는 정식 버전에서 제공돼요.'],
+  'Guarda la ubicación del evento o de alguna foto y aquí aparece el plano.': ['Save the location of the event or of a photo and the map appears here.', '이벤트나 사진의 위치를 저장하면 여기에 약도가 나타나요.'],
+  'Plano con la ubicación del evento y de las fotos': ['Map with the location of the event and the photos', '이벤트와 사진 위치가 표시된 약도'],
+  'Dónde se tomó cada foto': ['Where each photo was taken', '사진을 찍은 곳'],
+  'Toca una foto para indicar su ubicación exacta. Las que no la tienen se consideran tomadas en el lugar del evento.': ['Tap a photo to set its exact location. Photos without one are considered taken at the event\'s place.', '사진을 눌러 정확한 위치를 지정하세요. 위치가 없는 사진은 이벤트 장소에서 찍은 것으로 봐요.'],
+  'Ubicación exacta del evento': ['Exact location of the event', '이벤트의 정확한 위치'],
+  'Ubicación de la foto': ['Photo location', '사진 위치'],
+  'En el lugar del evento': ['At the event\'s place', '이벤트 장소'],
+  'Ubicación exacta guardada': ['Exact location saved', '정확한 위치 저장됨'],
+  'Usar la ubicación del evento': ['Use the event\'s location', '이벤트 위치 사용'],
+  'No encontré coordenadas. Pega el enlace largo del mapa o algo como 14.6407, -90.5133': ['No coordinates found. Paste the long map link or something like 14.6407, -90.5133', '좌표를 찾지 못했어요. 지도의 긴 링크나 14.6407, -90.5133 같은 좌표를 붙여 넣으세요'],
+  'Ese es un enlace corto. Ábrelo y copia el enlace largo, o mantén presionado el punto para copiar las coordenadas.': ['That\'s a short link. Open it and copy the long link, or press and hold the spot to copy the coordinates.', '짧은 링크예요. 링크를 열어 긴 링크를 복사하거나, 지점을 길게 눌러 좌표를 복사하세요.'],
+  'Ubicación del evento guardada': ['Event location saved', '이벤트 위치를 저장했어요'],
+  'Ubicación de la foto guardada': ['Photo location saved', '사진 위치를 저장했어요'],
+  'Ubicación quitada': ['Location removed', '위치를 삭제했어요'],
+  'Abriendo Google Maps. Copia el enlace o las coordenadas y pégalos aquí.': ['Opening Google Maps. Copy the link or the coordinates and paste them here.', 'Google 지도를 여는 중이에요. 링크나 좌표를 복사해서 여기에 붙여 넣으세요.'],
+  'Volver a lugares': ['Back to places', '장소로 돌아가기'],
+
+  /* fotos y álbumes */
+  'No se pudo compartir aquí. Usa Guardar y compártela desde tu galería.': ['Couldn\'t share here. Use Save and share it from your gallery.', '여기서는 공유할 수 없어요. 저장한 뒤 갤러리에서 공유하세요.'],
+  'Aún no hay fotos.': ['No photos yet.', '아직 사진이 없어요.'],
+  'Elegir todas': ['Select all', '모두 선택'],
+  'Seleccionar': ['Select', '선택'],
+  'Todas': ['All', '전체'],
+  'Subir fotos': ['Upload photos', '사진 올리기'],
+  'Sin fotos todavía': ['No photos yet', '아직 사진 없음'],
+  'Abrir álbum': ['Open album', '앨범 열기'],
+  'Crea uno y ahí subes las fotos.': ['Create one and upload the photos there.', '하나 만들고 거기에 사진을 올리세요.'],
+  'El álbum de cada evento': ['Each event\'s album', '이벤트별 앨범'],
+  'No se pudo leer esa foto': ['Couldn\'t read that photo', '사진을 읽지 못했어요'],
+  'Me gusta': ['Likes', '좋아요'],
+  'Tu foto de perfil': ['Your profile photo', '내 프로필 사진'],
+
+  /* niveles */
+  'Empezando': ['Just starting', '이제 시작'],
+  'Ya entró al ambiente': ['Getting into the vibe', '분위기에 적응 중'],
+  'Ya sabe cómo va la cosa': ['Knows how it goes', '이제 좀 아는 사람'],
+  'Le encanta salir': ['Loves going out', '놀러 나가는 게 좋아요'],
+  'Nivel serio de fiesta': ['Serious party level', '진지한 파티 레벨'],
+  'Veterano de Friends Party': ['Friends Party veteran', 'Friends Party 베테랑'],
+  'Nivel élite': ['Elite level', '엘리트 레벨'],
+  'Máximo estatus': ['Top status', '최고 등급'],
+  '¡Subiste de nivel!': ['You leveled up!', '레벨이 올랐어요!'],
+  '¡Genial!': ['Awesome!', '좋아요!'],
+
+  /* cuenta y perfil */
+  'Usar otro método': ['Use another method', '다른 방법 사용'],
+  'Entrar con tu cuenta': ['Log in with your account', '내 계정으로 로그인'],
+  'Si ya creaste tu cuenta con correo y contraseña desde otro teléfono, entra aquí para traer tus eventos y fotos.': ['If you already created your account with email and password on another phone, log in here to bring over your events and photos.', '다른 휴대폰에서 이메일과 비밀번호로 계정을 만들었다면, 여기서 로그인해 이벤트와 사진을 가져오세요.'],
+  'Entrar': ['Log in', '로그인'],
+  'Volver': ['Back', '뒤로'],
+  'Continuar con Apple': ['Continue with Apple', 'Apple로 계속하기'],
+  'Continuar con Google': ['Continue with Google', 'Google로 계속하기'],
+  'Editar perfil': ['Edit profile', '프로필 편집'],
+  'Crea tu cuenta': ['Create your account', '계정 만들기'],
+  'Cambiar foto': ['Change photo', '사진 변경'],
+  'Elegir foto de perfil': ['Choose profile photo', '프로필 사진 선택'],
+  'Quitar foto': ['Remove photo', '사진 삭제'],
+  'Usuario': ['Username', '사용자 이름'],
+  'tu.usuario': ['your.username', 'your.username'],
+  'Mínimo 8 caracteres': ['At least 8 characters', '8자 이상'],
+  'WhatsApp o teléfono (opcional)': ['WhatsApp or phone (optional)', 'WhatsApp 또는 전화번호 (선택)'],
+  'Sobre ti (opcional)': ['About you (optional)', '소개 (선택)'],
+  'Una frase corta': ['A short line', '짧은 한 줄 소개'],
+  'Tu correo y tu teléfono solo los ves tú.': ['Only you can see your email and phone.', '이메일과 전화번호는 나만 볼 수 있어요.'],
+  'Al crear tu cuenta, aceptas los': ['By creating your account, you accept the', '계정을 만들면 다음에 동의하게 됩니다:'],
+  'Términos de uso': ['Terms of Use', '이용 약관'],
+  'y la': ['and the', '및'],
+  'Política de privacidad': ['Privacy Policy', '개인정보 처리방침'],
+  '¿Ya tienes cuenta? Entrar': ['Already have an account? Log in', '이미 계정이 있나요? 로그인'],
+  'Todavía no subes fotos.': ['You haven\'t uploaded any photos yet.', '아직 올린 사진이 없어요.'],
+  'Entra a un evento y sube tus primeras fotos: aparecerán aquí.': ['Go to an event and upload your first photos: they\'ll show up here.', '이벤트에 들어가 첫 사진을 올려 보세요. 여기에 표시돼요.'],
+  'En curso y próximos': ['Ongoing and upcoming', '진행 중 및 예정'],
+  'Anteriores': ['Past', '지난 이벤트'],
+  'Todavía no perteneces a ningún evento.': ['You\'re not part of any event yet.', '아직 참여 중인 이벤트가 없어요.'],
+  'No comparten ningún evento contigo todavía.': ['You don\'t share any events yet.', '아직 함께하는 이벤트가 없어요.'],
+  'Perfil': ['Profile', '프로필'],
+  'Sin nivel todavía': ['No level yet', '아직 등급 없음'],
+  'Todavía no cumple asistir a un evento y subir fotos': ['Hasn\'t attended an event and uploaded photos yet', '아직 이벤트에 참석해 사진을 올리지 않았어요'],
+  'Agrega tu correo para completar tu perfil.': ['Add your email to complete your profile.', '프로필을 완성하려면 이메일을 추가하세요.'],
+  '🔗 Conectar mi cuenta al servidor': ['🔗 Connect my account to the server', '🔗 내 계정을 서버에 연결'],
+  '🔔 Avisos activados (toca para revisar)': ['🔔 Notifications on (tap to check)', '🔔 알림 켜짐 (눌러서 확인)'],
+  '🔔 Activar avisos de invitaciones': ['🔔 Turn on invite notifications', '🔔 초대 알림 켜기'],
+  'Te sigue': ['Follows you', '나를 팔로우함'],
+  'Siguiendo': ['Following', '팔로잉'],
+  'Seguir': ['Follow', '팔로우'],
+  'Seguidores': ['Followers', '팔로워'],
+  'Toca otra vez para borrar todo': ['Tap again to delete everything', '모두 삭제하려면 한 번 더 누르세요'],
+  'Borrar mi cuenta y mis datos': ['Delete my account and my data', '내 계정과 데이터 삭제'],
+  '⚑ Reportar a este usuario': ['⚑ Report this user', '⚑ 이 사용자 신고'],
+  'Desbloquear a este usuario': ['Unblock this user', '이 사용자 차단 해제'],
+  'Bloquear a este usuario': ['Block this user', '이 사용자 차단'],
+  'Desbloquear': ['Unlock', '잠금 해제'],
+  'Bloquear': ['Block', '차단'],
+  'Todavía no hay nadie aquí.': ['There\'s no one here yet.', '아직 아무도 없어요.'],
+  'Tu cuenta fue eliminada': ['Your account was deleted', '계정이 삭제됐어요'],
+  'No se pudo eliminar la cuenta. Revisa tu conexión e inténtalo de nuevo.': ['Couldn\'t delete the account. Check your connection and try again.', '계정을 삭제하지 못했어요. 연결을 확인하고 다시 시도해 주세요.'],
+  'Escribe tu nombre': ['Enter your name', '이름을 입력하세요'],
+  'El usuario lleva de 3 a 20 letras, números, punto o guion bajo': ['The username has 3 to 20 letters, numbers, dots or underscores', '사용자 이름은 3~20자의 영문, 숫자, 마침표, 밑줄만 쓸 수 있어요'],
+  'Revisa tu correo': ['Check your email address', '이메일 주소를 확인하세요'],
+  'Revisa tu número': ['Check your number', '전화번호를 확인하세요'],
+  'La contraseña necesita al menos 8 caracteres': ['The password needs at least 8 characters', '비밀번호는 8자 이상이어야 해요'],
+  'Este navegador no permite crear contraseñas aquí': ['This browser can\'t create passwords here', '이 브라우저에서는 여기서 비밀번호를 만들 수 없어요'],
+  'No se pudo crear la contraseña': ['Couldn\'t create the password', '비밀번호를 만들지 못했어요'],
+  'Perfil actualizado': ['Profile updated', '프로필을 업데이트했어요'],
+  'Ya no quedan amigos de ejemplo por probar': ['There are no more sample friends to try', '더 이상 체험할 예시 친구가 없어요'],
+  'Sube una foto para probar los me gusta': ['Upload a photo to try likes', '좋아요를 체험하려면 사진을 올리세요'],
+  'Te gusta esta foto': ['You like this photo', '이 사진을 좋아해요'],
+
+  /* seguridad e inicio de sesión */
+  'No se pudo confirmar con Face ID o Touch ID. Puede que esta vista no lo permita: usa tu contraseña.': ['Couldn\'t confirm with Face ID or Touch ID. This view may not allow it: use your password.', 'Face ID 또는 Touch ID로 확인하지 못했어요. 이 화면에서는 지원되지 않을 수 있으니 비밀번호를 사용하세요.'],
+  'Este dispositivo no permite Face ID o Touch ID desde aquí.': ['This device doesn\'t allow Face ID or Touch ID from here.', '이 기기에서는 여기서 Face ID 또는 Touch ID를 쓸 수 없어요.'],
+  'Face ID o Touch ID activado en este teléfono': ['Face ID or Touch ID turned on for this phone', '이 휴대폰에서 Face ID 또는 Touch ID를 켰어요'],
+  'Correo o usuario': ['Email or username', '이메일 또는 사용자 이름'],
+  'Entrar con Face ID o Touch ID': ['Log in with Face ID or Touch ID', 'Face ID 또는 Touch ID로 로그인'],
+  '¿Olvidaste tu contraseña?': ['Forgot your password?', '비밀번호를 잊으셨나요?'],
+  'Olvidé mi contraseña': ['I forgot my password', '비밀번호를 잊었어요'],
+  'Esta contraseña solo vive en este teléfono. Si ya conectaste tu cuenta al servidor, confírmalo aquí para quitar el candado sin perder tus fotos ni eventos.': ['This password lives only on this phone. If you already connected your account to the server, confirm it here to remove the lock without losing your photos or events.', '이 비밀번호는 이 휴대폰에만 있어요. 이미 계정을 서버에 연결했다면, 여기서 확인하고 사진과 이벤트를 잃지 않고 잠금을 해제하세요.'],
+  'Correo de tu cuenta': ['Your account email', '계정 이메일'],
+  'Contraseña de tu cuenta': ['Your account password', '계정 비밀번호'],
+  'Confirmar y quitar el candado': ['Confirm and remove the lock', '확인하고 잠금 해제'],
+  '¿Nunca conectaste tu cuenta al servidor? Entonces no hay forma de recuperar lo de este teléfono. Solo queda borrarlo y empezar de nuevo.': ['Never connected your account to the server? Then there\'s no way to recover what\'s on this phone. The only option is to erase it and start over.', '계정을 서버에 연결한 적이 없나요? 그렇다면 이 휴대폰의 내용을 복구할 방법이 없어요. 삭제하고 새로 시작해야 해요.'],
+  'Borrar la cuenta de este teléfono': ['Erase the account from this phone', '이 휴대폰에서 계정 삭제'],
+  'Cambiar contraseña': ['Change password', '비밀번호 변경'],
+  'Crear contraseña': ['Create password', '비밀번호 만들기'],
+  'Contraseña actual': ['Current password', '현재 비밀번호'],
+  'Contraseña nueva': ['New password', '새 비밀번호'],
+  'Repítela': ['Repeat it', '한 번 더 입력'],
+  'Se guarda de forma protegida en este teléfono, nunca como texto.': ['It\'s stored securely on this phone, never as plain text.', '이 휴대폰에 안전하게 저장되며, 일반 텍스트로 저장되지 않아요.'],
+  'Guardar contraseña': ['Save password', '비밀번호 저장'],
+  'Seguridad': ['Security', '보안'],
+  'Activada': ['On', '사용 중'],
+  'Sin contraseña': ['No password', '비밀번호 없음'],
+  'Cambiar': ['Change', '변경'],
+  'Crear': ['Create', '만들기'],
+  'Face ID o Touch ID': ['Face ID or Touch ID', 'Face ID 또는 Touch ID'],
+  'Activado en este teléfono': ['On for this phone', '이 휴대폰에서 사용 중'],
+  'Desactivado': ['Off', '꺼짐'],
+  'Desactivar': ['Turn off', '끄기'],
+  'Activar': ['Turn on', '켜기'],
+  'Conectada': ['Connected', '연결됨'],
+  'Es un candado para este teléfono. La verificación real, y entrar desde otro teléfono, llegan con el servidor.': ['It\'s a lock for this phone. Real verification, and logging in from another phone, come with the server.', '이 휴대폰을 위한 잠금이에요. 실제 인증과 다른 휴대폰에서의 로그인은 서버를 통해 이뤄져요.'],
+  'Cerrar sesión': ['Log out', '로그아웃'],
+  'Usuarios bloqueados': ['Blocked users', '차단한 사용자'],
+  'Demasiados intentos. Espera unos segundos.': ['Too many attempts. Wait a few seconds.', '시도가 너무 많아요. 몇 초만 기다려 주세요.'],
+  'Escribe tu contraseña': ['Enter your password', '비밀번호를 입력하세요'],
+  'Este navegador no permite verificar contraseñas aquí': ['This browser can\'t verify passwords here', '이 브라우저에서는 여기서 비밀번호를 확인할 수 없어요'],
+  'Demasiados intentos. Espera 30 segundos.': ['Too many attempts. Wait 30 seconds.', '시도가 너무 많아요. 30초만 기다려 주세요.'],
+  'No se pudo verificar la contraseña': ['Couldn\'t verify the password', '비밀번호를 확인하지 못했어요'],
+  'Verificando…': ['Verifying…', '확인 중…'],
+  'Candado quitado. Ya puedes entrar normal.': ['Lock removed. You can log in normally now.', '잠금을 해제했어요. 이제 평소처럼 들어올 수 있어요.'],
+  'Las contraseñas no coinciden': ['The passwords don\'t match', '비밀번호가 일치하지 않아요'],
+  'Contraseña guardada': ['Password saved', '비밀번호를 저장했어요'],
+  'No se pudo guardar la contraseña': ['Couldn\'t save the password', '비밀번호를 저장하지 못했어요'],
+  'La contraseña actual no es correcta': ['The current password is incorrect', '현재 비밀번호가 올바르지 않아요'],
+  'Face ID o Touch ID desactivado': ['Face ID or Touch ID turned off', 'Face ID 또는 Touch ID를 껐어요'],
+
+  /* reportes y ayuda */
+  'Contenido sexual o inapropiado': ['Sexual or inappropriate content', '성적이거나 부적절한 콘텐츠'],
+  'Acoso o bullying': ['Harassment or bullying', '괴롭힘 또는 따돌림'],
+  'Spam o publicidad': ['Spam or advertising', '스팸 또는 광고'],
+  'Violencia o amenazas': ['Violence or threats', '폭력 또는 위협'],
+  'Se hace pasar por otra persona': ['Pretending to be someone else', '다른 사람 사칭'],
+  'Otro motivo': ['Another reason', '기타 사유'],
+  'Enviar reporte': ['Send report', '신고 보내기'],
+  'Gracias. Revisaremos tu reporte.': ['Thanks. We\'ll review your report.', '감사합니다. 신고 내용을 검토할게요.'],
+  'Gracias por avisarnos': ['Thanks for letting us know', '알려 주셔서 감사합니다'],
+  'Reporte enviado': ['Report sent', '신고 완료'],
+  'Reportar mensaje': ['Report message', '메시지 신고'],
+  'Reportar usuario': ['Report user', '사용자 신고'],
+  'Reportar foto': ['Report photo', '사진 신고'],
+  'Ayuda y legal': ['Help and legal', '도움말 및 약관'],
+  'Escríbenos': ['Contact us', '문의하기'],
+  'Idioma': ['Language', '언어'],
+
+  /* tienda y stickers */
+  'Stickers Friends Party': ['Friends Party Stickers', 'Friends Party 스티커'],
+  '60 stickers en inglés y español': ['60 stickers in English and Spanish', '영어·스페인어 스티커 60개'],
+  'Emoticones': ['Emoticons', '이모티콘'],
+  'Más de 300 stickers: fiesta, emociones, oficios y viajes': ['Over 300 stickers: party, emotions, jobs and travel', '300개 이상의 스티커: 파티, 감정, 직업, 여행'],
+  'Stickers de Halloween': ['Halloween Stickers', '핼러윈 스티커'],
+  '60 stickers para tus fotos de Halloween': ['60 stickers for your Halloween photos', '핼러윈 사진을 위한 스티커 60개'],
+  'Stickers de Navidad': ['Christmas Stickers', '크리스마스 스티커'],
+  '87 stickers festivos para diciembre': ['87 festive stickers for December', '12월을 위한 축제 스티커 87개'],
+  'Emociones': ['Emotions', '감정'],
+  'Oficios': ['Jobs', '직업'],
+  'Viajes': ['Travel', '여행'],
+  'Cargando…': ['Loading…', '불러오는 중…'],
+  'Confirmar compra': ['Confirm purchase', '구매 확인'],
+  'pago único': ['one-time payment', '1회 결제'],
+  'Este paso lo confirma Apple: si sigues, se hace un cobro real.': ['Apple confirms this step: if you continue, a real charge is made.', '이 단계는 Apple이 확인해요. 계속하면 실제로 결제돼요.'],
+  'Ver todos los stickers antes de comprar': ['See all the stickers before buying', '구매 전에 스티커 전체 보기'],
+  'Se pegan encima de tus fotos y los mueves, agrandas y giras': ['They go on top of your photos and you can move, resize and rotate them', '사진 위에 붙이고 옮기거나, 크기를 바꾸거나, 돌릴 수 있어요'],
+  'Aún estamos subiendo estos stickers a la app': ['We\'re still adding these stickers to the app', '이 스티커는 아직 앱에 올리는 중이에요'],
+  'Compras': ['Purchases', '구매 항목'],
+  'Comprado': ['Purchased', '구매 완료'],
+  'Comprar': ['Buy', '구매'],
+  'Restaurar compras': ['Restore purchases', '구매 복원'],
+  'Ver todos los paquetes en la Tienda': ['See all packs in the Shop', '스토어에서 모든 팩 보기'],
+  'Stickers para decorar tus fotos': ['Stickers to decorate your photos', '사진을 꾸미는 스티커'],
+  'Abre la app en tu iPhone para comprar. Aquí en el navegador solo puedes ver el catálogo.': ['Open the app on your iPhone to buy. Here in the browser you can only see the catalog.', '구매하려면 iPhone에서 앱을 여세요. 브라우저에서는 목록만 볼 수 있어요.'],
+  'Cargando stickers…': ['Loading stickers…', '스티커 불러오는 중…'],
+  'Editar foto': ['Edit photo', '사진 편집'],
+  'Cerrar el editor': ['Close the editor', '편집기 닫기'],
+  'Tu foto con los stickers': ['Your photo with the stickers', '스티커를 붙인 내 사진'],
+  'Toca un sticker para agregarlo. Arrástralo para moverlo y usa dos dedos para cambiar su tamaño y su giro.': ['Tap a sticker to add it. Drag it to move it and use two fingers to resize and rotate it.', '스티커를 눌러 추가하세요. 끌어서 옮기고, 두 손가락으로 크기와 각도를 바꿀 수 있어요.'],
+  'Más pequeño': ['Smaller', '작게'],
+  'Más grande': ['Bigger', '크게'],
+  'Girar a la izquierda': ['Rotate left', '왼쪽으로 돌리기'],
+  'Girar a la derecha': ['Rotate right', '오른쪽으로 돌리기'],
+  'Al frente': ['To front', '맨 앞으로'],
+  'Borrar': ['Delete', '지우기'],
+  'Descargar la foto editada': ['Download the edited photo', '편집한 사진 내려받기'],
+  'No se pudo abrir la foto para editarla': ['Couldn\'t open the photo for editing', '편집할 사진을 열지 못했어요'],
+  'Conecta tu cuenta primero': ['Connect your account first', '먼저 계정을 연결하세요'],
+  'Abriendo la compra…': ['Opening the purchase…', '구매 화면 여는 중…'],
+  'Stickers desbloqueados. ¡A decorar!': ['Stickers unlocked. Time to decorate!', '스티커가 열렸어요. 꾸며 보세요!'],
+  'Compra quitada': ['Purchase removed', '구매를 삭제했어요'],
+  'Tienes cambios sin guardar. Toca otra vez para descartarlos.': ['You have unsaved changes. Tap again to discard them.', '저장하지 않은 변경 내용이 있어요. 버리려면 한 번 더 누르세요.'],
+  'Máximo 40 stickers por foto': ['Maximum 40 stickers per photo', '사진 한 장에 스티커는 최대 40개예요'],
+  'Agrega al menos un sticker': ['Add at least one sticker', '스티커를 하나 이상 추가하세요'],
+  'Foto editada guardada en el álbum': ['Edited photo saved to the album', '편집한 사진을 앨범에 저장했어요'],
+
+  /* chat */
+  'Nadie ha escrito todavía.': ['No one has written yet.', '아직 아무도 글을 쓰지 않았어요.'],
+  'Escribe el primer mensaje.': ['Write the first message.', '첫 메시지를 보내 보세요.'],
+  'Sin mensajes todavía': ['No messages yet', '아직 메시지 없음'],
+  'Tu grupo y cada evento': ['Your group and each event', '내 그룹과 이벤트별 채팅'],
+  '👥 Mi grupo': ['👥 My group', '👥 내 그룹'],
+  'Elegir de mi galería': ['Choose from my gallery', '내 갤러리에서 선택'],
+  'O elige una foto de tus álbumes': ['Or pick a photo from your albums', '또는 앨범에서 사진 선택'],
+  'Todavía no hay fotos en los álbumes.': ['There are no photos in the albums yet.', '아직 앨범에 사진이 없어요.'],
+  'Foto enviada': ['Photo sent', '사진을 보냈어요'],
+  'Abrir foto': ['Open photo', '사진 열기'],
+  'Foto compartida': ['Shared photo', '공유한 사진'],
+  'Volver a los chats': ['Back to chats', '채팅 목록으로'],
+  '📷 Foto': ['📷 Photo', '📷 사진'],
+
+  /* historias en video y Premium */
+  'Agregar': ['Add', '추가'],
+  'Tu historia': ['Your story', '내 스토리'],
+  'No se pudo reproducir este video': ['Couldn\'t play this video', '이 영상을 재생하지 못했어요'],
+  'No se pudo cargar el video': ['Couldn\'t load the video', '영상을 불러오지 못했어요'],
+  'Toca otra vez para eliminar este video': ['Tap again to delete this video', '이 영상을 삭제하려면 한 번 더 누르세요'],
+  'Video eliminado': ['Video deleted', '영상을 삭제했어요'],
+  'Buscando tus compras…': ['Looking for your purchases…', '구매 내역 찾는 중…'],
+  'Hazte Premium': ['Go Premium', 'Premium 시작하기'],
+  'US$ 1.99 al mes. Se renueva solo y lo cancelas cuando quieras desde los ajustes de Apple.': ['US$ 1.99 a month. It renews automatically and you can cancel anytime from Apple settings.', '월 US$ 1.99. 자동으로 갱신되며 Apple 설정에서 언제든 해지할 수 있어요.'],
+  'Abre la app para suscribirte': ['Open the app to subscribe', '구독하려면 앱을 여세요'],
+  'Friends Party Premium': ['Friends Party Premium', 'Friends Party Premium'],
+  'Ya eres Premium. Gracias por apoyar la app.': ['You\'re Premium. Thanks for supporting the app.', '이미 Premium이에요. 앱을 응원해 주셔서 감사합니다.'],
+  'Sube sin límites y guarda tus recuerdos para siempre.': ['Upload without limits and keep your memories forever.', '제한 없이 올리고 추억을 영원히 간직하세요.'],
+  'Tus historias en video se quedan para siempre (gratis: 7 días)': ['Your video stories stay forever (free: 7 days)', '영상 스토리가 영구 보관돼요 (무료: 7일)'],
+  'Todos los paquetes de stickers de la tienda incluidos': ['All sticker packs in the shop included', '스토어의 모든 스티커 팩 포함'],
+  'Premium': ['Premium', 'Premium'],
+  'Gratis': ['Free', '무료'],
+  'Fotos y videos sin límite': ['Unlimited photos and videos', '사진과 영상 무제한'],
+  'Activo': ['Active', '이용 중'],
+  'Ver Premium': ['See Premium', 'Premium 보기'],
+  'Elige un video': ['Choose a video', '영상을 선택하세요'],
+  'Preparando tu video…': ['Preparing your video…', '영상 준비 중…'],
+  'Tu historia ya está en el evento': ['Your story is now in the event', '스토리가 이벤트에 올라갔어요'],
+  'Tu historia ya está. Se borra en 7 días (con Premium se queda para siempre).': ['Your story is up. It\'s deleted in 7 days (with Premium it stays forever).', '스토리가 올라갔어요. 7일 후 삭제돼요 (Premium이면 영구 보관).'],
+  'Alguien te invitó a Friends Party. Crea tu cuenta o inicia sesión para unirte.': ['Someone invited you to Friends Party. Create your account or log in to join.', '누군가 Friends Party에 초대했어요. 계정을 만들거나 로그인해서 참여하세요.'],
+  'Descarga Friends Party en el App Store para unirte': ['Download Friends Party on the App Store to join', 'App Store에서 Friends Party를 내려받아 참여하세요'],
+
+  /* textos que la app arma con T() */
+  'Friends Party: fotos de tus reuniones': ['Friends Party: photos from your get-togethers', 'Friends Party: 모임 사진을 한곳에'],
+  'Cumpleaños de José': ['José\'s birthday', '호세의 생일'],
+  'Casa de José': ['José\'s place', '호세네 집'],
+  '¡Qué buena fiesta! Ya subí las fotos del pastel.': ['What a great party! I just uploaded the cake photos.', '정말 즐거운 파티였어요! 케이크 사진 올렸어요.'],
+  'Yo subí las del brindis.': ['I uploaded the ones from the toast.', '저는 건배 사진 올렸어요.'],
+  'Gracias a todos por venir.': ['Thanks everyone for coming.', '와 주셔서 모두 감사해요.'],
+  'Finca de Luis': ['Luis\'s farm', '루이스네 농장'],
+  'Cada quien lleva algo para la parrilla.': ['Everyone brings something for the grill.', '각자 구울 것을 하나씩 가져와요.'],
+  'Yo llevo la carne.': ['I\'ll bring the meat.', '고기는 제가 가져갈게요.'],
+  '¡Ya subí mis fotos!': ['I just uploaded my photos!', '제 사진 올렸어요!'],
+  'La bailamos toda la noche.': ['We danced to it all night.', '밤새 이 노래에 춤췄어요.'],
+  'Cuando trajeron el pastel.': ['When they brought out the cake.', '케이크가 나왔을 때.'],
+  'Para cantar en la finca.': ['To sing along at the farm.', '농장에서 같이 부르려고요.'],
+  '¡Qué buena estuvo!': ['That was so good!', '정말 재밌었어요!'],
+  'Mándenme las fotos, por favor': ['Send me the photos, please', '사진 좀 보내 주세요'],
+  '¿Quién lleva el pastel?': ['Who\'s bringing the cake?', '케이크는 누가 가져와요?'],
+  'Ya llegué': ['I\'m here', '도착했어요'],
+  'Jajaja, buenísima esa foto': ['Hahaha, that photo is great', 'ㅋㅋㅋ 그 사진 최고예요'],
+  '¿A qué hora nos vemos?': ['What time are we meeting?', '몇 시에 만나요?'],
+  'Cuenten conmigo': ['Count me in', '저도 갈게요'],
+  'Gracias por invitarme': ['Thanks for inviting me', '초대해 줘서 고마워요'],
+  'de {x}': ['by {x}', '{x}'],
+  '{n} {n|foto|fotos} de {m} {m|persona|amigos}': ['{n} {n|photo|photos} from {m} {m|person|friends}', '{m}명의 사진 {n}장'],
+  ' en {x}': [' at {x}', ' · {x}'],
+  'Las fotos de todos, juntas en Friends Party.': ['Everyone\'s photos, together on Friends Party.', '모두의 사진을 Friends Party에서 한곳에.'],
+  '¡Te invito a "{x}"!': ['You\'re invited to "{x}"!', '"{x}"에 초대합니다!'],
+  'Únete en Friends Party con el código {c}.': ['Join on Friends Party with the code {c}.', 'Friends Party에서 코드 {c}로 참여하세요.'],
+  'Faltan 3 días para «{x}».': ['3 days until "{x}".', '"{x}"까지 3일 남았어요.'],
+  'Mañana es «{x}».': ['"{x}" is tomorrow.', '내일은 "{x}"예요.'],
+  'Hoy es «{x}».': ['"{x}" is today.', '오늘은 "{x}"예요.'],
+  ', en {x}': [', at {x}', ', {x}'],
+  'Te invito a {x}': ['You\'re invited to {x}', '{x}에 초대합니다'],
+  'Te invito a mi grupo en Friends Party': ['Join my group on Friends Party', 'Friends Party 내 그룹에 초대합니다'],
+  '{x} te invita a su grupo en Friends Party. Aquí planeamos fiestas y guardamos las fotos juntos.': ['{x} invites you to their group on Friends Party. Here we plan parties and keep the photos together.', '{x} 님이 Friends Party 그룹에 초대했어요. 여기서 함께 파티를 계획하고 사진을 모아요.'],
+  'Código del grupo: {c}.': ['Group code: {c}.', '그룹 코드: {c}.'],
+  '{x} en Friends Party': ['{x} on Friends Party', 'Friends Party의 {x}']
+};
+
+/* ---------- 2) textos con datos en medio ----------
+   [expresión, inglés, coreano]. En la traducción: {1} = primer dato, {1|uno|varios} = singular o plural
+   según ese número, {t1} = el dato también se traduce. */
+var P = [
+  [/^No se pudo registrar el teléfono \((.+)\)$/, 'Couldn\'t register the phone ({1})', '휴대폰을 등록하지 못했어요 ({1})'],
+  [/^No encontramos a @(.+)$/, 'We couldn\'t find @{1}', '@{1} 님을 찾지 못했어요'],
+  [/^Servidor \((.+?)\): (.+)$/, 'Server ({1}): {t2}', '서버 ({1}): {t2}'],
+  [/^Foto de (.+)$/, 'Photo: {1}', '사진: {1}'],
+  [/^Código: (.+)$/, 'Code: {1}', '코드: {1}'],
+  [/^(.+) subió 2 fotos$/, '{1} uploaded 2 photos', '{1} 님이 사진 2장을 올렸어요'],
+  [/^Llegaste al límite de (\d+) fotos en este evento$/, 'You reached the limit of {1} photos in this event', '이 이벤트의 사진 한도 {1}장에 도달했어요'],
+  [/^Solo se subirán (\d+) fotos: el plan gratis permite (\d+) por evento$/, 'Only {1} {1|photo|photos} will be uploaded: the free plan allows {2} per event', '{1}장만 올라가요. 무료 플랜은 이벤트당 {2}장까지예요'],
+  [/^(\d+) fotos? subidas?$/, '{1} {1|photo|photos} uploaded', '사진 {1}장을 올렸어요'],
+  [/^(\d+) fotos? subidas?, (\d+) con ubicación$/, '{1} {1|photo|photos} uploaded, {2} with location', '사진 {1}장을 올렸어요 (위치 포함 {2}장)'],
+  [/^(\d+) de (\d+) elegidas$/, '{1} of {2} selected', '{2}장 중 {1}장 선택'],
+  [/^Crear video de (\d+) segundos$/, 'Create {1}-second video', '{1}초 영상 만들기'],
+  [/^Elige hasta (\d+) fotos\. Salen en el orden en que se tomaron\.$/, 'Pick up to {1} photos. They appear in the order they were taken.', '사진을 최대 {1}장까지 고르세요. 찍은 순서대로 나와요.'],
+  [/^Tu historia está lista \((.+?) MB, formato vertical\)\.( Este dispositivo la crea en formato WebM; Instagram podría pedir convertirla\.)?$/,
+    function(m){ return 'Your story is ready (' + m[1] + ' MB, vertical format).' + (m[2] ? ' This device creates it in WebM format; Instagram may ask you to convert it.' : ''); },
+    function(m){ return '스토리가 완성됐어요 (' + m[1] + ' MB, 세로 형식).' + (m[2] ? ' 이 기기에서는 WebM 형식으로 만들어져서 Instagram에서 변환을 요구할 수 있어요.' : ''); }],
+  [/^(\d+) s de (\d+) s$/, '{1} s of {2} s', '{2}초 중 {1}초'],
+  [/^Máximo (\d+) fotos$/, 'Maximum {1} photos', '사진은 최대 {1}장이에요'],
+  [/^Paso (\d+) de (\d+)$/, 'Step {1} of {2}', '{2}단계 중 {1}단계'],
+  [/^Faltan (\d+) días$/, '{1} days to go', '{1}일 남았어요'],
+  [/^Fue hace (\d+) días$/, '{1} days ago', '{1}일 전이었어요'],
+  [/^(\d+) días?$/, '{1} {1|day|days}', '{1}일'],
+  [/^(\d+) personas?$/, '{1} {1|person|people}', '{1}명'],
+  [/^(.+) a las ((?:오전 |오후 )?\d{1,2}:\d{2}.*)$/, '{1} at {2}', '{1} · {2}'],
+  [/^(\d+) personas? van? o tal vez van?(?:, (\d+) invitaci(?:ón|ones) sin responder)?\.$/,
+    function(m){ return m[1] + (m[1] === '1' ? ' person is' : ' people are') + ' going or maybe going' + (m[2] ? ', ' + m[2] + (m[2] === '1' ? ' invite' : ' invites') + ' with no reply' : '') + '.'; },
+    function(m){ return m[1] + '명 참석 또는 미정' + (m[2] ? ', 미응답 초대 ' + m[2] + '건' : '') + '.'; }],
+  [/^Invitado por (.+)$/, 'Invited via {t1}', '초대 방법: {t1}'],
+  [/^Se avisa a quienes van o tal vez van \((\d+)\)\.$/, 'Those going or maybe going get reminded ({1}).', '참석 또는 미정인 사람에게 알려요 ({1}명).'],
+  [/^Los reciben: (.+)\.$/, function(m){ return 'Sent to: ' + (m[1] === 'nadie todavía' ? 'no one yet' : m[1]) + '.'; }, function(m){ return '받는 사람: ' + (m[1] === 'nadie todavía' ? '아직 없음' : m[1]) + '.'; }],
+  [/^(.+) quedó invitado al evento$/, '{1} was invited to the event', '{1} 님을 이벤트에 초대했어요'],
+  [/^Ya habías invitado a (.+)$/, 'You had already invited {1}', '{1} 님은 이미 초대했어요'],
+  [/^Invitación enviada a (.+)$/, 'Invite sent to {1}', '{1} 님에게 초대를 보냈어요'],
+  [/^(.+) quedó invitado en la app$/, '{1} was invited in the app', '{1} 님을 앱에서 초대했어요'],
+  [/^Invitación para (.+) registrada$/, 'Invite for {1} recorded', '{1} 님 초대를 기록했어요'],
+  [/^(.+) respondió: (va|tal vez|no va)$/, '{1} replied: {t2}', '{1} 님의 응답: {t2}'],
+  [/^(.+) no está disponible por ahora\.$/, '{t1} isn\'t available right now.', '{t1}: 지금은 사용할 수 없어요.'],
+  [/^Invitaciones recibidas \((\d+)\)$/, 'Invites received ({1})', '받은 초대 ({1})'],
+  [/^Invitaciones a eventos \((\d+)\)$/, 'Event invites ({1})', '이벤트 초대 ({1})'],
+  [/^Mi grupo \((\d+)\)$/, 'My group ({1})', '내 그룹 ({1})'],
+  [/^Invitaciones enviadas \((\d+)\)$/, 'Invites sent ({1})', '보낸 초대 ({1})'],
+  [/^Por (WhatsApp|correo|la app), sin responder$/, 'Via {t1}, no reply yet', '{t1} · 미응답'],
+  [/^(.+), por (WhatsApp|correo|la app)$/, '{1}, via {t2}', '{1} · {t2}'],
+  [/^(.+) ya está en tu grupo$/, '{1} is already in your group', '{1} 님은 이미 그룹에 있어요'],
+  [/^Invitación reenviada a (.+) en la app$/, 'Invite resent to {1} in the app', '{1} 님에게 앱에서 초대를 다시 보냈어요'],
+  [/^Reenviando a (.+)$/, 'Resending to {1}', '{1} 님에게 다시 보내는 중'],
+  [/^(\d+) amigos aceptaron y ya están en tu grupo$/, '{1} friends accepted and are now in your group', '친구 {1}명이 수락해서 그룹에 들어왔어요'],
+  [/^Que tu amigo escanee este código con la cámara para unirse a (.*)\.$/, 'Have your friend scan this code with their camera to join {1}.', '친구가 카메라로 이 코드를 스캔하면 참여할 수 있어요: {1}.'],
+  [/^Buscar en (.+)$/, 'Search on {1}', '{1}에서 검색'],
+  [/^(\d+) canciones compartidas\.$/, '{1} songs shared.', '공유된 노래 {1}곡.'],
+  [/^Abriendo (.+)\. Copia el enlace y pégalo aquí\.$/, 'Opening {1}. Copy the link and paste it here.', '{1} 여는 중. 링크를 복사해서 여기에 붙여 넣으세요.'],
+  [/^Abriendo (.+)$/, 'Opening {1}', '{1} 여는 중'],
+  [/^Canción compartida en «(.+)»$/, 'Song shared in "{1}"', '"{1}"에 노래를 공유했어요'],
+  [/^Tú, (.+)$/, 'You, {1}', '나, {1}'],
+  [/^Será en (.+)$/, 'Will be at {1}', '예정 장소: {1}'],
+  [/^Fotos tomadas en (.+)$/, 'Photos taken at {1}', '사진 촬영 장소: {1}'],
+  [/^Fue en (.+)$/, 'It was at {1}', '장소: {1}'],
+  [/^(\d+) lugar(?:es)? en tus eventos, y (\d+) fotos? con ubicación exacta\.$/, '{1} {1|place|places} in your events, and {2} {2|photo|photos} with an exact location.', '내 이벤트의 장소 {1}곳, 정확한 위치가 있는 사진 {2}장.'],
+  [/^(\d+) con ubicación exacta$/, '{1} with exact location', '정확한 위치 {1}장'],
+  [/^(\d+) fotos?$/, '{1} {1|photo|photos}', '사진 {1}장'],
+  [/^El evento será en (.+)\.$/, 'The event will be at {1}.', '이벤트 장소: {1}.'],
+  [/^Las fotos de este evento se tomaron en (.+)\.$/, 'This event\'s photos were taken at {1}.', '이 이벤트의 사진을 찍은 곳: {1}.'],
+  [/^Buscar «(.+)» en Google Maps$/, 'Search "{1}" on Google Maps', 'Google 지도에서 "{1}" 검색'],
+  [/^Ubicación de la foto de (.+)$/, 'Location of {1}\'s photo', '{1} 님 사진의 위치'],
+  [/^(\d+) seleccionadas?$/, '{1} selected', '{1}장 선택됨'],
+  [/^Descargar \((\d+)\)$/, 'Download ({1})', '내려받기 ({1})'],
+  [/^Compartir \((\d+)\)$/, 'Share ({1})', '공유 ({1})'],
+  [/^Sube las primeras: las verán las (\d+) personas? del evento\.$/, 'Upload the first ones: the {1} {1|person|people} in the event will see them.', '첫 사진을 올려 보세요. 이벤트의 {1}명이 볼 수 있어요.'],
+  [/^(\d+) fotos? de (\d+) personas?$/, '{1} {1|photo|photos} from {2} {2|person|people}', '{2}명의 사진 {1}장'],
+  [/^Las ven, descargan y comparten las (\d+) personas? del evento\.$/, 'The {1} {1|person|people} in the event can see, download and share them.', '이벤트의 {1}명이 보고, 내려받고, 공유할 수 있어요.'],
+  [/^Última: (.+)$/, 'Latest: {t1}', '최근: {t1}'],
+  [/^tú, (.+)$/, 'you, {1}', '나, {1}'],
+  [/^(\d+) personas? lo ven?$/, '{1} {1|person sees|people see} it', '{1}명이 볼 수 있어요'],
+  [/^(\d+) fotos? en (\d+) álbum(?:es)?\. Entra a un evento para subir fotos: tu grupo las ve, las descarga y las comparte\.$/, '{1} {1|photo|photos} in {2} {2|album|albums}. Go to an event to upload photos: your group can see, download and share them.', '앨범 {2}개에 사진 {1}장. 이벤트에 들어가 사진을 올리면 그룹이 보고, 내려받고, 공유할 수 있어요.'],
+  [/^(\d+) me gusta(?:, entre ellos (.+?)(?: y (.+))?)?$/,
+    function(m){ return m[1] + (m[1] === '1' ? ' like' : ' likes') + (m[2] ? ', including ' + m[2] + (m[3] ? ' and ' + m[3] : '') : ''); },
+    function(m){ return '좋아요 ' + m[1] + '개' + (m[2] ? ' (' + m[2] + (m[3] ? ', ' + m[3] : '') + ' 포함)' : ''); }],
+  [/^Continuar con (Apple|Google)$/, 'Continue with {1}', '{1}로 계속하기'],
+  [/^Crear cuenta con (Apple|Google)$/, 'Create account with {1}', '{1}로 계정 만들기'],
+  [/^Confirmar con (Apple|Google)$/, 'Confirm with {1}', '{1}로 확인'],
+  [/^Modo de prueba\. En la versión real, (Apple|Google) te pide confirmar tu cuenta y nos entrega tu nombre y tu correo\. Aquí escríbelos para ver cómo quedaría\.$/, 'Test mode. In the real version, {1} asks you to confirm your account and gives us your name and email. Type them here to see how it would look.', '테스트 모드. 정식 버전에서는 {1}이(가) 계정 확인을 요청하고 이름과 이메일을 전달해요. 여기에 직접 입력해서 어떻게 보이는지 확인하세요.'],
+  [/^Modo de prueba\. En la versión real, (Apple|Google) te pide confirmar tu identidad, con Face ID por ejemplo, y entras\.$/, 'Test mode. In the real version, {1} asks you to confirm your identity, with Face ID for example, and you\'re in.', '테스트 모드. 정식 버전에서는 {1}이(가) Face ID 등으로 본인 확인을 요청한 뒤 로그인돼요.'],
+  [/^Todavía no hay fotos de (.+)\.$/, 'There are no photos from {1} yet.', '아직 {1} 님의 사진이 없어요.'],
+  [/^Asiste a un evento y sube fotos para desbloquear (.+)$/, 'Attend an event and upload photos to unlock {1}', '이벤트에 참석하고 사진을 올리면 {1} 등급이 열려요'],
+  [/^(\d+) fiestas? · faltan (\d+) para (.+)$/, '{1} {1|party|parties} · {2} to go for {3}', '파티 {1}회 · {3}까지 {2}회 남음'],
+  [/^(\d+) fiestas? · nivel máximo$/, '{1} {1|party|parties} · top level', '파티 {1}회 · 최고 등급'],
+  [/^Conectada con (Apple|Google)$/, 'Connected with {1}', '{1}로 연결됨'],
+  [/^(.+)\. Solo tú ves estos datos\.$/, function(m){ return m[1].replace(' y ', ' and ') + '. Only you can see this information.'; }, function(m){ return m[1].replace(' y ', ', ') + '. 이 정보는 나만 볼 수 있어요.'; }],
+  [/^(.+) \(tú\)$/, '{1} (you)', '{1} (나)'],
+  [/^Bienvenido de nuevo, (.+)$/, 'Welcome back, {1}', '{1} 님, 다시 오셨네요'],
+  [/^Cuenta creada\. ¡Bienvenido, (.+)!$/, 'Account created. Welcome, {1}!', '계정을 만들었어요. {1} 님, 환영해요!'],
+  [/^Hola de nuevo, (.+)$/, 'Hi again, {1}', '{1} 님, 다시 만나서 반가워요'],
+  [/^Dejaste de seguir a (.+)$/, 'You unfollowed {1}', '{1} 님을 언팔로우했어요'],
+  [/^Ahora sigues a (.+)$/, 'You now follow {1}', '{1} 님을 팔로우해요'],
+  [/^(.+) empezó a seguirte y (.+) le dio me gusta a una de tus fotos$/, '{1} started following you and {2} liked one of your photos', '{1} 님이 나를 팔로우하기 시작했고, {2} 님이 내 사진을 좋아해요'],
+  [/^(.+) empezó a seguirte$/, '{1} started following you', '{1} 님이 나를 팔로우하기 시작했어요'],
+  [/^(.+) le dio me gusta a una de tus fotos$/, '{1} liked one of your photos', '{1} 님이 내 사진을 좋아해요'],
+  [/^Cuenta de (Apple|Google)$/, '{1} account', '{1} 계정'],
+  [/^Reportar (usuario|foto|mensaje|video)$/, function(m){ return 'Report ' + ({usuario: 'user', foto: 'photo', mensaje: 'message', video: 'video'})[m[1]]; }, function(m){ return ({usuario: '사용자', foto: '사진', mensaje: '메시지', video: '영상'})[m[1]] + ' 신고'; }],
+  [/^Cuéntanos qué pasa con (.*)\. Revisamos cada reporte en menos de 24 horas\.$/, 'Tell us what\'s going on with {1}. We review every report in under 24 hours.', '{1} 님과 관련해 어떤 일이 있는지 알려 주세요. 모든 신고는 24시간 안에 검토해요.'],
+  [/^Desbloqueaste a (.+)$/, 'You unblocked {1}', '{1} 님의 차단을 해제했어요'],
+  [/^Bloqueaste a (.+)\. Ya no verás sus fotos ni mensajes\.$/, 'You blocked {1}. You won\'t see their photos or messages anymore.', '{1} 님을 차단했어요. 이제 이 사용자의 사진과 메시지가 보이지 않아요.'],
+  [/^Bloqueaste a (.+)$/, 'You blocked {1}', '{1} 님을 차단했어요'],
+  [/^Vamos a revisar tu reporte en menos de 24 horas\. ¿Quieres bloquear a (.*) mientras tanto\?$/, 'We\'ll review your report in under 24 hours. Want to block {1} in the meantime?', '24시간 안에 신고 내용을 검토할게요. 그동안 {1} 님을 차단할까요?'],
+  [/^Bloquear a (.+)$/, 'Block {1}', '{1} 님 차단'],
+  [/^Esta cuenta no se creó con (Apple|Google)\. Usa el método con el que la creaste\.$/, 'This account wasn\'t created with {1}. Use the method you created it with.', '이 계정은 {1}로 만든 계정이 아니에요. 계정을 만들 때 쓴 방법을 사용하세요.'],
+  [/^Comprar por (.+)$/, 'Buy for {1}', '{1}에 구매'],
+  [/^Comprar (\S*\d.*)$/, 'Buy {1}', '{1} 구매'],
+  [/^Pago único de (.+), sin suscripción$/, 'One-time payment of {1}, no subscription', '{1} 1회 결제, 구독 없음'],
+  [/^(.+?), (\S*\d\S*), pago único$/, '{t1}, {2}, one-time payment', '{t1}, {2}, 1회 결제'],
+  [/^(.+?) por (\S*\d\S*), pago único$/, '{t1} for {2}, one-time payment', '{t1} · {2}, 1회 결제'],
+  [/^(.+) · próximamente$/, '{t1} · coming soon', '{t1} · 출시 예정'],
+  [/^(.+) comprado\. Avisamos cuando estén listos para usar\.$/, '{t1} purchased. We\'ll let you know when they\'re ready to use.', '{t1} 구매 완료. 사용할 수 있게 되면 알려 드릴게요.'],
+  [/^(.+) escribió en Mi grupo(?: y (.+) en (.+))?$/,
+    function(m){ return m[1] + ' wrote in My group' + (m[2] ? ' and ' + m[2] + ' in ' + m[3] : ''); },
+    function(m){ return m[1] + ' 님이 내 그룹에 글을 썼어요' + (m[2] ? ' · ' + m[2] + ' 님이 ' + m[3] + '에 글을 썼어요' : ''); }],
+  [/^(.+) · se borra en (\d+) días?$/, '{1} · deleted in {2} {2|day|days}', '{1} · {2}일 후 삭제'],
+  [/^(.+) al mes\. Se renueva solo y lo cancelas cuando quieras desde los ajustes de Apple\.$/, '{1} a month. It renews automatically and you can cancel anytime from Apple settings.', '월 {1}. 자동으로 갱신되며 Apple 설정에서 언제든 해지할 수 있어요.'],
+  [/^Fotos sin límite en todos tus eventos \(gratis: (\d+) por evento\)$/, 'Unlimited photos in all your events (free: {1} per event)', '모든 이벤트에서 사진 무제한 (무료: 이벤트당 {1}장)'],
+  [/^(\d+) fotos por evento, historias por 7 días$/, '{1} photos per event, stories for 7 days', '이벤트당 사진 {1}장, 스토리 7일 보관'],
+  [/^El video pesa mucho\. Máximo (\d+) MB: graba uno más corto o en menor calidad\.$/, 'The video is too large. Maximum {1} MB: record a shorter one or in lower quality.', '영상 용량이 너무 커요. 최대 {1} MB예요. 더 짧게 또는 낮은 화질로 찍어 주세요.'],
+  [/^El video dura (\d+) segundos\. Máximo (\d+)\.$/, 'The video is {1} seconds long. Maximum {2}.', '영상 길이가 {1}초예요. 최대 {2}초까지 가능해요.'],
+  [/^Tú: (.*)$/, function(m){ return 'You: ' + (m[1] === '📷 Foto' ? '📷 Photo' : m[1]); }, function(m){ return '나: ' + (m[1] === '📷 Foto' ? '📷 사진' : m[1]); }],
+  [/^(.+): 📷 Foto$/, '{1}: 📷 Photo', '{1}: 📷 사진'],
+  [/^Stickers de (.+)$/, '{t1}', '{t1}']
+];
+
+/* ---------- 3) traducir ---------- */
+function plural(tpl, get){
+  return tpl.replace(/\{(\w+)\|([^|}]*)\|([^}]*)\}/g, function(_, k, one, many){ return Number(get(k)) === 1 ? one : many; });
+}
+function fill(tpl, vars){
+  vars = vars || {};
+  return plural(tpl, function(k){ return vars[k]; }).replace(/\{(\w+)\}/g, function(m, k){ return vars[k] == null ? m : vars[k]; });
+}
+/* T: para el código de la app. En español devuelve el mismo texto con sus datos. */
+function T(s, vars){
+  var d = lang === 'es' ? null : D[s];
+  return fill(d ? d[LI] : s, vars);
+}
+function exact(key){
+  var d = D[key];
+  if (d) return d[LI];
+  /* mismo texto con un emoji delante o un punto al final */
+  var m = /^([^0-9A-Za-zÀ-ÿ¿¡«(@#]+ )(.+)$/.exec(key);
+  if (m && D[m[2]]) return m[1] + D[m[2]][LI];
+  m = /^(.+?)([.:])$/.exec(key);
+  if (m && D[m[1]]) return D[m[1]][LI] + m[2];
+  return null;
+}
+function tr(text){
+  var key = text.replace(/\s+/g, ' ').trim();
+  if (!key || !/[A-Za-zÀ-ÿ]/.test(key)) return null;
+  var out = exact(key);
+  if (out == null) {
+    for (var i = 0; i < P.length; i++) {
+      var m = P[i][0].exec(key);
+      if (!m) continue;
+      var t = P[i][1 + LI];
+      out = typeof t === 'function' ? t(m) : plural(t, function(k){ return m[+k]; }).replace(/\{(t?)(\d)\}/g, function(_, tt, k){
+        var v = m[+k] == null ? '' : m[+k];
+        return tt ? (v && v !== key && tr(v) || v) : v;
+      });
+      break;
+    }
+  }
+  if (out == null) return null;
+  /* conserva los espacios que el texto traía alrededor */
+  return /^\s*/.exec(text)[0] + out + /\s*$/.exec(text)[0];
+}
+
+var ATTRS = ['placeholder', 'aria-label', 'title', 'alt'];
+/* contenido escrito por las personas (nombres de eventos, mensajes, canciones): nunca se traduce */
+var SKIP = '[data-nt], .bub > div, .ct .t, .et, .notes, .sg-t, .sg-a, .sg-n, .pf-name, .pf-bio, option, script, style, textarea';
+var done = typeof WeakMap === 'function' ? new WeakMap() : null;
+var missing = {};
+function note(s){ if (/[áéíóúñ¿¡]| (de|el|la|los|las|que|para|con|tu|tus|una?) /i.test(s)) missing[s.replace(/\s+/g, ' ').trim()] = 1; }
+
+function textNode(n){
+  var v = n.nodeValue;
+  if (!v || (done && done.get(n) === v)) return;
+  var p = n.parentNode;
+  if (!p || p.nodeType !== 1 || (p.closest && p.closest(SKIP))) return;
+  var out = tr(v);
+  if (out == null) { note(v); return; }
+  if (out !== v) { if (done) done.set(n, out); n.nodeValue = out; }
+}
+function attrs(el){
+  for (var i = 0; i < ATTRS.length; i++) {
+    var v = el.getAttribute(ATTRS[i]);
+    if (!v) continue;
+    var out = tr(v);
+    if (out != null && out !== v) el.setAttribute(ATTRS[i], out);
+  }
+}
+function walk(root){
+  if (root.nodeType === 3) { textNode(root); return; }
+  if (root.nodeType !== 1) return;
+  if (root.closest && root.closest('[data-nt], script, style')) return;
+  attrs(root);
+  var w = document.createTreeWalker(root, 5 /* elementos y texto */, null), n;
+  while ((n = w.nextNode())) { if (n.nodeType === 3) textNode(n); else attrs(n); }
+}
+
+if (lang !== 'es') {
+  document.documentElement.lang = lang;
+  new MutationObserver(function(list){
+    for (var i = 0; i < list.length; i++) {
+      var r = list[i];
+      if (r.type === 'characterData') textNode(r.target);
+      else if (r.type === 'attributes') attrs(r.target);
+      else for (var j = 0; j < r.addedNodes.length; j++) walk(r.addedNodes[j]);
+    }
+  }).observe(document.documentElement, {childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ATTRS});
+  document.title = T('Friends Party: fotos de tus reuniones');
+}
+
+/* ---------- selector de idioma ---------- */
+function picker(dark){
+  var c = dark ? 'rgba(255,255,255,.75)' : 'var(--muted)', on = dark ? '#fff' : 'var(--ink)';
+  return '<div data-nt style="display:flex;gap:4px;align-items:center;justify-content:center;flex-wrap:wrap;font-size:14px;color:' + c + '"><span aria-hidden="true">🌐</span>' +
+    LANGS.map(function(l){
+      return '<button type="button" data-fp-lang="' + l + '" aria-pressed="' + (l === lang) + '" style="min-height:36px;padding:0 10px;border-radius:99px;font:inherit;background:none;border:1px solid ' + (l === lang ? 'currentColor' : 'transparent') + ';color:' + (l === lang ? on : c) + ';font-weight:' + (l === lang ? 700 : 500) + ';cursor:pointer">' + NAMES[l] + '</button>';
+    }).join('') + '</div>';
+}
+function setLang(l){
+  if (LANGS.indexOf(l) < 0 || l === lang) return;
+  try { localStorage.setItem('fp_lang', l); } catch (e) {}
+  var u = location.href.replace(/([?&])lang=(es|en|ko)(&|$)/, function(_, a, b, c){ return c ? a : ''; });
+  if (u !== location.href) location.replace(u); else location.reload();
+}
+document.addEventListener('click', function(e){
+  var b = e.target && e.target.closest && e.target.closest('[data-fp-lang]');
+  if (b) { e.preventDefault(); e.stopPropagation(); setLang(b.getAttribute('data-fp-lang')); }
+}, true);
+
+window.T = T;
+window.FP_I18N = {lang: lang, locale: lang, langs: LANGS, picker: picker, setLang: setLang, missing: missing, tr: tr};
+})();
