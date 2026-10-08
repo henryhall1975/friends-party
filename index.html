@@ -36,6 +36,8 @@ html{scroll-padding-top:env(safe-area-inset-top,0px)}
 body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 "Bricolage Grotesque",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
 button{font:inherit;color:inherit;cursor:pointer;border:0;background:none;padding:0}
 input{font:inherit;color:inherit}
+/* iPhone amplía la pantalla al escribir en un campo con letra menor a 16px y no regresa */
+input,textarea,select{font-size:16px}
 :focus-visible{outline:3px solid var(--accent);outline-offset:2px}
 .wrap{max-width:560px;margin:0 auto;padding:0 16px}
 .muted{color:var(--muted)}
@@ -93,6 +95,8 @@ svg{flex:none}
 
 /* Evento */
 .top{position:sticky;top:env(safe-area-inset-top,0px);z-index:10;background:var(--bg);border-bottom:1px solid var(--line)}
+/* tapa la franja de la hora para que el contenido no se vea pasar detrás */
+.top::before{content:"";position:absolute;left:0;right:0;bottom:100%;height:env(safe-area-inset-top,0px);background:var(--bg)}
 .bar1{display:flex;align-items:center;gap:6px;padding:10px 0 6px}
 .ib{width:40px;height:40px;border-radius:50%;display:grid;place-items:center}
 .ib:active{background:var(--line)}
@@ -527,6 +531,8 @@ var T = window.T || function(s, v){
 /* app de Android (Play Store): su primera versión no vende nada, así que ahí se ocultan la Tienda y Premium.
    Lo comprado en iPhone con la misma cuenta sí se respeta. */
 var ANDROID_APP = /FriendsPartyAndroid/.test(navigator.userAgent);
+/* dentro de la app de iPhone el Face ID por web no funciona; se oculta hasta tenerlo nativo */
+var IOS_APP = /FriendsPartyApp/.test(navigator.userAgent);
 if (ANDROID_APP) document.documentElement.classList.add('fp-android');
 
 /* ---------- utilidades ---------- */
@@ -3497,7 +3503,7 @@ function securityBlock(){
   var row = function(t, s, b){ return '<li><span class="nm">' + t + '<small>' + s + '</small></span>' + b + '</li>'; };
   return '<h3 class="pl-h">Seguridad</h3><ul class="people sec">' +
     row('Contraseña', L.pw ? 'Activada' : 'Sin contraseña', '<button class="btn small" data-act="lg-setpw">' + (L.pw ? 'Cambiar' : 'Crear') + '</button>') +
-    (ANDROID_APP ? '' : row('Face ID o Touch ID', L.bio ? 'Activado en este teléfono' : 'Desactivado', L.bio ? '<button class="btn small" data-act="lg-biooff">Desactivar</button>' : '<button class="btn small" data-act="lg-bioon">Activar</button>')) +
+    (ANDROID_APP || (IOS_APP && !L.bio) ? '' : row('Face ID o Touch ID', L.bio ? 'Activado en este teléfono' : 'Desactivado', L.bio ? '<button class="btn small" data-act="lg-biooff">Desactivar</button>' : '<button class="btn small" data-act="lg-bioon">Activar</button>')) +
     (pr.provider ? row('Cuenta de ' + (pr.provider === 'apple' ? 'Apple' : 'Google'), 'Conectada', '') : '') +
     '</ul><p class="muted small">Es un candado para este teléfono. La verificación real, y entrar desde otro teléfono, llegan con el servidor.</p>' +
     (hasLock() ? '<button class="btn block" data-act="lg-out">Cerrar sesión</button>' : '');
