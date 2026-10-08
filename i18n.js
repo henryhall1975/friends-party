@@ -439,7 +439,7 @@ var D = {
   'Sobre ti (opcional)': ['About you (optional)', '소개 (선택)'],
   'Una frase corta': ['A short line', '짧은 한 줄 소개'],
   'Tu correo y tu teléfono solo los ves tú.': ['Only you can see your email and phone.', '이메일과 전화번호는 나만 볼 수 있어요.'],
-  'Al crear tu cuenta, aceptas los': ['By creating your account, you accept the', '계정을 만들면 다음에 동의하게 됩니다:'],
+  'Al crear tu cuenta, confirmas que tienes 18 años o más y aceptas los': ['By creating your account, you confirm that you are 18 or older and accept the', '계정을 만들면 만 18세 이상임을 확인하고 다음에 동의하게 됩니다:'],
   'Términos de uso': ['Terms of Use', '이용 약관'],
   'y la': ['and the', '및'],
   'Política de privacidad': ['Privacy Policy', '개인정보 처리방침'],
