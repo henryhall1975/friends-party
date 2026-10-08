@@ -2326,7 +2326,7 @@ function loadQrDecoder(){
 }
 /* detecta ?join=CODIGO en la URL al abrir la app (por ejemplo, al escanear un QR con la cámara del teléfono) */
 /* enlace de la app en App Store; cuando esté publicada, pegarlo aquí. Si alguien abre un QR de invitación sin la app, se le ofrece descargarla */
-var APPSTORE_URL = '';
+var APPSTORE_URL = 'https://apps.apple.com/app/friends-party/id6817054301';
 var PENDING_JOIN = (function(){
   var m = /[?&]join=([^&]+)/.exec(window.location.search);
   return m ? decodeURIComponent(m[1]) : '';
