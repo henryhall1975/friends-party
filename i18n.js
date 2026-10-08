@@ -633,6 +633,8 @@ var D = {
   'Fotos y videos sin límite': ['Unlimited photos and videos', '사진과 영상 무제한'],
   'Activo': ['Active', '이용 중'],
   'Ver Premium': ['See Premium', 'Premium 보기'],
+  'Las compras llegarán pronto a Android': ['Purchases are coming soon to Android', '구매 기능은 곧 Android에 추가될 예정이에요'],
+  'Tu historia ya está. Se borra en 7 días.': ['Your story is up. It\'s deleted in 7 days.', '스토리가 올라갔어요. 7일 후 삭제돼요.'],
   'Elige un video': ['Choose a video', '영상을 선택하세요'],
   'Preparando tu video…': ['Preparing your video…', '영상 준비 중…'],
   'Tu historia ya está en el evento': ['Your story is now in the event', '스토리가 이벤트에 올라갔어요'],

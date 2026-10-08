@@ -360,6 +360,7 @@ main{padding:14px 0 130px}
 /* Menú de inicio */
 .hero{padding-bottom:14px;align-items:center}
 .hm{display:grid;grid-template-columns:repeat(6,1fr);gap:5px;margin:0 0 18px}
+.fp-android .hm,.fp-android .cv-tiles{grid-template-columns:repeat(5,1fr)}
 .hm-t{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;min-width:0;aspect-ratio:1/1.1;border-radius:14px;background:var(--surface);border:1px solid var(--line);color:var(--ink)}
 .hm-t span{font-size:clamp(8px,2.35vw,10px);letter-spacing:-.02em;white-space:nowrap;color:var(--muted);font-weight:500}
 .hm-t.on{border-color:var(--accent)}
@@ -523,6 +524,10 @@ var T = window.T || function(s, v){
   v = v || {};
   return s.replace(/\{(\w+)\|([^|}]*)\|([^}]*)\}/g, function(_, k, one, many){ return Number(v[k]) === 1 ? one : many; }).replace(/\{(\w+)\}/g, function(m, k){ return v[k] == null ? m : v[k]; });
 };
+/* app de Android (Play Store): su primera versión no vende nada, así que ahí se ocultan la Tienda y Premium.
+   Lo comprado en iPhone con la misma cuenta sí se respeta. */
+var ANDROID_APP = /FriendsPartyAndroid/.test(navigator.userAgent);
+if (ANDROID_APP) document.documentElement.classList.add('fp-android');
 
 /* ---------- utilidades ---------- */
 var $ = function(s){ return document.querySelector(s); };
@@ -1268,6 +1273,12 @@ document.addEventListener('keydown', function(e){
     else if (e.key === 'ArrowRight') act('lb-next');
   } else if (e.key === 'Escape' && ui.sheet && ui.sheet !== 'name' && !(ui.sheet === 'acct' && !S.me) && !/^(login|lgprov|forgot)$/.test(ui.sheet)) act('close-sheet');
 });
+/* botón "atrás" de Android: cierra lo que esté encima o vuelve una pantalla. Devuelve false si ya no hay a dónde volver. */
+window.fpBack = function(){
+  var order = ['#pay.on [data-act="pay-x"]', '#ed.on [data-act="ed-close"]', '#story.on [data-act="st-close"]', '[data-act="vc-close"]', '#lb.on [data-act="lb-close"]', '#sheet [data-act="close-sheet"]', '#app [data-act="ch-back"]', '#app [data-act="pc-back"]', '#app [data-act="us-back"]', '#app [data-act="back"]'];
+  for (var i = 0; i < order.length; i++) { var b = document.querySelector(order[i]); if (b) { b.click(); return true; } }
+  return false;
+};
 $('#file').addEventListener('change', function(e){
   var files = Array.prototype.slice.call(e.target.files || []);
   e.target.value = '';
@@ -1275,7 +1286,7 @@ $('#file').addEventListener('change', function(e){
   var ev = cur(); if (!ev) return;
   if (!isPremium()) {
     var mineN = ev.photos.filter(function(p){ return p.by === S.me; }).length, left = FREE_PHOTOS - mineN;
-    if (left <= 0) { toast('Llegaste al límite de ' + FREE_PHOTOS + ' fotos en este evento'); ui.sheet = 'premium'; renderSheet(); return; }
+    if (left <= 0) { toast('Llegaste al límite de ' + FREE_PHOTOS + ' fotos en este evento'); if (!ANDROID_APP) { ui.sheet = 'premium'; renderSheet(); } return; }
     if (files.length > left) { files = files.slice(0, left); toast('Solo se subirán ' + left + ' fotos: el plan gratis permite ' + FREE_PHOTOS + ' por evento'); }
   }
   toast('Subiendo fotos…');
@@ -1693,6 +1704,7 @@ var CV_TILES = [
   ['Fotos', svg('<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M4 18l5-5 4 4 3-3 4 4"/>', 24), ''],
   ['Tienda', svg('<path d="M4 9l1.5-5h13L20 9M4 9v10a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V9M4 9h16M9 13a3 3 0 0 0 6 0"/>', 24), 'pk']
 ];
+if (ANDROID_APP) CV_TILES = CV_TILES.filter(function(t){ return t[0] !== 'Tienda'; });
 function coverConfetti(){
   var cols = ['#ff8a4c', '#ff5fd0', '#9b6bff', '#5be0ff', '#ffd166'], out = '', i;
   for (i = 0; i < 26; i++) {
@@ -3204,7 +3216,7 @@ function profileHTML(name){
   return head + '<main class="wrap"><div class="pf-head">' + av(name, 84) + '<div class="pf-stats">' + stat(D.photos.length, 'Fotos') + stat(D.followers.length, 'Seguidores', 'pf-followers') + stat(D.following.length, 'Siguiendo', 'pf-following') + stat(D.likes, 'Me gusta') + '</div></div>' + info +
     '<nav class="tabs" style="margin-top:14px" role="tablist"><button class="tab' + (tab === 'fotos' ? ' on' : '') + '" data-act="pf-tab" data-tab="fotos">Fotos<small>' + D.photos.length + '</small></button><button class="tab' + (tab === 'eventos' ? ' on' : '') + '" data-act="pf-tab" data-tab="eventos">Eventos<small>' + D.evs.length + '</small></button></nav>' +
     '<div style="height:12px"></div>' + body +
-    (me ? purchasesBlock() + premiumBlock() + securityBlock() + blockedBlock() + legalBlock() + '<div style="height:20px"></div><button class="link danger" data-act="pf-wipe">' + (ui.armed === 'wipe' ? 'Toca otra vez para borrar todo' : 'Borrar mi cuenta y mis datos') + '</button>' : '<div style="height:20px"></div><button class="btn block" data-act="rp-open" data-n="' + esc(name) + '" data-k="usuario">⚑ Reportar a este usuario</button><button class="btn block danger" data-act="rp-block" data-n="' + esc(name) + '" style="margin-top:8px">' + (isBlocked(name) ? 'Desbloquear' : 'Bloquear') + ' a este usuario</button>') + '</main>';
+    (me ? (ANDROID_APP ? '' : purchasesBlock() + premiumBlock()) + securityBlock() + blockedBlock() + legalBlock() + '<div style="height:20px"></div><button class="link danger" data-act="pf-wipe">' + (ui.armed === 'wipe' ? 'Toca otra vez para borrar todo' : 'Borrar mi cuenta y mis datos') + '</button>' : '<div style="height:20px"></div><button class="btn block" data-act="rp-open" data-n="' + esc(name) + '" data-k="usuario">⚑ Reportar a este usuario</button><button class="btn block danger" data-act="rp-block" data-n="' + esc(name) + '" style="margin-top:8px">' + (isBlocked(name) ? 'Desbloquear' : 'Bloquear') + ' a este usuario</button>') + '</main>';
 }
 function profileView(){ return profileHTML(S.me); }
 function userView(){ return ui.user && ui.user !== S.me ? profileHTML(ui.user) : profileHTML(S.me); }
@@ -3485,7 +3497,7 @@ function securityBlock(){
   var row = function(t, s, b){ return '<li><span class="nm">' + t + '<small>' + s + '</small></span>' + b + '</li>'; };
   return '<h3 class="pl-h">Seguridad</h3><ul class="people sec">' +
     row('Contraseña', L.pw ? 'Activada' : 'Sin contraseña', '<button class="btn small" data-act="lg-setpw">' + (L.pw ? 'Cambiar' : 'Crear') + '</button>') +
-    row('Face ID o Touch ID', L.bio ? 'Activado en este teléfono' : 'Desactivado', L.bio ? '<button class="btn small" data-act="lg-biooff">Desactivar</button>' : '<button class="btn small" data-act="lg-bioon">Activar</button>') +
+    (ANDROID_APP ? '' : row('Face ID o Touch ID', L.bio ? 'Activado en este teléfono' : 'Desactivado', L.bio ? '<button class="btn small" data-act="lg-biooff">Desactivar</button>' : '<button class="btn small" data-act="lg-bioon">Activar</button>')) +
     (pr.provider ? row('Cuenta de ' + (pr.provider === 'apple' ? 'Apple' : 'Google'), 'Conectada', '') : '') +
     '</ul><p class="muted small">Es un candado para este teléfono. La verificación real, y entrar desde otro teléfono, llegan con el servidor.</p>' +
     (hasLock() ? '<button class="btn block" data-act="lg-out">Cerrar sesión</button>' : '');
@@ -3697,6 +3709,7 @@ function payHTML(packId, step){
     '<button class="btn primary block" data-act="pay-1" data-pack="' + pack.id + '">Comprar por ' + price + '</button><button class="link" data-act="pay-x">Ahora no</button></div>';
 }
 function openPay(packId, step){
+  if (ANDROID_APP) { toast('Las compras llegarán pronto a Android'); return; }
   ui.payPack = packId || 'stickers'; ui.payStep = step || 1;
   var el = $('#pay'); el.className = 'on'; el.innerHTML = payHTML(ui.payPack, ui.payStep);
   if (!STK.length) loadStickers().then(function(){ if (el.className === 'on') el.innerHTML = payHTML(ui.payPack, ui.payStep); });
@@ -3767,7 +3780,7 @@ function buildTray(){
     }
   }
   var un = document.getElementById('ed-unlock'), upk = extraPack || packById('stickers');
-  if (un) un.innerHTML = owned(upk.id) ? '' : '<div class="unlock"><div><strong>' + esc(upk.name) + '</strong><span>' + esc(upk.desc) + ' por ' + upk.price + ', pago único</span></div><button class="btn primary" data-act="pay-open" data-pack="' + upk.id + '">Desbloquear</button></div>';
+  if (un) un.innerHTML = owned(upk.id) ? '' : ANDROID_APP ? '<div class="unlock"><div><strong>' + esc(upk.name) + '</strong><span>Las compras llegarán pronto a Android</span></div></div>' : '<div class="unlock"><div><strong>' + esc(upk.name) + '</strong><span>' + esc(upk.desc) + ' por ' + upk.price + ', pago único</span></div><button class="btn primary" data-act="pay-open" data-pack="' + upk.id + '">Desbloquear</button></div>';
   STK.filter(function(s){
     if (extraPack) return stkPack(s) === extraPack.id && (!e.cat || e.cat === 'all' || s.l === e.cat);
     return stkPack(s) === 'stickers' && (e.tab === 'todos' || s.l === e.tab);
@@ -4280,7 +4293,7 @@ function clipAct(a, t){
       }
       toast('Video eliminado'); renderClip(); break;
     case 'vc-report': closeClips(); reportAct('rp-open', {dataset: {n: t.dataset.n, k: 'video'}}); break;
-    case 'vc-premium': closeClips(); ui.sheet = 'premium'; renderSheet(); break;
+    case 'vc-premium': closeClips(); if (!ANDROID_APP) { ui.sheet = 'premium'; renderSheet(); } break;
     case 'vc-premium-buy':
       if (!S.session) { toast('Conecta tu cuenta primero'); ui.sheet = 'srvconn'; renderSheet(); return; }
       toast('Abriendo la compra…');
@@ -4318,7 +4331,7 @@ $('#vfile').addEventListener('change', function(e){
     if (p.dur > CLIP_MAX_S + 0.5) { toast('El video dura ' + Math.round(p.dur) + ' segundos. Máximo ' + CLIP_MAX_S + '.'); return; }
     var c = {id: uid(), by: S.me, at: Date.now(), thumb: p.thumb, dur: p.dur, blob: f, synced: false};
     ev.clips = ev.clips || []; ev.clips.push(c); save(); render(true);
-    toast(isPremium() ? 'Tu historia ya está en el evento' : 'Tu historia ya está. Se borra en 7 días (con Premium se queda para siempre).');
+    toast(isPremium() ? 'Tu historia ya está en el evento' : ANDROID_APP ? 'Tu historia ya está. Se borra en 7 días.' : 'Tu historia ya está. Se borra en 7 días (con Premium se queda para siempre).');
     SB.syncClip(ev, c);
   });
 });
