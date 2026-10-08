@@ -45,3 +45,26 @@ language sql stable security definer set search_path = '' as $$
 $$;
 revoke all on function public.cleanup_candidates() from public, anon, authenticated;
 grant execute on function public.cleanup_candidates() to service_role;
+
+-- 3) Tarea diaria: llama a la Edge Function con la clave guardada en Vault.
+create extension if not exists pg_cron;
+
+select cron.unschedule(jobid) from cron.job where jobname = 'limpieza-storage-diaria';
+
+select cron.schedule(
+  'limpieza-storage-diaria',
+  '0 9 * * *',  -- todos los días a las 09:00 UTC (3:00 a. m. en Guatemala)
+  $job$
+  select net.http_post(
+    url := 'https://tjsrwipyhrqsvqodrnta.supabase.co/functions/v1/cleanup-storage',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'x-cleanup-secret', (select decrypted_secret from vault.decrypted_secrets where name = 'cleanup_secret')
+    ),
+    body := '{}'::jsonb,
+    timeout_milliseconds := 30000
+  );
+  $job$
+);
+
+-- Para ver si corrió:  select * from cron.job_run_details order by start_time desc limit 5;
