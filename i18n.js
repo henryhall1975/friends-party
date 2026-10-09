@@ -516,6 +516,8 @@ var D = {
   'Activar': ['Turn on', '켜기'],
   'Hoy': ['Today', '오늘'],
   'Elige la fecha': ['Choose the date', '날짜 선택'],
+  'Cómo llegar': ['How to get there', '오시는 길'],
+  'ubicación aproximada, por el nombre del lugar': ['approximate location, from the place name', '장소 이름으로 찾은 대략적인 위치'],
   'Crea un evento y reúne a tus amigos': ['Create an event and bring your friends together', '이벤트를 만들고 친구들을 모으세요'],
   'Ver todos los íconos': ['See all icons', '아이콘 전체 보기'],
   'Sin hora': ['No time', '시간 없음'],

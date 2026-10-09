@@ -611,6 +611,12 @@ details.loc summary{cursor:pointer;font-weight:700;color:var(--accent);padding:8
 .evs-more[aria-expanded="true"] svg{transform:rotate(180deg)}
 .btn.primary.evs-go{position:relative;min-height:58px;font-size:19px;font-weight:800;border:1.5px solid rgba(255,255,255,.55);background:linear-gradient(90deg,#FF9A4D,#F04FA8 38%,#8B4BF0 72%,#5B3BE8);box-shadow:0 0 26px rgba(240,90,180,.5),inset 0 1px 0 rgba(255,255,255,.4)}
 .evs-go .chev{position:absolute;right:14px;top:50%;transform:translateY(-50%);display:grid;place-items:center;width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.22)}
+/* Cómo llegar */
+.route{display:grid;gap:8px;margin-bottom:6px}
+.route p{margin:0;display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.route-b{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.route-b .btn{flex-direction:column;gap:6px;min-height:64px;padding:8px 4px;font-size:13.5px;text-decoration:none;color:var(--ink);text-align:center;border-radius:16px}
+.route-b .btn i{width:12px;height:12px;border-radius:50%;box-shadow:0 0 10px currentColor}
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
 /* ---------- tema de vidrio: un solo estilo oscuro para toda la app ---------- */
 html{background:#0D0B24}
@@ -1056,7 +1062,8 @@ var SB = {
       if (!gid) { SB.fail('grupo', {status: 0}); return null; }
       var starts = ev.date ? (ev.date + 'T' + (ev.time || '00:00') + ':00') : null;
       var eid = SB.uuid();
-      return SB.rest('events', 'POST', {id: eid, group_id: gid, owner_id: S.serverId, title: ev.name, place_text: ev.place || '', starts_at: starts}, '', 'return=minimal').then(function(res){
+      var gg = ev.geo && !ev.geoDemo ? ev.geo : null;
+      return SB.rest('events', 'POST', {id: eid, group_id: gid, owner_id: S.serverId, title: ev.name, place_text: ev.place || '', starts_at: starts, lat: gg ? gg.lat : null, lon: gg ? gg.lon : null}, '', 'return=minimal').then(function(res){
         if (res.ok) { ev.serverId = eid; save(); return eid; }
         SB.fail('evento', res); return null;
       });
@@ -1086,6 +1093,14 @@ var SB = {
         });
       });
     }).catch(function(e){ SB.fail('foto', {status: 0, data: {message: String(e)}}); return false; });
+  },
+  /* manda al servidor los cambios de un evento que ya existe allá (nombre, lugar, fecha y ubicación exacta), para que les lleguen a los invitados.
+     Solo el dueño puede cambiarlo: si no lo es, el servidor no modifica nada. */
+  pushEvent: function(ev){
+    if (!ev || !ev.serverId || !SB.session || !SB.session.access_token) return Promise.resolve(false);
+    var gg = ev.geo && !ev.geoDemo ? ev.geo : null;
+    return SB.rest('events', 'PATCH', {title: ev.name, place_text: ev.place || '', starts_at: ev.date ? (ev.date + 'T' + (ev.time || '00:00') + ':00') : null, lat: gg ? gg.lat : null, lon: gg ? gg.lon : null}, '?id=eq.' + ev.serverId, 'return=minimal')
+      .then(function(r){ return !!r.ok; }).catch(function(){ return false; });
   },
   /* reintenta lo que quedó pendiente en este teléfono (eventos y fotos creados por el usuario) */
   syncPending: function(){
@@ -1181,6 +1196,7 @@ var SB = {
               id: 'srv_' + erow.id, serverId: erow.id, name: erow.title, place: erow.place_text || '',
               date: erow.starts_at ? erow.starts_at.slice(0, 10) : '', time: erow.starts_at ? erow.starts_at.slice(11, 16) : '',
               emoji: '🎉', grad: 0, code: mkCode(), members: [S.me], created: Date.parse(erow.created_at) || Date.now(),
+              geo: (typeof erow.lat === 'number' && typeof erow.lon === 'number') ? {lat: erow.lat, lon: erow.lon} : null,
               rsvp: {}, invites: [], remind: {d3: true, d1: true, d0: true},
               photos: photos.filter(Boolean),
               chat: b.msgRows.map(function(m){ return {id: 'm_' + m.id, by: names[m.author_id] || 'Alguien', at: Date.parse(m.created_at), text: m.body || ''}; }),
@@ -1192,7 +1208,7 @@ var SB = {
     }).then(function(evs){
       (evs || []).forEach(function(nev){
         var existing = S.events.filter(function(e){ return e.serverId === nev.serverId; })[0];
-        if (existing) { var keep = existing.photos.filter(function(p){ return p.pend && !p.synced; }); existing.photos = nev.photos.concat(keep); existing.chat = nev.chat; existing.songs = nev.songs; Object.assign(existing, {name: nev.name, place: nev.place, date: nev.date, time: nev.time}); }
+        if (existing) { var keep = existing.photos.filter(function(p){ return p.pend && !p.synced; }); existing.photos = nev.photos.concat(keep); existing.chat = nev.chat; existing.songs = nev.songs; Object.assign(existing, {name: nev.name, place: nev.place, date: nev.date, time: nev.time}); if (nev.geo) { existing.geo = nev.geo; delete existing.geoDemo; } }
         else S.events.push(nev);
       });
       save(); render(false);
@@ -1442,7 +1458,7 @@ function act(a, t){
       var data = {name: name, place: ($('#f-place').value || '').trim(), date: $('#f-date').value, time: $('#f-time').value, notes: ($('#f-notes').value || '').trim(), emoji: ui.form.emoji || '🎂'};
       if (ui.editId) {
         ev = S.events.filter(function(e){ return e.id === ui.editId; })[0];
-        if (ev) Object.assign(ev, data);
+        if (ev) { Object.assign(ev, data); SB.pushEvent(ev); }
         ui.editId = null; ui.sheet = null; renderSheet(); save(); render(); toast('Cambios guardados');
         break;
       }
@@ -2243,7 +2259,7 @@ function planBody(ev){
 
   var more = '<button class="link" data-act="pl-edit">Editar evento</button><br>' +
     '<button class="link danger" data-act="ev-del">' + (ui.armed === 'e' + ev.id ? 'Toca otra vez para eliminar' : 'Eliminar evento') + '</button>';
-  return hero + seg + people + rm + more; /* musicBlock(ev) quitado por ahora, junto con la sección Música */
+  return hero + routeBlock(ev) + seg + people + rm + more; /* musicBlock(ev) quitado por ahora, junto con la sección Música */
 }
 
 /* hojas: invitar y ver avisos */
@@ -3008,6 +3024,23 @@ function parseGeo(t){
   }
   return null;
 }
+/* enlaces para llegar con ruta: Apple Maps, Google Maps y Waze. Con ubicación exacta usan las coordenadas; si no, el lugar escrito */
+function routeUrl(kind, g, q){
+  var ll = g ? g.lat + ',' + g.lon : '', dest = encodeURIComponent(g ? ll : q);
+  if (kind === 'apple') return 'https://maps.apple.com/?daddr=' + dest + '&dirflg=d';
+  if (kind === 'google') return 'https://www.google.com/maps/dir/?api=1&destination=' + dest;
+  return 'https://waze.com/ul?' + (g ? 'll=' + encodeURIComponent(ll) : 'q=' + dest) + '&navigate=yes';
+}
+function routeBlock(ev){
+  var g = ev.geo && !ev.geoDemo ? ev.geo : null, q = (ev.place || '').trim();
+  if (!g && !q) return '';
+  /* dentro de la app de iPhone los enlaces van sin pestaña nueva, que ahí no abre nada */
+  var tg = IOS_APP ? '' : ' target="_blank" rel="noopener"';
+  var apps = [['apple', 'Apple Maps', '#5BA8FF'], ['google', 'Google Maps', '#34D399'], ['waze', 'Waze', '#5BD7FF']];
+  if (!/iphone|ipad|ipod|macintosh/i.test(navigator.userAgent)) apps.push(apps.shift());
+  return '<h3 class="pl-h">Cómo llegar</h3><div class="route"><p class="muted small">' + I.pin + ' <span data-nt>' + esc(q || fmtCoord(g)) + '</span>' + (g ? '' : ' · <span>ubicación aproximada, por el nombre del lugar</span>') + '</p><div class="route-b">' +
+    apps.map(function(a){ return '<a class="btn" href="' + routeUrl(a[0], g, q) + '"' + tg + ' data-nt><i style="background:' + a[2] + '"></i>' + a[1] + '</a>'; }).join('') + '</div></div>';
+}
 function fmtCoord(g){ return g.lat.toFixed(5) + ', ' + g.lon.toFixed(5); }
 function mapUrl(kind, g, q){
   var ll = g ? g.lat + ',' + g.lon : '';
@@ -3155,7 +3188,7 @@ function placeAct(a, t){
     if (g.short) { toast('Ese es un enlace corto. Ábrelo y copia el enlace largo, o mantén presionado el punto para copiar las coordenadas.'); return; }
     done(g);
   };
-  var setEv = function(pos){ ev.geo = pos; delete ev.geoDemo; save(); render(); toast('Ubicación del evento guardada'); };
+  var setEv = function(pos){ ev.geo = pos; delete ev.geoDemo; save(); render(); SB.pushEvent(ev); toast('Ubicación del evento guardada'); };
   var photo = function(){ return ev && ev.photos.filter(function(x){ return x.id === ui.locPid; })[0]; };
   var setPh = function(pos){ var ph = photo(); if (!ph) return; ph.geo = pos; save(); render(); renderSheet(); toast(pos ? 'Ubicación de la foto guardada' : 'Ubicación quitada'); };
   switch (a) {
@@ -3168,7 +3201,7 @@ function placeAct(a, t){
       toast('Abriendo Google Maps. Copia el enlace o las coordenadas y pégalos aquí.');
       break;
     case 'pc-save': if (ev) geoFrom($('#pc-paste').value, setEv); break;
-    case 'pc-clear': if (ev) { ev.geo = null; delete ev.geoDemo; save(); render(); toast('Ubicación quitada'); } break;
+    case 'pc-clear': if (ev) { ev.geo = null; delete ev.geoDemo; save(); render(); SB.pushEvent(ev); toast('Ubicación quitada'); } break;
     case 'pc-ext':
       if (!ev) return;
       var tg = t.dataset.t === 'ev' ? ev.geo : (ev.photos.filter(function(x){ return x.id === t.dataset.t; })[0] || {}).geo;
