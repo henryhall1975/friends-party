@@ -640,6 +640,8 @@ details.loc summary{cursor:pointer;font-weight:700;color:var(--accent);padding:8
 .mp-bot p{margin:0}
 .mp-addr{font-weight:700;min-height:1.4em}
 .mp-btns{display:grid;grid-template-columns:1fr 1.3fr;gap:8px;margin-top:4px}
+.secm{margin:12px 0 4px}
+.secm .hm{margin-bottom:10px}
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
 /* ---------- tema de vidrio: un solo estilo oscuro para toda la app ---------- */
 html{background:#0D0B24}
@@ -2546,14 +2548,18 @@ function homeArt(){
 }
 /* íconos 3D del menú (recortes de la lámina de diseño) */
 var MENU_IMG = {'Eventos': 'eventos', 'Invitaciones': 'invitaciones', 'Chat': 'chat', 'Lugares': 'lugares', 'Fotos': 'fotos', 'Tienda': 'tienda'};
-function homeMenu(){
-  return '<nav class="hm" aria-label="Secciones">' + CV_TILES.map(function(t, i){
-    return '<button class="hm-t' + (i === 0 ? ' on' : '') + (t[2] ? ' ' + t[2] : '') + '" data-act="hm" data-k="' + t[0] + '"' + (i === 0 ? ' aria-current="page"' : '') + '>' + (MENU_IMG[t[0]] ? '<img src="icons/menu/' + MENU_IMG[t[0]] + '.jpg" alt="" width="220" height="201">' : t[1]) + '<span>' + t[0] + '</span>' + (t[0] === 'Invitaciones' && pendingCount() ? '<b class="bd">' + pendingCount() + '</b>' : '') + (t[0] === 'Chat' && totalUnread() ? '<b class="bd">' + totalUnread() + '</b>' : '') + '</button>';
+/* el mismo menú arriba de cada sección, con el marco en la sección donde estás */
+function secMenu(act){ return '<div class="hmv secm">' + homeMenu(act) + '</div>'; }
+function homeMenu(act){
+  act = act || 'Eventos';
+  return '<nav class="hm" aria-label="Secciones">' + CV_TILES.map(function(t){
+    return '<button class="hm-t' + (t[0] === act ? ' on' : '') + (t[2] ? ' ' + t[2] : '') + '" data-act="hm" data-k="' + t[0] + '"' + (t[0] === act ? ' aria-current="page"' : '') + '>' + (MENU_IMG[t[0]] ? '<img src="icons/menu/' + MENU_IMG[t[0]] + '.jpg" alt="" width="220" height="201">' : t[1]) + '<span>' + t[0] + '</span>' + (t[0] === 'Invitaciones' && pendingCount() ? '<b class="bd">' + pendingCount() + '</b>' : '') + (t[0] === 'Chat' && totalUnread() ? '<b class="bd">' + totalUnread() + '</b>' : '') + '</button>';
   }).join('') + '</nav>';
 }
 function menuAct(t){
   var k = t.dataset.k;
-  if (k === 'Eventos') { var l = $('.list') || $('.empty'); if (l && l.scrollIntoView) l.scrollIntoView({behavior: 'smooth', block: 'start'}); }
+  if (k === 'Eventos' && ui.view !== 'home') { ui.view = 'home'; render(false); window.scrollTo(0, 0); }
+  else if (k === 'Eventos') { var l = $('.list') || $('.empty'); if (l && l.scrollIntoView) l.scrollIntoView({behavior: 'smooth', block: 'start'}); }
   else if (k === 'Chat') { ui.view = 'chats'; render(false); window.scrollTo(0, 0); }
   else if (k === 'Fotos') { ui.view = 'fotos'; render(false); window.scrollTo(0, 0); }
   else if (k === 'Lugares') { ui.view = 'places'; render(false); window.scrollTo(0, 0); }
@@ -2628,7 +2634,7 @@ function invitesView(){
       }).join('') + '</ul>'
     : '';
   return '<header class="top"><div class="wrap"><div class="bar1"><button class="ib" data-act="back" aria-label="Volver al inicio">' + I.back + '</button><div class="tt"><div class="ttl">Invitaciones</div><div class="meta"><span>Tu grupo de la party</span></div></div></div></div></header>' +
-    '<main class="wrap">' + inboxHtml() +
+    '<main class="wrap">' + secMenu('Invitaciones') + inboxHtml() +
     '<h3 class="pl-h" style="margin-top:4px">Comparte tu grupo</h3><p class="muted small">Que tu amigo escanee este código con la cámara para unirse. Al entrar, ve tus eventos y fotos.</p>' +
     '<div class="qrframe"><div class="qrwrap" id="qr-target"><p class="muted small">Generando…</p></div><div class="qr-mark">' + I.crown + '</div></div>' +
     '<div class="code" style="text-align:center;margin-bottom:6px">' + esc(groupCode()) + '</div>' +
@@ -3198,7 +3204,7 @@ function placesView(){
       '<span class="chip">' + (ev.geo ? 'Ubicación guardada' : 'Sin ubicación exacta') + '</span></div></div></button>';
   }).join('') + '</div>' : '<div class="empty"><p><strong>Todavía no tienes eventos.</strong></p><p class="muted">Crea uno y escribe dónde será.</p></div>';
   return '<header class="top"><div class="wrap"><div class="bar1"><button class="ib" data-act="back" aria-label="Volver al inicio">' + I.back + '</button><div class="tt"><div class="ttl">Lugares</div><div class="meta"><span>Dónde será y dónde se tomaron las fotos</span></div></div></div></div></header>' +
-    '<main class="wrap">' + nextCard + '<p class="muted small" style="margin:0 0 12px">' + nl + (nl === 1 ? ' lugar' : ' lugares') + ' en tus eventos, y ' + exact + (exact === 1 ? ' foto' : ' fotos') + ' con ubicación exacta.</p>' + list + '</main>';
+    '<main class="wrap">' + secMenu('Lugares') + nextCard + '<p class="muted small" style="margin:0 0 12px">' + nl + (nl === 1 ? ' lugar' : ' lugares') + ' en tus eventos, y ' + exact + (exact === 1 ? ' foto' : ' fotos') + ' con ubicación exacta.</p>' + list + '</main>';
 }
 
 /* plano esquemático (sin calles) */
@@ -3385,7 +3391,7 @@ function fotosView(){
       '<div class="abar"><button class="btn small primary" data-act="fo-upload" data-id="' + ev.id + '">' + I.image + ' Subir fotos</button><button class="btn small" data-act="fo-open" data-id="' + ev.id + '">Abrir álbum</button></div></div>';
   }).join('') + '</div>' : '<div class="empty"><p><strong>Todavía no tienes eventos.</strong></p><p class="muted">Crea uno y ahí subes las fotos.</p></div>';
   return '<header class="top"><div class="wrap"><div class="bar1"><button class="ib" data-act="back" aria-label="Volver al inicio">' + I.back + '</button><div class="tt"><div class="ttl">Fotos</div><div class="meta"><span>El álbum de cada evento</span></div></div></div></div></header>' +
-    '<main class="wrap"><p class="muted small" style="margin:0 0 12px">' + total + (total === 1 ? ' foto' : ' fotos') + ' en ' + S.events.length + (S.events.length === 1 ? ' álbum' : ' álbumes') + '. Entra a un evento para subir fotos: tu grupo las ve, las descarga y las comparte.</p>' + list + '</main>';
+    '<main class="wrap">' + secMenu('Fotos') + '<p class="muted small" style="margin:0 0 12px">' + total + (total === 1 ? ' foto' : ' fotos') + ' en ' + S.events.length + (S.events.length === 1 ? ' álbum' : ' álbumes') + '. Entra a un evento para subir fotos: tu grupo las ve, las descarga y las comparte.</p>' + list + '</main>';
 }
 
 function fotosAct(a, t){
@@ -4201,7 +4207,7 @@ function tiendaView(){
     return '<li>' + packIco(p.id) + '<span class="nm">' + esc(p.name) + '<small>' + esc(p.desc) + (p.live ? '' : ' · próximamente') + '</small></span>' + st + '</li>';
   }).join('');
   return '<header class="top"><div class="wrap"><div class="bar1"><button class="ib" data-act="back" aria-label="Volver al inicio">' + I.back + '</button><div class="tt"><div class="ttl">Tienda</div><div class="meta"><span>Stickers para decorar tus fotos</span></div></div></div></div></header>' +
-    '<main class="wrap">' + (storeNative() ? '' : '<p class="muted small" style="margin-top:6px">Abre la app en tu iPhone para comprar. Aquí en el navegador solo puedes ver el catálogo.</p>') +
+    '<main class="wrap">' + secMenu('Tienda') + (storeNative() ? '' : '<p class="muted small" style="margin-top:6px">Abre la app en tu iPhone para comprar. Aquí en el navegador solo puedes ver el catálogo.</p>') +
     premiumCard() + '<h3 class="pl-h">Paquetes de stickers</h3><ul class="people sec" style="margin-top:6px">' + cards + '</ul>' + (storeNative() ? '<button class="link" data-act="vc-restore" style="margin-top:6px">Restaurar compras</button>' : '') + '</main>';
 }
 
@@ -4484,7 +4490,7 @@ function chatsView(){
       '<span class="nm">' + esc(c.name) + '<small>' + esc(prev) + '</small></span><span class="cmeta">' + esc(whenLbl(m ? m.at : 0)) + (u ? '<b class="ub">' + u + '</b>' : '') + '</span></button></li>';
   }).join('');
   return '<header class="top"><div class="wrap"><div class="bar1"><button class="ib" data-act="back" aria-label="Volver al inicio">' + I.back + '</button><div class="tt"><div class="ttl">Chat</div><div class="meta"><span>Tu grupo y cada evento</span></div></div></div></div></header>' +
-    '<main class="wrap"><ul class="people" style="margin-top:6px">' + rows + '</ul></main>';
+    '<main class="wrap">' + secMenu('Chat') + '<ul class="people" style="margin-top:6px">' + rows + '</ul></main>';
 }
 function gchatView(){
   var g = S.group; markRead('g');
