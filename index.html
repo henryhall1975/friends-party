@@ -1476,7 +1476,7 @@ function eventView(){
   return '<header class="top"><div class="wrap"><div class="bar1"><button class="ib" data-act="back" aria-label="Volver a eventos">' + I.back + '</button><div class="tt"><div class="ttl" data-nt>' + evIco(ev.emoji) + ' ' + esc(ev.name) + '</div><div class="meta">' +
     (ev.place ? '<span>' + I.pin + esc(ev.place) + '</span>' : '') + (ev.date ? '<span>' + I.cal + esc(fmtDate(ev.date) + (ev.time ? ', ' + fmtHour(ev.time) : '')) + '</span>' : '') +
     '</div></div></div><nav class="tabs" role="tablist">' + tab('plan', 'Plan', '') + tab('fotos', 'Fotos', ev.photos.length) + tab('chat', 'Chat', ev.chat.length || '') + '</nav></div></header>' +
-    '<main class="wrap">' + body + '</main>' + bar;
+    '<main class="wrap">' + secMenu('Eventos') + body + '</main>' + bar;
 }
 function render(keep){
   var y = window.scrollY;
