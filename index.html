@@ -2203,7 +2203,7 @@ function planAct(a, t){
 /* confeti que cae solo en la franja de arriba del inicio (título), sin llegar a los íconos */
 function homeFx(){
   var C = ['#ff5fd0', '#ffd166', '#5b8cff', '#7cf5c0', '#ff8a5b', '#b38bff'], h = '';
-  for (var i = 0; i < 18; i++) h += '<i style="left:' + ((i * 37 + 6) % 100) + '%;background:' + C[i % 6] + ';animation-duration:' + (4 + (i * 7) % 5) + 's;animation-delay:-' + ((i * 13) % 8) + 's' + (i % 3 === 0 ? ';width:6px;height:6px;border-radius:50%' : '') + '"></i>';
+  for (var i = 0; i < 18; i++) h += '<i style="left:' + ((i * 37 + 6) % 100) + '%;background:' + C[i % 6] + ';animation-duration:' + (1.8 + ((i * 7) % 5) * 0.45).toFixed(2) + 's;animation-delay:-' + ((i * 13) % 8) * 0.5 + 's' + (i % 3 === 0 ? ';width:6px;height:6px;border-radius:50%' : '') + '"></i>';
   return '<div class="hfx" aria-hidden="true">' + h + '</div>';
 }
 function homeArt(){
