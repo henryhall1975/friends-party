@@ -531,7 +531,7 @@ var T = window.T || function(s, v){
 /* app de Android (Play Store): su primera versión no vende nada, así que ahí se ocultan la Tienda y Premium.
    Lo comprado en iPhone con la misma cuenta sí se respeta. */
 var ANDROID_APP = /FriendsPartyAndroid/.test(navigator.userAgent);
-/* dentro de la app de iPhone el Face ID por web no funciona; se oculta hasta tenerlo nativo */
+/* dentro de la app de iPhone el Face ID por web no funciona; solo se muestra si la app trae el nativo (1.1 en adelante) */
 var IOS_APP = /FriendsPartyApp/.test(navigator.userAgent);
 if (ANDROID_APP) document.documentElement.classList.add('fp-android');
 
@@ -3438,8 +3438,18 @@ function loginOk(){
 function bioSupported(){
   return !!(window.PublicKeyCredential && navigator.credentials && navigator.credentials.create && navigator.credentials.get && window.crypto);
 }
+/* en la app de iPhone lo confirma la parte nativa: webkit.messageHandlers.bio.postMessage('enable' | 'login') y responde window.fpBio(para, ok) */
+function bioNative(){ return IOS_APP && window.webkit && webkit.messageHandlers && webkit.messageHandlers.bio; }
+window.fpBio = function(para, ok){
+  if (!ok) { bioFail(); return; }
+  if (para === 'enable') {
+    S.lock = S.lock || {pw: null, bio: null}; S.lock.bio = 'native'; save(); render();
+    toast('Face ID o Touch ID activado en este teléfono');
+  } else if (para === 'login' && S.lock && S.lock.bio) loginOk();
+};
 function bioFail(){ toast('No se pudo confirmar con Face ID o Touch ID. Puede que esta vista no lo permita: usa tu contraseña.'); }
 function enableBio(){
+  if (bioNative()) { webkit.messageHandlers.bio.postMessage('enable'); return; }
   if (!bioSupported()) { toast('Este dispositivo no permite Face ID o Touch ID desde aquí.'); return; }
   navigator.credentials.create({publicKey: {
     challenge: randBytes(32), rp: {name: 'Friends Party'},
@@ -3452,6 +3462,7 @@ function enableBio(){
   }).catch(bioFail);
 }
 function bioLogin(){
+  if (bioNative() && S.lock && S.lock.bio) { webkit.messageHandlers.bio.postMessage('login'); return; }
   if (!bioSupported() || !S.lock || !S.lock.bio) { bioFail(); return; }
   navigator.credentials.get({publicKey: {
     challenge: randBytes(32), allowCredentials: [{type: 'public-key', id: unb64(S.lock.bio)}], userVerification: 'required', timeout: 60000
@@ -3503,7 +3514,7 @@ function securityBlock(){
   var row = function(t, s, b){ return '<li><span class="nm">' + t + '<small>' + s + '</small></span>' + b + '</li>'; };
   return '<h3 class="pl-h">Seguridad</h3><ul class="people sec">' +
     row('Contraseña', L.pw ? 'Activada' : 'Sin contraseña', '<button class="btn small" data-act="lg-setpw">' + (L.pw ? 'Cambiar' : 'Crear') + '</button>') +
-    (ANDROID_APP || (IOS_APP && !L.bio) ? '' : row('Face ID o Touch ID', L.bio ? 'Activado en este teléfono' : 'Desactivado', L.bio ? '<button class="btn small" data-act="lg-biooff">Desactivar</button>' : '<button class="btn small" data-act="lg-bioon">Activar</button>')) +
+    (ANDROID_APP || (IOS_APP && !L.bio && !bioNative()) ? '' : row('Face ID o Touch ID', L.bio ? 'Activado en este teléfono' : 'Desactivado', L.bio ? '<button class="btn small" data-act="lg-biooff">Desactivar</button>' : '<button class="btn small" data-act="lg-bioon">Activar</button>')) +
     (pr.provider ? row('Cuenta de ' + (pr.provider === 'apple' ? 'Apple' : 'Google'), 'Conectada', '') : '') +
     '</ul><p class="muted small">Es un candado para este teléfono. La verificación real, y entrar desde otro teléfono, llegan con el servidor.</p>' +
     (hasLock() ? '<button class="btn block" data-act="lg-out">Cerrar sesión</button>' : '');
