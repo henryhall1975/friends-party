@@ -725,6 +725,11 @@ var SB = {
         if (res.data.user && res.data.user.id && S.serverId !== res.data.user.id) { S.serverId = res.data.user.id; save(); } /* por si quedó sin asignar (p.ej. tras un desbloqueo de candado) */
         return true;
       }
+      /* el servidor ya no reconoce la sesión guardada (no es falla de red): hay que volver a pedir la contraseña */
+      if ((res.status === 400 || res.status === 401) && S.keepLogin && S.lock && S.lock.pw) {
+        S.keepLogin = false; S.session = null; SB.session = null; save();
+        if (ui.authed) { ui.authed = false; ui.sheet = 'login'; renderSheet(); }
+      }
       return false;
     }).catch(function(){ return false; });
   },
@@ -3546,7 +3551,7 @@ function verifyPw(pw){
 function finishSignup(name, user, email, phone, bio, prov, h, pwd){
   S.me = name;
   S.profile = {name: name, user: user, email: email, phone: phone, bio: bio, photo: ui.acctPhoto || '', provider: prov, created: Date.now()};
-  S.lock = {pw: h, bio: null};
+  S.lock = {pw: h, bio: null}; S.keepLogin = true;
   ensureDemos(); save(); ui.authed = true; ui.acctMode = 'form'; ui.sheet = null; renderSheet(); render(false);
   toast('Cuenta creada. ¡Bienvenido, ' + name + '!');
   /* además de guardarla en este teléfono, la creamos de verdad en el servidor */
@@ -3563,6 +3568,7 @@ function finishSignup(name, user, email, phone, bio, prov, h, pwd){
   }
 }
 function loginOk(){
+  S.keepLogin = true; save();
   ui.authed = true; ui.fails = 0; ui.sheet = null; renderSheet();
   if (ui.afterLogin === 'profile') { ui.view = 'profile'; window.scrollTo(0, 0); }
   ui.afterLogin = '';
@@ -3651,6 +3657,7 @@ function securityBlock(){
   var row = function(t, s, b){ return '<li><span class="nm">' + t + '<small>' + s + '</small></span>' + b + '</li>'; };
   return '<h3 class="pl-h">Seguridad</h3><ul class="people sec">' +
     row('Contraseña', L.pw ? 'Activada' : 'Sin contraseña', '<button class="btn small" data-act="lg-setpw">' + (L.pw ? 'Cambiar' : 'Crear') + '</button>') +
+    (hasLock() ? row('Pedir contraseña al abrir la app', S.askPw ? 'Siempre' : 'Solo si cierras sesión', '<button class="btn small" data-act="lg-askpw">' + (S.askPw ? 'Desactivar' : 'Activar') + '</button>') : '') +
     (ANDROID_APP || (IOS_APP && !L.bio && !bioNative()) ? '' : row('Face ID o Touch ID', L.bio ? 'Activado en este teléfono' : 'Desactivado', L.bio ? '<button class="btn small" data-act="lg-biooff">Desactivar</button>' : '<button class="btn small" data-act="lg-bioon">Activar</button>')) +
     (pr.provider ? row('Cuenta de ' + (pr.provider === 'apple' ? 'Apple' : 'Google'), 'Conectada', '') : '') +
     '</ul><p class="muted small">Es un candado para este teléfono. La verificación real, y entrar desde otro teléfono, llegan con el servidor.</p>' +
@@ -3768,7 +3775,9 @@ function loginAct(a, t){
       if (ui.armed !== 'lgwipe') { ui.armed = 'lgwipe'; renderSheet(); return; }
       ui.armed = 'wipe'; profileAct('pf-wipe');
       break;
+    case 'lg-askpw': S.askPw = !S.askPw; save(); render(); toast(S.askPw ? 'Se pedirá tu contraseña cada vez que abras la app' : 'Tu sesión se queda abierta en este teléfono'); break;
     case 'lg-out':
+      S.keepLogin = false; save();
       ui.authed = false; ui.view = 'home'; ui.eid = null; ui.lb = null; ui.ustack = []; ui.sheet = null; ui.fsel = null;
       coverOn = true; render(false); renderSheet(); renderLb(); renderCover();
       break;
@@ -3780,7 +3789,7 @@ function loginAct(a, t){
       if (n1 !== n2) { toast('Las contraseñas no coinciden'); $('#p-new2').focus(); return; }
       var doSave = function(){
         hashPw(n1).then(function(h){
-          S.lock = S.lock || {pw: null, bio: null}; S.lock.pw = h; save(); ui.sheet = null; renderSheet(); render(); toast('Contraseña guardada');
+          S.lock = S.lock || {pw: null, bio: null}; S.lock.pw = h; S.keepLogin = true; save(); ui.sheet = null; renderSheet(); render(); toast('Contraseña guardada');
         }, function(){ toast('No se pudo guardar la contraseña'); });
       };
       if (S.lock && S.lock.pw) verifyPw(old).then(function(good){ if (good) doSave(); else { toast('La contraseña actual no es correcta'); $('#p-old').focus(); } });
@@ -4519,7 +4528,8 @@ Promise.race([loadP, new Promise(function(r){ setTimeout(function(){ r(null); },
     /* este teléfono ya tiene una cuenta: nada de portada ni de tutorial otra vez,
        directo a iniciar sesión (con Face ID o Touch ID al frente, si ya lo activó) */
     coverOn = false;
-    if (hasLock()) ui.sheet = 'login'; else ui.authed = true;
+    /* la sesión se queda abierta en este teléfono; solo se pide la contraseña si se cerró sesión o si la persona activó "pedir contraseña al abrir" */
+    if (hasLock() && (S.askPw || !S.keepLogin || (S.profile && S.profile.email && !S.session))) ui.sheet = 'login'; else ui.authed = true;
   }
   render(false); renderSheet(); renderCover();
   if (PENDING_JOIN && !S.me) toast('Alguien te invitó a Friends Party. Crea tu cuenta o inicia sesión para unirte.');
