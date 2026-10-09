@@ -527,6 +527,9 @@ details.loc summary{cursor:pointer;font-weight:700;color:var(--accent);padding:8
 .hfx{position:absolute;left:-16px;right:-16px;top:calc(-1 * env(safe-area-inset-top,0px));bottom:0;overflow:hidden;pointer-events:none;z-index:0;-webkit-mask-image:linear-gradient(#000 62%,transparent 96%);mask-image:linear-gradient(#000 62%,transparent 96%)}
 .hfx i{position:absolute;top:-16px;width:7px;height:11px;border-radius:2px;opacity:.85;animation:hfall linear infinite}
 @keyframes hfall{from{transform:translateY(0) rotate(0)}to{transform:translateY(260px) rotate(520deg)}}
+/* íconos 3D de la tienda */
+.pk3{flex:none;width:58px;height:57px;object-fit:cover;border-radius:16px;box-shadow:0 0 0 1px rgba(255,255,255,.2),0 4px 12px rgba(0,0,0,.4)}
+.pk3.big{width:132px;height:129px;border-radius:30px}
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
 /* ---------- tema de vidrio: un solo estilo oscuro para toda la app ---------- */
 html{background:#0D0B24}
@@ -3832,7 +3835,7 @@ function payHTML(packId, step){
   var preview = pack.live
     ? '<div class="paystrip">' + (pack.preview || ['st-01-blob-verde-bailando-con-disco-y-confeti', 'st-11-mascota-azul-celebrando-con-botella-espu', 'st-25-mascota-montanista-en-paisaje-alpino', 'st-33-mascota-naranja-brindando-en-fiesta', 'st-42-mascota-viajera-con-camara', 'st-55-a-bright-high-resolution-3d-cartoon-cgi-']).map(stkById).filter(Boolean)
         .map(function(s){ return '<img src="' + s.d + '" alt="' + esc(s.t) + '">'; }).join('') + '</div>'
-    : '<div class="paystrip" style="grid-template-columns:1fr;justify-items:center;padding:26px 10px"><span style="font-size:64px;line-height:1">' + pack.emoji + '</span></div>';
+    : '<div class="paystrip" style="grid-template-columns:1fr;justify-items:center;padding:26px 10px"><img class="pk3 big" src="icons/tienda/' + pack.id + '.jpg" alt="" width="240" height="235"></div>';
   if (step === 2) {
     return '<div class="payscrim" data-act="pay-x"></div><div class="paysheet" role="dialog" aria-modal="true" aria-label="Confirmar compra"><h2>Confirmar compra</h2>' +
       '<div class="payrow"><span>' + esc(pack.name) + '<small>pago único</small></span><b>' + price + '</b></div>' +
@@ -3854,8 +3857,10 @@ function openPay(packId, step){
   if (storeNative() && !ui.storePrices) webkit.messageHandlers.store.postMessage({cmd: 'products'});
 }
 function closePay(){ var el = $('#pay'); el.className = ''; el.innerHTML = ''; ui.payGallery = false; }
+/* ícono 3D de cada paquete de la tienda (icons/tienda/<id>.jpg) */
+function packIco(id){ return '<img class="pk3" src="icons/tienda/' + id + '.jpg" alt="" width="240" height="235">'; }
 function purchasesBlock(){
-  return '<h3 class="pl-h">Compras</h3><ul class="people sec"><li><span class="nm">Stickers Friends Party<small>60 stickers en inglés y español, ' + PRICE + ', pago único</small></span>' +
+  return '<h3 class="pl-h">Compras</h3><ul class="people sec"><li>' + packIco('stickers') + '<span class="nm">Stickers Friends Party<small>60 stickers en inglés y español, ' + PRICE + ', pago único</small></span>' +
     (owned() ? '<span class="pill va">Comprado</span>' : '<button class="btn small" data-act="pay-open" data-pack="stickers">Comprar</button>') + '</li></ul>' +
     (storeNative() ? '<button class="link" data-act="vc-restore">Restaurar compras</button>' : '') +
     '<button class="link" data-act="hm" data-k="Tienda">Ver todos los paquetes en la Tienda</button>';
@@ -3863,7 +3868,7 @@ function purchasesBlock(){
 function tiendaView(){
   var cards = PACKS.map(function(p){
     var st = owned(p.id) ? '<span class="pill va">Comprado</span>' : '<button class="btn small" data-act="pay-open" data-pack="' + p.id + '">Comprar ' + p.price + '</button>';
-    return '<li><span class="nm">' + p.emoji + ' ' + esc(p.name) + '<small>' + esc(p.desc) + (p.live ? '' : ' · próximamente') + '</small></span>' + st + '</li>';
+    return '<li>' + packIco(p.id) + '<span class="nm">' + esc(p.name) + '<small>' + esc(p.desc) + (p.live ? '' : ' · próximamente') + '</small></span>' + st + '</li>';
   }).join('');
   return '<header class="top"><div class="wrap"><div class="bar1"><button class="ib" data-act="back" aria-label="Volver al inicio">' + I.back + '</button><div class="tt"><div class="ttl">Tienda</div><div class="meta"><span>Stickers para decorar tus fotos</span></div></div></div></div></header>' +
     '<main class="wrap">' + (storeNative() ? '' : '<p class="muted small" style="margin-top:6px">Abre la app en tu iPhone para comprar. Aquí en el navegador solo puedes ver el catálogo.</p>') +
