@@ -532,6 +532,9 @@ details.loc summary{cursor:pointer;font-weight:700;color:var(--accent);padding:8
 .pk3.big{width:132px;height:129px;border-radius:30px}
 /* que no salga "Guardar imagen" al dejar presionados los stickers ni los íconos de la app */
 .paystrip img,.paygal img,.stk img,.pk3,.ev3,.hm-t img,.cv-tile img,.tr-emoji img,.em-ico img{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;-webkit-user-drag:none;pointer-events:none}
+.wm{position:relative;display:block;min-width:0}
+.wm::after{content:"Friends Party";position:absolute;inset:0;display:grid;place-items:center;font-size:10px;font-weight:800;letter-spacing:.02em;white-space:nowrap;color:rgba(255,255,255,.6);text-shadow:0 0 3px rgba(0,0,0,.75);transform:rotate(-24deg);pointer-events:none}
+.paygal{grid-template-columns:repeat(4,1fr);max-height:none}
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
 /* ---------- tema de vidrio: un solo estilo oscuro para toda la app ---------- */
 html{background:#0D0B24}
@@ -3834,12 +3837,12 @@ function payHTML(packId, step){
   if (ui.payGallery && pack.live) {
     var all = STK.filter(function(s){ return stkPack(s) === pack.id; });
     return '<div class="payscrim" data-act="pay-x"></div><div class="paysheet" role="dialog" aria-modal="true" aria-label="Stickers de ' + esc(pack.name) + '"><h2>' + esc(pack.name) + '</h2>' +
-      (all.length ? '<div class="paygal">' + all.map(function(s){ return '<img src="' + s.d + '" alt="' + esc(s.t) + '" loading="lazy">'; }).join('') + '</div>' : '<p class="muted">Cargando…</p>') +
+      (all.length ? '<div class="paygal">' + paySample(all, 12).map(function(s){ return '<span class="wm"><img src="' + s.d + '" alt="' + esc(s.t) + '" loading="lazy"></span>'; }).join('') + '</div>' + (all.length > 12 ? '<p class="muted small" style="text-align:center;margin:8px 0 0">Y ' + (all.length - 12) + ' más al comprar</p>' : '') : '<p class="muted">Cargando…</p>') +
       '<button class="btn primary block" data-act="pay-1" data-pack="' + pack.id + '">Comprar por ' + price + '</button><button class="link" data-act="pay-gal-back">Volver</button></div>';
   }
   var preview = pack.live
     ? '<div class="paystrip">' + (pack.preview || ['st-01-blob-verde-bailando-con-disco-y-confeti', 'st-11-mascota-azul-celebrando-con-botella-espu', 'st-25-mascota-montanista-en-paisaje-alpino', 'st-33-mascota-naranja-brindando-en-fiesta', 'st-42-mascota-viajera-con-camara', 'st-55-a-bright-high-resolution-3d-cartoon-cgi-']).map(stkById).filter(Boolean)
-        .map(function(s){ return '<img src="' + s.d + '" alt="' + esc(s.t) + '">'; }).join('') + '</div>'
+        .map(function(s){ return '<span class="wm"><img src="' + s.d + '" alt="' + esc(s.t) + '"></span>'; }).join('') + '</div>'
     : '<div class="paystrip" style="grid-template-columns:1fr;justify-items:center;padding:26px 10px"><img class="pk3 big" src="icons/tienda/' + pack.id + '.jpg" alt="" width="240" height="235"></div>';
   if (step === 2) {
     return '<div class="payscrim" data-act="pay-x"></div><div class="paysheet" role="dialog" aria-modal="true" aria-label="Confirmar compra"><h2>Confirmar compra</h2>' +
@@ -3849,7 +3852,7 @@ function payHTML(packId, step){
   }
   return '<div class="payscrim" data-act="pay-x"></div><div class="paysheet" role="dialog" aria-modal="true" aria-label="' + esc(pack.name) + '"><h2>' + esc(pack.name) + '</h2>' +
     '<p class="muted">' + esc(pack.desc) + '.</p>' + preview +
-    (pack.live ? '<button class="link" data-act="pay-gal" data-pack="' + pack.id + '" style="justify-self:start">Ver todos los stickers antes de comprar</button>' : '') +
+    (pack.live ? '<button class="link" data-act="pay-gal" data-pack="' + pack.id + '" style="justify-self:start">Ver una muestra antes de comprar</button>' : '') +
     '<ul class="paylist"><li>Se pegan encima de tus fotos y los mueves, agrandas y giras</li><li>Pago único de ' + price + ', sin suscripción</li>' +
     (pack.live ? '' : '<li>Aún estamos subiendo estos stickers a la app</li>') + '</ul>' +
     '<button class="btn primary block" data-act="pay-1" data-pack="' + pack.id + '">Comprar por ' + price + '</button><button class="link" data-act="pay-x">Ahora no</button></div>';
@@ -3864,6 +3867,8 @@ function openPay(packId, step){
 function closePay(){ var el = $('#pay'); el.className = ''; el.innerHTML = ''; ui.payGallery = false; }
 /* ícono 3D de cada paquete de la tienda (icons/tienda/<id>.jpg) */
 function packIco(id){ return '<img class="pk3" src="icons/tienda/' + id + '.jpg" alt="" width="240" height="235">'; }
+/* antes de comprar solo se enseña una muestra repartida del paquete, con marca de agua */
+function paySample(all, n){ if (all.length <= n) return all; var out = [], step = all.length / n; for (var i = 0; i < n; i++) out.push(all[Math.floor(i * step)]); return out; }
 function purchasesBlock(){
   return '<h3 class="pl-h">Compras</h3><ul class="people sec"><li>' + packIco('stickers') + '<span class="nm">Stickers Friends Party<small>60 stickers en inglés y español, ' + PRICE + ', pago único</small></span>' +
     (owned() ? '<span class="pill va">Comprado</span>' : '<button class="btn small" data-act="pay-open" data-pack="stickers">Comprar</button>') + '</li></ul>' +
