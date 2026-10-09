@@ -1014,6 +1014,30 @@ var SB = {
   },
   signUp: function(email, password){ return SB.call('signup', {email: email, password: password}); },
   signIn: function(email, password){ return SB.call('token?grant_type=password', {email: email, password: password}); },
+  /* conecta esta cuenta con el servidor sin que la persona tenga que hacer nada: entra si ya existe, la crea si no.
+     Devuelve 'ok', 'bad' (ese correo ya tiene cuenta con otra contraseña) o 'net' (sin conexión: se reintenta solo) */
+  connect: function(email, pwd, loginFirst){
+    if (!email || !pwd) return Promise.resolve('bad');
+    var good = function(r){ return r && r.ok && r.data && r.data.access_token && r.data.user; };
+    var first = loginFirst ? SB.signIn : SB.signUp, second = loginFirst ? SB.signUp : SB.signIn;
+    return first(email, pwd).then(function(r){ return good(r) ? r : second(email, pwd); }).then(function(r){
+      if (!good(r)) return (r && (r.status >= 500 || r.status === 429 || !r.status)) ? 'net' : 'bad';
+      SB.remember({access_token: r.data.access_token, refresh_token: r.data.refresh_token});
+      S.serverId = r.data.user.id; SB.retry = null; save();
+      return SB.upsertProfile(S.serverId, (S.profile && S.profile.user) || userFrom(S.me), S.me, (S.profile && S.profile.bio) || '').catch(function(){}).then(function(){
+        tryPendingJoin(); SB.ensureGroup().then(function(){ return SB.fetchGroupCode(); });
+        SB.pullInvites(); SB.pullAll(); SB.pullFollows(); render(false);
+        return 'ok';
+      });
+    }).catch(function(){ return 'net'; });
+  },
+  /* si no había internet al registrarse, la contraseña se queda solo en memoria (nunca se guarda) y se reintenta mientras la app siga abierta */
+  retry: null,
+  retryConnect: function(){
+    var p = SB.retry; if (!p || S.session || p.busy) return;
+    p.busy = true; p.n = (p.n || 0) + 1;
+    SB.connect(p.email, p.pwd, false).then(function(res){ p.busy = false; if (res !== 'net' || p.n > 40) SB.retry = null; if (res === 'bad') toast('Ese correo ya tiene una cuenta. Cierra sesión y entra con su contraseña.'); });
+  },
   /* la sesión (access/refresh token) se guarda también en S para que sobreviva a cerrar o recargar la página */
   remember: function(session){ SB.session = session; S.session = session; save(); },
   /* al abrir la app, si hay una sesión guardada, renovarla (el access token dura poco tiempo) */
@@ -4006,17 +4030,12 @@ function finishSignup(name, user, email, phone, bio, prov, h, pwd){
   S.lock = {pw: h, bio: null}; S.keepLogin = true;
   ensureDemos(); save(); ui.authed = true; ui.acctMode = 'form'; ui.sheet = null; renderSheet(); render(false);
   toast('Cuenta creada. ¡Bienvenido, ' + name + '!');
-  /* además de guardarla en este teléfono, la creamos de verdad en el servidor */
+  /* además de guardarla en este teléfono, se conecta sola con el servidor; si no hay internet, se reintenta sin pedir nada */
   if (email && pwd) {
-    SB.signUp(email, pwd).then(function(res){
-      if (res.ok && res.data && res.data.user) {
-        SB.remember({access_token: res.data.access_token, refresh_token: res.data.refresh_token});
-        S.serverId = res.data.user.id; save();
-        tryPendingJoin();
-        SB.ensureGroup().then(function(){ return SB.fetchGroupCode(); });
-        return SB.upsertProfile(res.data.user.id, user, name, bio);
-      }
-    }).catch(function(){ /* sin conexión: la cuenta sigue funcionando en este teléfono */ });
+    SB.connect(email, pwd, false).then(function(res){
+      if (res === 'net') SB.retry = {email: email, pwd: pwd};
+      else if (res === 'bad') toast('Ese correo ya tiene una cuenta. Cierra sesión y entra con su contraseña.');
+    });
   }
 }
 function loginOk(){
@@ -4191,9 +4210,7 @@ function loginAct(a, t){
         ok = good && (id === (S.profile.email || '').toLowerCase() || id === S.profile.user);
         if (ok) {
           loginOk();
-          if (S.profile.email) SB.signIn(S.profile.email, pw).then(function(res){
-            if (res.ok && res.data && res.data.access_token) SB.remember({access_token: res.data.access_token, refresh_token: res.data.refresh_token});
-          }).catch(function(){});
+          if (S.profile.email) SB.connect(S.profile.email, pw, true).then(function(res){ if (res === 'net') SB.retry = {email: S.profile.email, pwd: pw}; });
           return;
         }
         ui.fails++;
@@ -4989,6 +5006,7 @@ Promise.race([loadP, new Promise(function(r){ setTimeout(function(){ r(null); },
     var bn = document.createElement('a'); bn.className = 'getapp'; bn.href = APPSTORE_URL; bn.textContent = 'Descarga Friends Party en el App Store para unirte'; document.body.appendChild(bn);
   }
   SB.restore().then(function(ok){ if (ok) { SB.pullFollows(); pushRefresh(); SB.pullInvites(); setInterval(function(){ if (!document.hidden) SB.pullInvites(); }, 30000); SB.syncPending(); tryPendingJoin(); SB.ensureGroup().then(function(){ return SB.fetchGroupCode(); }); } }); /* recupera la sesión y reintenta lo pendiente */
+  window.addEventListener('online', function(){ SB.retryConnect(); }); setInterval(function(){ if (!document.hidden) SB.retryConnect(); }, 20000);
   setTimeout(loadStickers, 4000); /* los stickers no hacen falta al abrir la app: se piden en segundo plano, sin competir con lo primero que se ve */
   try {
     if (window.claude && window.claude.use) {

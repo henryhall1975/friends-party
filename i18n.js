@@ -461,6 +461,7 @@ var D = {
   'Siguiendo': ['Following', '팔로잉'],
   'Seguir': ['Follow', '팔로우'],
   'Buscar personas': ['Find people', '사람 찾기'],
+  'Ese correo ya tiene una cuenta. Cierra sesión y entra con su contraseña.': ['That email already has an account. Log out and sign in with its password.', '이 이메일로 이미 계정이 있습니다. 로그아웃한 뒤 해당 비밀번호로 로그인하세요.'],
   'Niveles de fiesta': ['Party levels', '파티 레벨'],
   'Ver todos los niveles': ['See all levels', '모든 레벨 보기'],
   'Una fiesta cuenta cuando vas a un evento y subes al menos una foto ahí. El nivel nunca baja.': ['A party counts when you go to an event and upload at least one photo there. Your level never goes down.', '이벤트에 참석해 사진을 한 장 이상 올리면 파티 1회로 계산됩니다. 레벨은 내려가지 않습니다.'],
