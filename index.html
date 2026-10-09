@@ -617,6 +617,29 @@ details.loc summary{cursor:pointer;font-weight:700;color:var(--accent);padding:8
 .route-b{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .route-b .btn{flex-direction:column;gap:6px;min-height:64px;padding:8px 4px;font-size:13.5px;text-decoration:none;color:var(--ink);text-align:center;border-radius:16px}
 .route-b .btn i{width:12px;height:12px;border-radius:50%;box-shadow:0 0 10px currentColor}
+/* mapa para elegir el lugar del evento */
+.evs-pl{display:grid;grid-template-columns:minmax(0,1fr) 46px;gap:0 8px;align-items:end;min-width:0}
+.evs-map{display:grid;place-items:center;height:46px;border-radius:12px;color:#fff;background:rgba(255,255,255,.08);border:1px solid var(--line);box-shadow:inset 0 1px 0 rgba(255,255,255,.1)}
+.evs-geo{grid-column:1/-1;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.evs-geo:not(:empty){margin-top:6px}
+.evs-geo .chip{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;color:#7CF5C0;border-color:rgba(124,245,192,.45);background:rgba(124,245,192,.1)}
+#mapp{display:none}
+#mapp.on{display:flex;flex-direction:column;position:fixed;inset:0;z-index:67;background:#0D0B24;color:var(--ink);height:100vh;height:100dvh}
+.mp-top{display:flex;align-items:center;gap:8px;padding:calc(8px + env(safe-area-inset-top,0px)) 12px 8px}
+.mp-top .inp{flex:1}
+.mp-res{position:absolute;left:12px;right:12px;top:calc(62px + env(safe-area-inset-top,0px));z-index:3;display:grid;border-radius:16px;overflow:hidden;background:rgba(24,20,62,.96);box-shadow:0 12px 30px rgba(0,0,0,.5)}
+.mp-res:empty{display:none}
+.mp-res button{display:grid;gap:1px;text-align:left;padding:10px 14px;border-bottom:1px solid var(--line)}
+.mp-res small{color:var(--muted);font-size:12.5px}
+.mp-res p{margin:0;padding:12px 14px}
+.mp-map{flex:1;min-height:0;position:relative}
+.mp-wait{position:absolute;inset:0;display:grid;place-items:center;padding:24px;text-align:center;color:var(--muted)}
+.mp-pin{position:absolute;left:50%;top:50%;z-index:2;margin:-58px 0 0 -22px;color:#FF5FA8;pointer-events:none;filter:drop-shadow(0 4px 6px rgba(0,0,0,.5))}
+.mp-pin svg{fill:#FF5FA8;stroke:#fff;stroke-width:1.6}
+.mp-bot{padding:12px 14px calc(12px + env(safe-area-inset-bottom,0px));display:grid;gap:6px;background:rgba(18,15,52,.98);border-top:1px solid var(--line)}
+.mp-bot p{margin:0}
+.mp-addr{font-weight:700;min-height:1.4em}
+.mp-btns{display:grid;grid-template-columns:1fr 1.3fr;gap:8px;margin-top:4px}
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
 /* ---------- tema de vidrio: un solo estilo oscuro para toda la app ---------- */
 html{background:#0D0B24}
@@ -680,6 +703,7 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;ba
 <div id="ed"></div>
 <div id="pay"></div>
 <div id="cal"></div>
+<div id="mapp"></div>
 <div id="cover"></div>
 <div id="tour"></div>
 <div id="toast" role="status" aria-live="polite"></div>
@@ -785,6 +809,85 @@ function calAct(a, t){
   }
   else if (a === 'cal-x') calS = null;
   calRender();
+}
+/* ---------- elegir el lugar del evento en Apple Maps (MapKit JS) ----------
+   El token solo sirve en este sitio y caduca el 2027-10-09: se renueva con herramientas/token-mapas.js */
+var MAPKIT_TOKEN = 'eyJhbGciOiJFUzI1NiIsImtpZCI6IlFDRko2MjhZQTYiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJQNDI0MkhNWjQ5IiwiaWF0IjoxNzkxNTE4MjQ5LCJleHAiOjE4MjMwNTQyNDksIm9yaWdpbiI6Imh0dHBzOi8vaGVucnloYWxsMTk3NS5naXRodWIuaW8ifQ.a_pOQr2EgoUi8vbQ_DHhWiJpohVv1HTzh3FfUsRal3RxVATRhT-uxwqTsk6WpoJTx3jl8ZAXIlrv0c4RQmroEA';
+var mpS = null, mpMap = null, mpLoading = null, mpT = null;
+function mpToken(){ try { return localStorage.getItem('fp_mapkit') || MAPKIT_TOKEN; } catch (e) { return MAPKIT_TOKEN; } }
+function mpChip(){ return ui.form && ui.form.geo ? '<span class="chip">' + I.pinS + ' <span>Ubicación en el mapa guardada</span></span><button type="button" class="link small" data-act="mp-clear">Quitar</button>' : ''; }
+function mpLoad(){
+  if (window.mapkit && mpLoading) return mpLoading;
+  mpLoading = new Promise(function(res, rej){
+    var sc = document.createElement('script');
+    sc.src = 'https://cdn.apple-mapkit.com/mk/5.x.x/mapkit.js'; sc.crossOrigin = 'anonymous';
+    sc.onload = function(){ try { mapkit.init({authorizationCallback: function(done){ done(mpToken()); }, language: FPI.lang || 'es'}); res(); } catch (e) { rej(e); } };
+    sc.onerror = function(){ mpLoading = null; rej(new Error('red')); };
+    document.head.appendChild(sc);
+  });
+  return mpLoading;
+}
+function mpClose(){ if (mpMap) { try { mpMap.destroy(); } catch (e) {} mpMap = null; } mpS = null; var el = $('#mapp'); el.className = ''; el.innerHTML = ''; }
+function mpSetAddr(t){ var a = $('#mp-addr'); if (a) a.textContent = t || ''; }
+function mpReverse(){
+  if (!mpMap || !mpS) return;
+  var c = mpMap.center; mpS.geo = {lat: +c.latitude.toFixed(6), lon: +c.longitude.toFixed(6)};
+  if (mpS.keepName) { mpS.keepName = false; return; }
+  new mapkit.Geocoder({language: FPI.lang || 'es'}).reverseLookup(c, function(err, data){
+    if (!mpS) return;
+    var r = !err && data && data.results && data.results[0];
+    mpS.name = r ? (r.name || r.formattedAddress || '') : '';
+    mpSetAddr(r ? (r.formattedAddress || r.name) : fmtCoord(mpS.geo));
+  });
+}
+function mpGo(lat, lon, span){ if (mpMap) mpMap.setRegionAnimated(new mapkit.CoordinateRegion(new mapkit.Coordinate(lat, lon), new mapkit.CoordinateSpan(span || 0.008, span || 0.008))); }
+function mpSearch(q){
+  var box = $('#mp-res'); if (!box) return;
+  if (!q || q.length < 3) { box.innerHTML = ''; return; }
+  new mapkit.Search({language: FPI.lang || 'es', region: mpMap ? mpMap.region : undefined}).search(q, function(err, data){
+    if (!mpS || !$('#mp-res')) return;
+    mpS.res = (!err && data && data.places) ? data.places.slice(0, 5) : [];
+    box.innerHTML = mpS.res.length ? mpS.res.map(function(pl, i){ return '<button type="button" data-act="mp-res" data-i="' + i + '" data-nt><strong>' + esc(pl.name || '') + '</strong><small>' + esc(pl.formattedAddress || '') + '</small></button>'; }).join('') : '<p class="muted small">Sin resultados</p>';
+  });
+}
+function mpOpen(){
+  var el = $('#mapp'), typed = ($('#f-place') ? $('#f-place').value : '').trim(), g = ui.form && ui.form.geo;
+  mpS = {geo: g || null, name: '', res: []};
+  el.className = 'on';
+  el.innerHTML = '<div class="mp-top"><button type="button" class="ib" data-act="mp-x" aria-label="Volver">' + I.back + '</button><input id="mp-q" class="inp" placeholder="Busca una dirección o un lugar" autocomplete="off" enterkeyhint="search" value="' + esc(typed) + '"></div>' +
+    '<div class="mp-res" id="mp-res"></div><div class="mp-map" id="mp-map"><div class="mp-wait">Cargando el mapa…</div></div><div class="mp-pin" aria-hidden="true">' + svg('<path d="M12 21s7-6.2 7-11.5A7 7 0 0 0 5 9.5C5 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>', 44) + '</div>' +
+    '<div class="mp-bot"><p class="mp-addr" id="mp-addr" data-nt></p><p class="muted small">Mueve el mapa hasta dejar el pin en el lugar del evento.</p><div class="mp-btns"><button type="button" class="btn" data-act="mp-me">' + I.gps + ' Mi ubicación</button><button type="button" class="btn primary" data-act="mp-ok">Usar este lugar</button></div></div>';
+  var q = $('#mp-q');
+  q.addEventListener('input', function(){ clearTimeout(mpT); mpT = setTimeout(function(){ if (window.mapkit && mpMap) mpSearch(q.value.trim()); }, 450); });
+  q.addEventListener('keydown', function(e){ if (e.key === 'Enter') { e.preventDefault(); q.blur(); if (window.mapkit && mpMap) mpSearch(q.value.trim()); } });
+  mpLoad().then(function(){
+    if (!mpS || !$('#mp-map')) return;
+    $('#mp-map').innerHTML = '';
+    mpMap = new mapkit.Map('mp-map', {colorScheme: mapkit.Map.ColorSchemes.Dark, showsCompass: mapkit.FeatureVisibility.Hidden, showsZoomControl: false, showsMapTypeControl: false, isRotationEnabled: false});
+    mpMap.addEventListener('region-change-end', mpReverse);
+    if (g) mpGo(g.lat, g.lon);
+    else { mpMap.region = new mapkit.CoordinateRegion(new mapkit.Coordinate(14.6407, -90.5133), new mapkit.CoordinateSpan(0.2, 0.2)); if (typed.length >= 3) mpSearch(typed); else mpReverse(); }
+  }).catch(function(){ if ($('#mp-map')) $('#mp-map').innerHTML = '<div class="mp-wait">No se pudo cargar el mapa. Revisa tu conexión e intenta de nuevo.</div>'; });
+}
+function mpAct(a, t){
+  if (a === 'mp-open') { mpOpen(); return; }
+  if (a === 'mp-clear') { if (ui.form) ui.form.geo = null; var c0 = $('#f-geo'); if (c0) c0.innerHTML = ''; return; }
+  if (!mpS) return;
+  if (a === 'mp-x') mpClose();
+  else if (a === 'mp-res') {
+    var pl = mpS.res[+t.dataset.i]; if (!pl || !pl.coordinate) return;
+    mpS.name = pl.name || ''; mpS.keepName = true; mpSetAddr(pl.formattedAddress || pl.name); $('#mp-res').innerHTML = ''; $('#mp-q').value = pl.name || '';
+    mpGo(pl.coordinate.latitude, pl.coordinate.longitude);
+  }
+  else if (a === 'mp-me') getPos(function(pos){ if (mpS) mpGo(pos.lat, pos.lon); });
+  else if (a === 'mp-ok') {
+    if (!mpS.geo && mpMap) { var c = mpMap.center; mpS.geo = {lat: +c.latitude.toFixed(6), lon: +c.longitude.toFixed(6)}; }
+    if (!mpS.geo) { toast('Espera a que cargue el mapa'); return; }
+    ui.form.geo = mpS.geo;
+    var f = $('#f-place'); if (f && !f.value.trim() && mpS.name) f.value = mpS.name.slice(0, 80);
+    var chip = $('#f-geo'); if (chip) chip.innerHTML = mpChip();
+    mpClose();
+  }
 }
 /* fila rápida de íconos en "Nuevo evento": el elegido primero y cuatro de los más usados */
 function evQuick(){
@@ -1458,11 +1561,11 @@ function act(a, t){
       var data = {name: name, place: ($('#f-place').value || '').trim(), date: $('#f-date').value, time: $('#f-time').value, notes: ($('#f-notes').value || '').trim(), emoji: ui.form.emoji || '🎂'};
       if (ui.editId) {
         ev = S.events.filter(function(e){ return e.id === ui.editId; })[0];
-        if (ev) { Object.assign(ev, data); SB.pushEvent(ev); }
+        if (ev) { Object.assign(ev, data); if (ui.form.geo !== undefined) { ev.geo = ui.form.geo; delete ev.geoDemo; } SB.pushEvent(ev); }
         ui.editId = null; ui.sheet = null; renderSheet(); save(); render(); toast('Cambios guardados');
         break;
       }
-      ev = newEvent(data); ev.toSync = true;
+      ev = newEvent(data); ev.toSync = true; if (ui.form.geo) ev.geo = ui.form.geo;
       S.events.push(ev); save();
       SB.syncEvent(ev);
       ui.sheet = null; renderSheet();
@@ -1549,7 +1652,7 @@ document.addEventListener('click', function(e){
 
 document.addEventListener('click', function(e){
   var t = e.target.closest('[data-act]');
-  if (t) { var a = t.dataset.act; if (a.indexOf('cal-') === 0) calAct(a, t); else if (a.indexOf('tm-') === 0) tmAct(a, t); else if (a === 'story' || a.indexOf('st-') === 0) storyAct(a, t); else if (a.indexOf('cv-') === 0) coverAct(a); else if (a.indexOf('tr-') === 0) tourAct(a, t); else if (a.indexOf('pl-') === 0) planAct(a, t); else if (a === 'hm') menuAct(t); else if (a.indexOf('gr-') === 0) groupAct(a, t); else if (a.indexOf('jn-') === 0) joinAct(a, t); else if (a.indexOf('rp-') === 0) reportAct(a, t); else if (a.indexOf('vc-') === 0) clipAct(a, t); else if (a.indexOf('mu-') === 0) musicAct(a, t); else if (a.indexOf('pc-') === 0) placeAct(a, t); else if (a.indexOf('fo-') === 0) fotosAct(a, t); else if (a.indexOf('lg-') === 0) loginAct(a, t); else if (a.indexOf('ed-') === 0) edAct(a, t); else if (a.indexOf('ch-') === 0) chatAct(a, t); else if (a.indexOf('pay-') === 0) payAct(a, t); else if (a.indexOf('us-') === 0 || a.indexOf('lk-') === 0 || a === 'pf-followers' || a === 'pf-following') socialAct(a, t); else if (a.indexOf('pf-') === 0 || a.indexOf('ac-') === 0) profileAct(a, t); else act(a, t); }
+  if (t) { var a = t.dataset.act; if (a.indexOf('cal-') === 0) calAct(a, t); else if (a.indexOf('mp-') === 0) mpAct(a, t); else if (a.indexOf('tm-') === 0) tmAct(a, t); else if (a === 'story' || a.indexOf('st-') === 0) storyAct(a, t); else if (a.indexOf('cv-') === 0) coverAct(a); else if (a.indexOf('tr-') === 0) tourAct(a, t); else if (a.indexOf('pl-') === 0) planAct(a, t); else if (a === 'hm') menuAct(t); else if (a.indexOf('gr-') === 0) groupAct(a, t); else if (a.indexOf('jn-') === 0) joinAct(a, t); else if (a.indexOf('rp-') === 0) reportAct(a, t); else if (a.indexOf('vc-') === 0) clipAct(a, t); else if (a.indexOf('mu-') === 0) musicAct(a, t); else if (a.indexOf('pc-') === 0) placeAct(a, t); else if (a.indexOf('fo-') === 0) fotosAct(a, t); else if (a.indexOf('lg-') === 0) loginAct(a, t); else if (a.indexOf('ed-') === 0) edAct(a, t); else if (a.indexOf('ch-') === 0) chatAct(a, t); else if (a.indexOf('pay-') === 0) payAct(a, t); else if (a.indexOf('us-') === 0 || a.indexOf('lk-') === 0 || a === 'pf-followers' || a === 'pf-following') socialAct(a, t); else if (a.indexOf('pf-') === 0 || a.indexOf('ac-') === 0) profileAct(a, t); else act(a, t); }
 });
 document.addEventListener('input', function(e){
   if (e.target.id === 'chatin') ui.draft = e.target.value;
@@ -2294,7 +2397,7 @@ function renderSheet(){
     focus = '#f-me';
   } else if (ui.sheet === 'new') {
     var ed = ui.editId ? S.events.filter(function(e){ return e.id === ui.editId; })[0] : null;
-    ui.form = {emoji: ed ? ed.emoji : '🎂'};
+    ui.form = {emoji: ed ? ed.emoji : '🎂', geo: ed && ed.geo && !ed.geoDemo ? ed.geo : null};
     var ttl = ed ? 'Editar evento' : 'Nuevo evento';
     var tw = T(ttl).split(' '), tlast = tw.length > 1 ? tw.pop() : '';
     var row = function(ico, inner){ return '<div class="evs-r"><span class="evs-i" aria-hidden="true">' + svg(ico, 22) + '</span>' + inner + '</div>'; };
@@ -2303,7 +2406,7 @@ function renderSheet(){
       row('<path d="M4 20l1-4L16 5l3 3L8 19l-4 1zM14 7l3 3"/>', '<label>Nombre<input id="f-name" class="inp" placeholder="Asado en la finca" maxlength="60" autocomplete="off" value="' + esc(ed ? ed.name : '') + '"></label>') +
       '<div class="two">' + row('<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/>', '<label>Fecha<input id="f-date" type="hidden" value="' + esc(ed ? ed.date : todayISO()) + '"><button type="button" class="inp datebtn" id="f-date-btn" data-act="cal-open"><span data-nt>' + esc(calLabel(ed ? ed.date : todayISO())) + '</span></button></label>') +
       row('<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>', '<label>Hora<input id="f-time" type="hidden" value="' + esc(ed ? ed.time : '') + '"><button type="button" class="inp datebtn" id="f-time-btn" data-act="tm-open"><span data-nt>' + esc(tmLabel(ed ? ed.time : '')) + '</span>' + svg('<path d="M6 9l6 6 6-6"/>', 16) + '</button></label>') + '</div>' +
-      row('<path d="M12 21s7-6.2 7-11.5A7 7 0 0 0 5 9.5C5 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>', '<label>Lugar<input id="f-place" class="inp" placeholder="Casa de José, restaurante, parque…" maxlength="80" autocomplete="off" value="' + esc(ed ? ed.place : '') + '"></label>') +
+      row('<path d="M12 21s7-6.2 7-11.5A7 7 0 0 0 5 9.5C5 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>', '<div class="evs-pl"><label>Lugar<input id="f-place" class="inp" placeholder="Casa de José, restaurante, parque…" maxlength="80" autocomplete="off" value="' + esc(ed ? ed.place : '') + '"></label><button type="button" class="evs-map" data-act="mp-open" aria-label="Elegir el lugar en el mapa">' + svg('<circle cx="12" cy="12" r="6.5"/><circle cx="12" cy="12" r="2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3"/>', 20) + '</button><div class="evs-geo" id="f-geo">' + mpChip() + '</div></div>') +
       row('<rect x="5" y="3.5" width="14" height="17" rx="2.5"/><path d="M9 9h6M9 12.5h6M9 16h3"/>', '<label>Detalles (opcional)<input id="f-notes" class="inp" placeholder="Qué llevar, cómo llegar…" maxlength="140" autocomplete="off" value="' + esc(ed ? ed.notes : '') + '"></label>') +
       row('<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M4 18l5-5 4 4 3-3 4 4"/>', '<div class="evs-ic"><span class="evs-lbl">Ícono</span><div class="evs-q"><div class="evs-qs" id="icon-quick">' + evQuick() + '</div>' +
         '<button type="button" class="evs-more" id="icon-pick-btn" data-act="toggle-icons" aria-expanded="false" aria-controls="icon-grid" aria-label="Ver todos los íconos">' + svg('<path d="M6 9l6 6 6-6"/>', 18) + '</button></div></div>') +
