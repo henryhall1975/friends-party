@@ -724,7 +724,7 @@ function calRender(){
   el.innerHTML = '<div class="cal-scrim" data-act="cal-x"></div><div class="cal-box" role="dialog" aria-modal="true" aria-label="Elige la fecha"><div class="cal-grab"></div>' +
     '<div class="cal-top"><div class="cal-ttl" data-nt>' + esc(mn.charAt(0).toUpperCase() + mn.slice(1)) + ' <span>' + y + '</span></div><button type="button" class="cal-nav" data-act="cal-prev" aria-label="Mes anterior">' + svg('<path d="M15 5l-7 7 7 7"/>', 22) + '</button><button type="button" class="cal-nav" data-act="cal-next" aria-label="Mes siguiente">' + svg('<path d="M9 5l7 7-7 7"/>', 22) + '</button></div>' +
     '<div class="cal-wk">' + wd + '</div><div class="cal-grid">' + h + '</div>' +
-    '<div class="cal-foot"><button type="button" class="cal-reset" data-act="cal-reset">Reset</button><button type="button" class="cal-ok" data-act="cal-ok" aria-label="Usar esta fecha">' + svg('<path d="M5 12.5l4.5 4.5L19 7.5"/>', 30) + '</button></div></div>';
+    '<div class="cal-foot"><button type="button" class="cal-reset" data-act="cal-reset">Hoy</button><button type="button" class="cal-ok" data-act="cal-ok" aria-label="Usar esta fecha">' + svg('<path d="M5 12.5l4.5 4.5L19 7.5"/>', 30) + '</button></div></div>';
 }
 function calAct(a, t){
   if (a === 'cal-open') { var v = ($('#f-date') && $('#f-date').value) || todayISO(), p = v.split('-').map(Number); calS = {y: p[0], m: p[1] - 1, sel: v}; }

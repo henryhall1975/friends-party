@@ -514,7 +514,7 @@ var D = {
   'Desactivado': ['Off', '꺼짐'],
   'Desactivar': ['Turn off', '끄기'],
   'Activar': ['Turn on', '켜기'],
-  'Reset': ['Reset', '초기화'],
+  'Hoy': ['Today', '오늘'],
   'Elige la fecha': ['Choose the date', '날짜 선택'],
   'Mes anterior': ['Previous month', '이전 달'],
   'Mes siguiente': ['Next month', '다음 달'],
