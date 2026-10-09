@@ -642,6 +642,11 @@ details.loc summary{cursor:pointer;font-weight:700;color:var(--accent);padding:8
 .mp-btns{display:grid;grid-template-columns:1fr 1.3fr;gap:8px;margin-top:4px}
 .secm{margin:12px 0 4px}
 .secm .hm{margin-bottom:10px}
+/* buscar personas */
+.hero-r{position:relative;flex:none}
+.hfind{position:absolute;left:-18px;bottom:-8px;z-index:2;display:grid;place-items:center;width:38px;height:38px;border-radius:50%;color:#fff;background:linear-gradient(160deg,#8A5BFF,#4A35D8);border:2px solid #14103A;box-shadow:0 0 12px rgba(120,90,255,.6),inset 0 1px 0 rgba(255,255,255,.35)}
+.pf-acts{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+#fd-res{min-height:120px}
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
 /* ---------- tema de vidrio: un solo estilo oscuro para toda la app ---------- */
 html{background:#0D0B24}
@@ -1126,9 +1131,67 @@ var SB = {
   searchUsers: function(term){
     term = String(term || '').trim().replace(/^@/, '');
     if (term.length < 2 || !SB.session || !SB.session.access_token) return Promise.resolve([]);
-    return SB.rest('profiles', 'GET', null, '?username=ilike.' + encodeURIComponent(term) + '*&select=username,display_name&limit=6').then(function(r){
-      return (r.data || []).filter(function(p){ return p.username !== (S.profile && S.profile.user); });
+    var q = encodeURIComponent(term.replace(/[,()*]/g, ' ').trim());
+    return SB.rest('profiles', 'GET', null, '?or=(username.ilike.' + q + '*,display_name.ilike.*' + q + '*)&select=id,username,display_name&limit=8').then(function(r){
+      (r.data || []).forEach(SB.dirAdd);
+      return (r.data || []).filter(function(p){ return p.id !== S.serverId && p.username !== (S.profile && S.profile.user); });
     }).catch(function(){ return []; });
+  },
+  /* directorio nombre -> cuenta del servidor, para poder seguir de verdad a quien solo conocemos por su nombre */
+  dirAdd: function(p){ if (!p || !p.id) return; S.dir = S.dir || {}; S.dir[p.display_name || p.username] = {id: p.id, user: p.username}; },
+  idOf: function(n){
+    if (S.dir && S.dir[n]) return Promise.resolve(S.dir[n].id);
+    if (!SB.session || !SB.session.access_token) return Promise.resolve(null);
+    return SB.rest('profiles', 'GET', null, '?display_name=eq.' + encodeURIComponent(n) + '&select=id,username,display_name&limit=1').then(function(r){
+      var p = (r.data || [])[0]; if (!p) return null; SB.dirAdd(p); save(); return p.id;
+    }).catch(function(){ return null; });
+  },
+  /* seguir o dejar de seguir, guardado en el servidor (tabla follows) */
+  follow: function(n, on){
+    if (!SB.session || !SB.session.access_token || !S.serverId) return Promise.resolve(false);
+    return SB.idOf(n).then(function(id){
+      if (!id || id === S.serverId) return false;
+      return (on ? SB.rest('follows', 'POST', {follower_id: S.serverId, followee_id: id}, '', 'resolution=ignore-duplicates,return=minimal')
+                 : SB.rest('follows', 'DELETE', null, '?follower_id=eq.' + S.serverId + '&followee_id=eq.' + id, 'return=minimal')).then(function(r){ return !!r.ok; });
+    }).catch(function(){ return false; });
+  },
+  followLists: function(id){
+    return Promise.all([
+      SB.rest('follows', 'GET', null, '?followee_id=eq.' + id + '&select=follower_id&limit=500'),
+      SB.rest('follows', 'GET', null, '?follower_id=eq.' + id + '&select=followee_id&limit=500')
+    ]).then(function(r){
+      if (!r[0].ok || !r[1].ok) return null;
+      var a = (r[0].data || []).map(function(x){ return x.follower_id; }), b = (r[1].data || []).map(function(x){ return x.followee_id; });
+      return SB.resolveNames(a.concat(b)).then(function(names){
+        names[S.serverId] = S.me;
+        var nm = function(ids){ return ids.map(function(i){ return names[i]; }).filter(Boolean); };
+        return {followers: nm(a), following: nm(b)};
+      });
+    }).catch(function(){ return null; });
+  },
+  /* mis seguidores y a quién sigo, de verdad; lo que seguía solo en este teléfono se sube la primera vez */
+  pullFollows: function(){
+    if (!SB.session || !SB.session.access_token || !S.serverId) return Promise.resolve();
+    ensureSocial();
+    return SB.followLists(S.serverId).then(function(L){
+      if (!L) return;
+      var local = S.social.following.filter(function(n){ return L.following.indexOf(n) < 0; });
+      local.forEach(function(n){ if (!S.social.synced) SB.follow(n, true); });
+      S.social.following = L.following.concat(S.social.synced ? [] : local);
+      S.social.followers = L.followers; S.social.synced = true;
+      save(); if (ui.view === 'profile' || ui.view === 'user') render();
+    });
+  },
+  pullUserFollows: function(n){
+    if (!SB.session || !SB.session.access_token) return Promise.resolve();
+    return SB.idOf(n).then(function(id){
+      if (!id) return;
+      return SB.followLists(id).then(function(L){
+        if (!L) return;
+        ensureSocial(); S.social.srv = S.social.srv || {}; S.social.srv[n] = L; save();
+        if (ui.view === 'user' && ui.user === n) render();
+      });
+    });
   },
   /* convierte una lista de ids de usuario del servidor en un mapa id -> nombre para mostrar */
   resolveNames: function(ids){
@@ -1136,7 +1199,7 @@ var SB = {
     if (!ids.length) return Promise.resolve({});
     return SB.rest('profiles', 'GET', null, '?id=in.(' + ids.join(',') + ')&select=id,username,display_name').then(function(r){
       var map = {};
-      (r.data || []).forEach(function(p){ map[p.id] = p.display_name || p.username; });
+      (r.data || []).forEach(function(p){ map[p.id] = p.display_name || p.username; SB.dirAdd(p); });
       return map;
     }).catch(function(){ return {}; });
   },
@@ -2327,7 +2390,7 @@ function home(){
     return (b.date || '').localeCompare(a.date || '') || b.created - a.created;
   });
   var rems = dueReminders();
-  return '<div class="wrap hmv"><header class="hero">' + homeFx() + '<div><h1>Friends<br><span class="h1g">Party</span></h1><div class="tagl">Eventos que te unen</div></div>' + (S.me ? '<button class="pfbtn" data-act="pf-open" aria-label="Mi perfil">' + av(S.me, 76) + '</button>' : '') + '</header>' + homeMenu() +
+  return '<div class="wrap hmv"><header class="hero">' + homeFx() + '<div><h1>Friends<br><span class="h1g">Party</span></h1><div class="tagl">Eventos que te unen</div></div>' + (S.me ? '<div class="hero-r"><button class="hfind" data-act="pf-find" aria-label="Buscar personas">' + svg('<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>', 20) + '</button><button class="pfbtn" data-act="pf-open" aria-label="Mi perfil">' + av(S.me, 76) + '</button></div>' : '') + '</header>' + homeMenu() +
     (rems.length ? '<div class="rems">' + rems.map(remHTML).join('') + '</div>' : '') +
     (evs.length ? '<div class="list">' + evs.map(card).join('') + '</div>' : '<div class="empty">' + homeArt() + '<div class="gp"><p><strong>Todavía no tienes eventos.</strong></p><p class="muted">Crea uno y comparte su código con tus amigos.</p></div></div>') +
     '</div><div class="bar hb"><div class="wrap"><button class="btn primary block" data-act="new-event">' + I.plus + ' Nuevo evento<span class="chev">' + svg('<path d="M9 5l7 7-7 7"/>', 22) + '</span></button></div></div>';
@@ -2423,6 +2486,8 @@ function renderSheet(){
     el.innerHTML = photoLocSheet();
   } else if (ui.sheet === 'acct') {
     el.innerHTML = acctSheet();
+  } else if (ui.sheet === 'find') {
+    el.innerHTML = findSheet(); findWire(); focus = '#fd-q';
   } else if (ui.sheet === 'people') {
     el.innerHTML = peopleSheet();
   } else if (ui.sheet === 'login') {
@@ -3485,17 +3550,21 @@ function ensureSocial(){
 }
 function followersOf(n){
   if (n === S.me) return S.social.followers.slice();
+  if (S.social.srv && S.social.srv[n]) { var f = S.social.srv[n].followers.filter(function(x){ return x !== S.me; }); if (S.social.following.indexOf(n) >= 0) f.push(S.me); return f; }
   var out = Object.keys(S.social.graph).filter(function(k){ return S.social.graph[k].indexOf(n) >= 0; });
   if (S.social.following.indexOf(n) >= 0 && out.indexOf(S.me) < 0) out.push(S.me);
   return out;
 }
 function followingOf(n){
   if (n === S.me) return S.social.following.slice();
+  if (S.social.srv && S.social.srv[n]) return S.social.srv[n].following.slice();
   var out = (S.social.graph[n] || []).slice();
   if (S.social.followers.indexOf(n) >= 0 && out.indexOf(S.me) < 0) out.push(S.me);
   return out;
 }
 function isFollowing(n){ return S.social.following.indexOf(n) >= 0; }
+/* @usuario real si ya conocemos la cuenta; si no, uno aproximado a partir del nombre */
+function handleOf(n){ return (S.dir && S.dir[n] && S.dir[n].user) || userFrom(n); }
 function renameSocial(o, n){
   var sw = function(arr){ return arr.map(function(x){ return x === o ? n : x; }).filter(function(x, i, a){ return a.indexOf(x) === i; }); };
   if (S.social) {
@@ -3667,7 +3736,7 @@ function profileHTML(name){
       (pr.email || pr.phone ? '<div class="pf-priv muted small">' + (pr.email ? esc(pr.email) : '') + (pr.email && pr.phone ? ' y ' : '') + (pr.phone ? esc(pr.phone) : '') + '. Solo tú ves estos datos.</div>' : '<div class="pf-priv muted small">Agrega tu correo para completar tu perfil.</div>') +
       (S.me && !S.session ? '<button class="link" data-act="jn-srvconn" style="margin:0 0 10px">🔗 Conectar mi cuenta al servidor</button><br>' : '') +
       (pushNative() ? '<button class="link" data-act="jn-pushon" style="margin:0 0 10px">🔔 ' + (S.pushOn ? 'Avisos activados (toca para revisar)' : 'Activar avisos de invitaciones') + '</button><br>' : '') +
-      '<button class="btn block" data-act="pf-edit">Editar perfil</button>';
+      '<div class="pf-acts"><button class="btn" data-act="pf-edit">Editar perfil</button><button class="btn primary" data-act="pf-find">' + svg('<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>', 18) + ' Buscar personas</button></div>';
   } else {
     var fol = isFollowing(name), back = S.social.followers.indexOf(name) >= 0;
     info = '<div class="pf-name">' + esc(name) + '</div>' + (back ? '<div class="muted small pf-tag">Te sigue</div>' : '') + badge +
@@ -3689,7 +3758,7 @@ function peopleSheet(){
   return '<div class="scrim" data-act="close-sheet"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="' + title + '"><h2>' + title + '</h2>' +
     (names.length ? '<ul class="people">' + names.map(function(n){
       var me = n === S.me, fol = isFollowing(n);
-      return '<li class="lnk"><button class="rowbtn" data-act="us-open" data-n="' + esc(n) + '">' + av(n, 36) + '<span class="nm">' + esc(me ? n + ' (tú)' : n) + '<small>@' + esc(me ? S.profile.user : userFrom(n)) + '</small></span></button>' +
+      return '<li class="lnk"><button class="rowbtn" data-act="us-open" data-n="' + esc(n) + '">' + av(n, 36) + '<span class="nm">' + esc(me ? n + ' (tú)' : n) + '<small>@' + esc(me ? S.profile.user : handleOf(n)) + '</small></span></button>' +
         (me ? '' : '<button class="btn small' + (fol ? '' : ' primary') + '" data-act="us-follow" data-n="' + esc(n) + '">' + (fol ? 'Siguiendo' : 'Seguir') + '</button>') + '</li>';
     }).join('') + '</ul>' : '<p class="muted">Todavía no hay nadie aquí.</p>') +
     '<button class="link" data-act="close-sheet">Cerrar</button></div>';
@@ -3700,7 +3769,8 @@ function profileAct(a, t){
   var ev;
   if (a !== 'pf-wipe') ui.armed = null;
   switch (a) {
-    case 'pf-open': ui.ustack = []; ui.view = 'profile'; render(false); window.scrollTo(0, 0); break;
+    case 'pf-open': ui.ustack = []; ui.view = 'profile'; render(false); window.scrollTo(0, 0); SB.pullFollows(); break;
+    case 'pf-find': ui.findRes = null; ui.sheet = 'find'; renderSheet(); break;
     case 'pf-tab': ui.pf.tab = t.dataset.tab; render(); break;
     case 'pf-edit': ensureProfile(); ui.acctMode = 'form'; ui.acctPhoto = S.profile.photo || ''; ui.sheet = 'acct'; renderSheet(); break;
     case 'pf-photo': ui.eid = t.dataset.e; ui.lb = t.dataset.id; renderLb(); break;
@@ -3783,6 +3853,35 @@ function openUser(n){
   if (n === S.me) { ui.ustack = []; ui.view = 'profile'; render(false); window.scrollTo(0, 0); return; }
   ui.ustack.push({view: ui.view, eid: ui.eid, tab: ui.tab, from: ui.from, user: ui.user, pftab: ui.pf.tab});
   ui.user = n; ui.view = 'user'; ui.pf.tab = 'fotos'; render(false); window.scrollTo(0, 0);
+  SB.pullUserFollows(n);
+}
+/* ---------- buscar personas para seguir ---------- */
+var findT = null;
+function findSheet(){
+  return '<div class="scrim" data-act="close-sheet"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="Buscar personas"><h2>Buscar personas</h2>' +
+    '<input id="fd-q" class="inp" placeholder="Nombre o @usuario" autocomplete="off" autocapitalize="none" enterkeyhint="search">' +
+    '<div id="fd-res">' + findRows() + '</div><button class="link" data-act="close-sheet">Cerrar</button></div>';
+}
+function findRows(){
+  var L = ui.findRes;
+  if (!S.session) return '<p class="muted">Conecta tu cuenta para buscar personas.</p>';
+  if (!L) return '<p class="muted small">Escribe al menos 2 letras del nombre o del usuario.</p>';
+  if (!L.length) return '<p class="muted">No encontramos a nadie con ese nombre.</p>';
+  return '<ul class="people">' + L.map(function(p){
+    var n = p.display_name || p.username, fol = isFollowing(n);
+    return '<li class="lnk"><button class="rowbtn" data-act="us-open" data-n="' + esc(n) + '">' + av(n, 36) + '<span class="nm" data-nt>' + esc(n) + '<small>@' + esc(p.username) + '</small></span></button>' +
+      '<button class="btn small' + (fol ? '' : ' primary') + '" data-act="us-follow" data-n="' + esc(n) + '">' + (fol ? 'Siguiendo' : 'Seguir') + '</button></li>';
+  }).join('') + '</ul>';
+}
+function findRender(){ var r = document.getElementById('fd-res'); if (r) r.innerHTML = findRows(); }
+function findWire(){
+  var q = document.getElementById('fd-q'); if (!q) return;
+  q.addEventListener('input', function(){
+    clearTimeout(findT);
+    var term = q.value.trim().replace(/^@/, '');
+    if (term.length < 2) { ui.findRes = null; findRender(); return; }
+    findT = setTimeout(function(){ SB.searchUsers(term).then(function(list){ if (ui.sheet !== 'find') return; ui.findRes = list; save(); findRender(); }); }, 300);
+  });
 }
 function socialAct(a, t){
   var n = t && t.dataset ? t.dataset.n : '', ev, p, i;
@@ -3802,8 +3901,18 @@ function socialAct(a, t){
     case 'us-follow':
       i = S.social.following.indexOf(n);
       if (i >= 0) S.social.following.splice(i, 1); else S.social.following.push(n);
-      save(); render(); if (ui.sheet === 'people') renderSheet();
+      save(); render(); if (ui.sheet === 'people') renderSheet(); if (ui.sheet === 'find') findRender();
       toast(i >= 0 ? 'Dejaste de seguir a ' + n : 'Ahora sigues a ' + n);
+      (function(name, on){
+        SB.follow(name, on).then(function(ok){
+          if (ok || !SB.session) return;
+          /* el servidor no lo aceptó: se deshace para no mostrar algo que no es cierto */
+          var k = S.social.following.indexOf(name);
+          if (on && k >= 0) S.social.following.splice(k, 1); else if (!on && k < 0) S.social.following.push(name);
+          save(); render(); if (ui.sheet === 'people') renderSheet(); if (ui.sheet === 'find') findRender();
+          toast('No se pudo guardar en el servidor. Intenta de nuevo.');
+        });
+      })(n, i < 0);
       break;
     case 'pf-followers': case 'pf-following':
       ui.plist = {kind: a === 'pf-followers' ? 'followers' : 'following', who: n}; ui.sheet = 'people'; renderSheet();
@@ -4848,7 +4957,7 @@ Promise.race([loadP, new Promise(function(r){ setTimeout(function(){ r(null); },
   if (PENDING_JOIN && APPSTORE_URL && !(window.navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches)) && /iphone|ipad|ipod/i.test(navigator.userAgent) && !/FriendsPartyApp/i.test(navigator.userAgent)) {
     var bn = document.createElement('a'); bn.className = 'getapp'; bn.href = APPSTORE_URL; bn.textContent = 'Descarga Friends Party en el App Store para unirte'; document.body.appendChild(bn);
   }
-  SB.restore().then(function(ok){ if (ok) { pushRefresh(); SB.pullInvites(); setInterval(function(){ if (!document.hidden) SB.pullInvites(); }, 30000); SB.syncPending(); tryPendingJoin(); SB.ensureGroup().then(function(){ return SB.fetchGroupCode(); }); } }); /* recupera la sesión y reintenta lo pendiente */
+  SB.restore().then(function(ok){ if (ok) { SB.pullFollows(); pushRefresh(); SB.pullInvites(); setInterval(function(){ if (!document.hidden) SB.pullInvites(); }, 30000); SB.syncPending(); tryPendingJoin(); SB.ensureGroup().then(function(){ return SB.fetchGroupCode(); }); } }); /* recupera la sesión y reintenta lo pendiente */
   setTimeout(loadStickers, 4000); /* los stickers no hacen falta al abrir la app: se piden en segundo plano, sin competir con lo primero que se ve */
   try {
     if (window.claude && window.claude.use) {
