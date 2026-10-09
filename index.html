@@ -4370,7 +4370,8 @@ var PACKS = [
   {id: 'christmas', name: 'Stickers de Navidad', desc: '87 stickers festivos para diciembre', emoji: '🎄', price: '$1.99', live: true, preview: ['xmas-001', 'xmas-006', 'xmas-032', 'xmas-041', 'xmas-055', 'xmas-070']}
 ];
 function packById(id){ for (var i = 0; i < PACKS.length; i++) if (PACKS[i].id === id) return PACKS[i]; return null; }
-function owned(id){ return !!(S.premium || (S.purchases && S.purchases[id || 'stickers'])); }
+/* los paquetes de stickers se compran aparte: Premium ya no los incluye */
+function owned(id){ return !!(S.purchases && S.purchases[id || 'stickers']); }
 function stkPack(s){ return (s && s.p) || 'stickers'; }
 function stkById(id){ for (var i = 0; i < STK.length; i++) if (STK[i].id === id) return STK[i]; return null; }
 function stkImg(s){
@@ -5021,7 +5022,7 @@ function premiumSheet(){
 /* las ventajas de Premium, cada una con lo que trae la versión gratuita para comparar */
 function premBenefits(){
   var b = function(t, f){ return '<li><b>' + t + '</b>' + (f ? '<small>' + f + '</small>' : '') + '</li>'; };
-  return '<ul class="prem">' + b('Fotos ilimitadas en todos tus eventos', 'Versión gratuita: ' + FREE_PHOTOS + ' por evento') + b('Tus historias en video se quedan para siempre', 'Versión gratuita: 7 días') + b('Todos los paquetes de stickers de la tienda incluidos', 'Versión gratuita: se compran por separado') + '</ul>';
+  return '<ul class="prem">' + b('Fotos ilimitadas en todos tus eventos', 'Versión gratuita: ' + FREE_PHOTOS + ' por evento') + b('Tus historias en video se quedan para siempre', 'Versión gratuita: 7 días') + '</ul>';
 }
 /* Premium arriba en la Tienda, con sus ventajas (las mismas de la ventana de Premium) */
 function premiumCard(){
@@ -5034,8 +5035,8 @@ function premiumBlock(){
   return '<h3 class="pl-h">Plan</h3><ul class="people sec"><li><span class="nm">' + (isPremium() ? 'Premium' : 'Gratis') + '<small>' + (isPremium() ? 'Fotos y videos sin límite' : FREE_PHOTOS + ' fotos por evento, historias por 7 días') + '</small></span>' +
     (isPremium() ? '<span class="pill va">Activo</span>' : '<button class="btn small" data-act="vc-premium">Ver Premium</button>') + '</li></ul>' +
     '<p class="muted small plan-x">' + (isPremium()
-      ? 'Tu plan Premium incluye fotos ilimitadas en todos tus eventos, historias en video que se quedan para siempre y todos los paquetes de stickers.'
-      : 'Tu plan gratuito incluye ' + FREE_PHOTOS + ' fotos por evento e historias en video que duran 7 días. Con Premium tienes fotos ilimitadas, historias que se quedan para siempre y todos los paquetes de stickers.') + '</p>';
+      ? 'Tu plan Premium incluye fotos ilimitadas en todos tus eventos e historias en video que se quedan para siempre. Los paquetes de stickers se compran aparte.'
+      : 'Tu plan gratuito incluye ' + FREE_PHOTOS + ' fotos por evento e historias en video que duran 7 días. Con Premium tienes fotos ilimitadas e historias que se quedan para siempre. Los paquetes de stickers se compran aparte.') + '</p>';
 }
 $('#vfile').addEventListener('change', function(e){
   var f = (e.target.files || [])[0]; e.target.value = '';
