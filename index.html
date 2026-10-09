@@ -2325,7 +2325,7 @@ function home(){
     return (b.date || '').localeCompare(a.date || '') || b.created - a.created;
   });
   var rems = dueReminders();
-  return '<div class="wrap hmv"><header class="hero">' + homeFx() + '<div><h1>Friends<br><span class="h1g">Party</span></h1><div class="tagl">Eventos que te unen</div></div>' + (S.me ? '<button class="pfbtn" data-act="pf-open" aria-label="Mi perfil">' + av(S.me, 62) + '</button>' : '') + '</header>' + homeMenu() +
+  return '<div class="wrap hmv"><header class="hero">' + homeFx() + '<div><h1>Friends<br><span class="h1g">Party</span></h1><div class="tagl">Eventos que te unen</div></div>' + (S.me ? '<button class="pfbtn" data-act="pf-open" aria-label="Mi perfil">' + av(S.me, 76) + '</button>' : '') + '</header>' + homeMenu() +
     (rems.length ? '<div class="rems">' + rems.map(remHTML).join('') + '</div>' : '') +
     (evs.length ? '<div class="list">' + evs.map(card).join('') + '</div>' : '<div class="empty">' + homeArt() + '<div class="gp"><p><strong>Todavía no tienes eventos.</strong></p><p class="muted">Crea uno y comparte su código con tus amigos.</p></div></div>') +
     '</div><div class="bar hb"><div class="wrap"><button class="btn primary block" data-act="new-event">' + I.plus + ' Nuevo evento<span class="chev">' + svg('<path d="M9 5l7 7-7 7"/>', 22) + '</span></button></div></div>';
