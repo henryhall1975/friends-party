@@ -540,6 +540,39 @@ details.loc summary{cursor:pointer;font-weight:700;color:var(--accent);padding:8
 .premc-h{display:flex;align-items:center;gap:10px;font-size:18px}
 .premc-h .pill{margin-left:auto}
 .premc-i{display:grid;place-items:center;width:40px;height:40px;border-radius:12px;color:#3A2400;background:linear-gradient(180deg,#FFE08A,#F5A91E);box-shadow:0 0 16px rgba(255,190,70,.55)}
+/* calendario para la fecha del evento */
+.datebtn{display:flex;align-items:center;justify-content:space-between;gap:8px;text-align:left;color:var(--ink);font-weight:500}
+.datebtn svg{opacity:.75;flex:none}
+#cal{display:none}
+#cal.on{display:grid;place-items:center;position:fixed;inset:0;z-index:66;padding:16px}
+.cal-scrim{position:absolute;inset:0;background:rgba(8,6,24,.62);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.cal-box{position:relative;width:100%;max-width:400px;padding:14px 16px 18px;border-radius:34px;border:1.5px solid transparent;color:#fff;
+  background:radial-gradient(90% 40% at 60% 104%,rgba(190,70,230,.5),transparent 70%),radial-gradient(70% 34% at 104% 96%,rgba(70,110,255,.42),transparent 70%),linear-gradient(180deg,rgba(26,21,70,.96),rgba(17,14,48,.96)) padding-box,
+  linear-gradient(140deg,#7C6BFF,#C65BFF 45%,#FF8A5C 78%,#5B8CFF) border-box;
+  box-shadow:0 0 34px rgba(150,90,255,.45),0 20px 50px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.16)}
+.cal-grab{width:44px;height:5px;border-radius:9px;background:rgba(150,140,255,.7);margin:0 auto 14px}
+.cal-top{display:flex;align-items:center;gap:8px;margin:0 4px 14px}
+.cal-ttl{flex:1;font-size:26px;font-weight:800;letter-spacing:-.02em}
+.cal-ttl span{background:linear-gradient(90deg,#B79CFF,#7C8CFF);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
+.cal-nav{display:grid;place-items:center;width:46px;height:42px;border-radius:16px;color:#fff;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);box-shadow:inset 0 1px 0 rgba(255,255,255,.2)}
+.cal-wk{display:grid;grid-template-columns:repeat(7,1fr);padding:9px 2px;margin-bottom:10px;border-radius:16px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14)}
+.cal-w{text-align:center;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#C9C3F5}
+.cal-w.su{color:#FF6FC8}
+.cal-w.sa{color:#6FA8FF}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.cal-d{position:relative;display:grid;place-items:center;aspect-ratio:1/1.02;border-radius:14px;font-size:17px;font-weight:700;color:#fff;background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.1);box-shadow:inset 0 1px 0 rgba(255,255,255,.07)}
+.cal-d.off{color:rgba(255,255,255,.3);background:rgba(255,255,255,.03);font-weight:500}
+.cal-d.su{color:#FF6FC8}
+.cal-d.sa{color:#6FA8FF}
+.cal-d.td{border-color:rgba(255,255,255,.45)}
+.cal-d i{position:absolute;left:50%;bottom:5px;width:5px;height:5px;margin-left:-2.5px;border-radius:50%;background:#FF6FC8}
+.cal-d.sa i{background:#6FA8FF}
+.cal-d.on{color:#fff;background:linear-gradient(180deg,#5FA0FF,#3B5BF5);border-color:rgba(255,255,255,.75);box-shadow:0 0 18px rgba(80,130,255,.85),inset 0 1px 0 rgba(255,255,255,.5)}
+.cal-d.on i{background:#fff}
+.cal-foot{display:flex;align-items:center;justify-content:space-between;margin:18px 6px 0}
+.cal-reset{min-height:50px;padding:0 26px;border-radius:99px;font-weight:800;font-size:16px;color:#fff;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.24);box-shadow:inset 0 1px 0 rgba(255,255,255,.2)}
+.cal-ok{display:grid;place-items:center;width:64px;height:64px;border-radius:50%;color:#fff;background:linear-gradient(180deg,#63B4FF,#2F62F2);border:1px solid rgba(255,255,255,.6);box-shadow:0 0 22px rgba(70,140,255,.8),inset 0 2px 0 rgba(255,255,255,.4)}
+.cal-ok svg{stroke-width:3}
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
 /* ---------- tema de vidrio: un solo estilo oscuro para toda la app ---------- */
 html{background:#0D0B24}
@@ -602,6 +635,7 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;ba
 <div id="story"></div>
 <div id="ed"></div>
 <div id="pay"></div>
+<div id="cal"></div>
 <div id="cover"></div>
 <div id="tour"></div>
 <div id="toast" role="status" aria-live="polite"></div>
@@ -663,6 +697,50 @@ function coverFor(emoji){
     im.src = 'covers/' + k + '.jpg';
   }
   return null;
+}
+/* calendario propio para elegir la fecha del evento (en vez del selector del teléfono) */
+var calS = null;
+function calPad(n){ return (n < 10 ? '0' : '') + n; }
+function calISO(y, m, d){ return y + '-' + calPad(m + 1) + '-' + calPad(d); }
+function calLabel(iso){ if (!iso) return 'Sin fecha'; var p = iso.split('-').map(Number); return new Date(p[0], p[1] - 1, p[2]).toLocaleDateString(FPI.locale, {day: 'numeric', month: 'short', year: 'numeric'}).replace(/\./g, ''); }
+function calRender(){
+  var el = $('#cal');
+  if (!calS) { el.className = ''; el.innerHTML = ''; return; }
+  var y = calS.y, m = calS.m, first = new Date(y, m, 1).getDay(), days = new Date(y, m + 1, 0).getDate(), prevDays = new Date(y, m, 0).getDate();
+  var rows = Math.ceil((first + days) / 7), today = todayISO(), has = {}, i, h = '', wd = '';
+  (S.events || []).forEach(function(e){ if (e.date) has[e.date] = 1; });
+  for (i = 0; i < 7; i++) wd += '<span class="cal-w' + (i === 0 ? ' su' : i === 6 ? ' sa' : '') + '" data-nt>' + esc(new Date(2023, 0, 1 + i).toLocaleDateString(FPI.locale, {weekday: 'short'}).replace('.', '')) + '</span>';
+  for (i = 0; i < rows * 7; i++) {
+    var d = i - first + 1, col = i % 7;
+    if (d < 1) h += '<span class="cal-d off" data-nt>' + (prevDays + d) + '</span>';
+    else if (d > days) h += '<span class="cal-d off" data-nt>' + (d - days) + '</span>';
+    else {
+      var iso = calISO(y, m, d);
+      h += '<button type="button" class="cal-d' + (col === 0 ? ' su' : col === 6 ? ' sa' : '') + (iso === calS.sel ? ' on' : '') + (iso === today ? ' td' : '') + '" data-act="cal-day" data-d="' + iso + '" data-nt' + (iso === calS.sel ? ' aria-pressed="true"' : '') + '>' + d + (has[iso] ? '<i></i>' : '') + '</button>';
+    }
+  }
+  var mn = new Date(y, m, 1).toLocaleDateString(FPI.locale, {month: 'long'});
+  el.className = 'on';
+  el.innerHTML = '<div class="cal-scrim" data-act="cal-x"></div><div class="cal-box" role="dialog" aria-modal="true" aria-label="Elige la fecha"><div class="cal-grab"></div>' +
+    '<div class="cal-top"><div class="cal-ttl" data-nt>' + esc(mn.charAt(0).toUpperCase() + mn.slice(1)) + ' <span>' + y + '</span></div><button type="button" class="cal-nav" data-act="cal-prev" aria-label="Mes anterior">' + svg('<path d="M15 5l-7 7 7 7"/>', 22) + '</button><button type="button" class="cal-nav" data-act="cal-next" aria-label="Mes siguiente">' + svg('<path d="M9 5l7 7-7 7"/>', 22) + '</button></div>' +
+    '<div class="cal-wk">' + wd + '</div><div class="cal-grid">' + h + '</div>' +
+    '<div class="cal-foot"><button type="button" class="cal-reset" data-act="cal-reset">Reset</button><button type="button" class="cal-ok" data-act="cal-ok" aria-label="Usar esta fecha">' + svg('<path d="M5 12.5l4.5 4.5L19 7.5"/>', 30) + '</button></div></div>';
+}
+function calAct(a, t){
+  if (a === 'cal-open') { var v = ($('#f-date') && $('#f-date').value) || todayISO(), p = v.split('-').map(Number); calS = {y: p[0], m: p[1] - 1, sel: v}; }
+  else if (!calS) return;
+  else if (a === 'cal-prev') { calS.m--; if (calS.m < 0) { calS.m = 11; calS.y--; } }
+  else if (a === 'cal-next') { calS.m++; if (calS.m > 11) { calS.m = 0; calS.y++; } }
+  else if (a === 'cal-day') calS.sel = t.dataset.d;
+  else if (a === 'cal-reset') { var n = todayISO().split('-').map(Number); calS = {y: n[0], m: n[1] - 1, sel: todayISO()}; }
+  else if (a === 'cal-ok') {
+    var inp = $('#f-date'), b = $('#f-date-btn');
+    if (inp) inp.value = calS.sel;
+    if (b) b.firstChild.textContent = calLabel(calS.sel);
+    calS = null;
+  }
+  else if (a === 'cal-x') calS = null;
+  calRender();
 }
 /* ícono 3D del tipo de evento (icons/evento/<clave>.jpg); si el emoji no es de la lista, se muestra el emoji */
 function evIco(e){ for (var i = 0; i < ICONS.length; i++) if (ICONS[i].e === e) return '<img class="ev3" src="icons/evento/' + ICONS[i].k + '.jpg" alt="" width="200" height="154">'; return esc(e || ''); }
@@ -1363,7 +1441,7 @@ document.addEventListener('click', function(e){
 
 document.addEventListener('click', function(e){
   var t = e.target.closest('[data-act]');
-  if (t) { var a = t.dataset.act; if (a === 'story' || a.indexOf('st-') === 0) storyAct(a, t); else if (a.indexOf('cv-') === 0) coverAct(a); else if (a.indexOf('tr-') === 0) tourAct(a, t); else if (a.indexOf('pl-') === 0) planAct(a, t); else if (a === 'hm') menuAct(t); else if (a.indexOf('gr-') === 0) groupAct(a, t); else if (a.indexOf('jn-') === 0) joinAct(a, t); else if (a.indexOf('rp-') === 0) reportAct(a, t); else if (a.indexOf('vc-') === 0) clipAct(a, t); else if (a.indexOf('mu-') === 0) musicAct(a, t); else if (a.indexOf('pc-') === 0) placeAct(a, t); else if (a.indexOf('fo-') === 0) fotosAct(a, t); else if (a.indexOf('lg-') === 0) loginAct(a, t); else if (a.indexOf('ed-') === 0) edAct(a, t); else if (a.indexOf('ch-') === 0) chatAct(a, t); else if (a.indexOf('pay-') === 0) payAct(a, t); else if (a.indexOf('us-') === 0 || a.indexOf('lk-') === 0 || a === 'pf-followers' || a === 'pf-following') socialAct(a, t); else if (a.indexOf('pf-') === 0 || a.indexOf('ac-') === 0) profileAct(a, t); else act(a, t); }
+  if (t) { var a = t.dataset.act; if (a.indexOf('cal-') === 0) calAct(a, t); else if (a === 'story' || a.indexOf('st-') === 0) storyAct(a, t); else if (a.indexOf('cv-') === 0) coverAct(a); else if (a.indexOf('tr-') === 0) tourAct(a, t); else if (a.indexOf('pl-') === 0) planAct(a, t); else if (a === 'hm') menuAct(t); else if (a.indexOf('gr-') === 0) groupAct(a, t); else if (a.indexOf('jn-') === 0) joinAct(a, t); else if (a.indexOf('rp-') === 0) reportAct(a, t); else if (a.indexOf('vc-') === 0) clipAct(a, t); else if (a.indexOf('mu-') === 0) musicAct(a, t); else if (a.indexOf('pc-') === 0) placeAct(a, t); else if (a.indexOf('fo-') === 0) fotosAct(a, t); else if (a.indexOf('lg-') === 0) loginAct(a, t); else if (a.indexOf('ed-') === 0) edAct(a, t); else if (a.indexOf('ch-') === 0) chatAct(a, t); else if (a.indexOf('pay-') === 0) payAct(a, t); else if (a.indexOf('us-') === 0 || a.indexOf('lk-') === 0 || a === 'pf-followers' || a === 'pf-following') socialAct(a, t); else if (a.indexOf('pf-') === 0 || a.indexOf('ac-') === 0) profileAct(a, t); else act(a, t); }
 });
 document.addEventListener('input', function(e){
   if (e.target.id === 'chatin') ui.draft = e.target.value;
@@ -2112,7 +2190,7 @@ function renderSheet(){
     var ttl = ed ? 'Editar evento' : 'Nuevo evento';
     el.innerHTML = '<div class="scrim" data-act="close-sheet"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="' + ttl + '"><h2>' + ttl + '</h2>' +
       '<label>Nombre<input id="f-name" class="inp" placeholder="Asado en la finca" maxlength="60" autocomplete="off" value="' + esc(ed ? ed.name : '') + '"></label>' +
-      '<div class="two"><label>Fecha<input id="f-date" class="inp" type="date" value="' + esc(ed ? ed.date : todayISO()) + '"></label>' +
+      '<div class="two"><label>Fecha<input id="f-date" type="hidden" value="' + esc(ed ? ed.date : todayISO()) + '"><button type="button" class="inp datebtn" id="f-date-btn" data-act="cal-open"><span data-nt>' + esc(calLabel(ed ? ed.date : todayISO())) + '</span>' + svg('<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/>', 18) + '</button></label>' +
       '<label>Hora<input id="f-time" class="inp" type="time" value="' + esc(ed ? ed.time : '') + '"></label></div>' +
       '<label>Lugar<input id="f-place" class="inp" placeholder="Casa de José, restaurante, parque…" maxlength="80" autocomplete="off" value="' + esc(ed ? ed.place : '') + '"></label>' +
       '<label>Detalles (opcional)<input id="f-notes" class="inp" placeholder="Qué llevar, cómo llegar…" maxlength="140" autocomplete="off" value="' + esc(ed ? ed.notes : '') + '"></label>' +
