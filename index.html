@@ -535,6 +535,11 @@ details.loc summary{cursor:pointer;font-weight:700;color:var(--accent);padding:8
 .wm{position:relative;display:block;min-width:0}
 .wm::after{content:"Friends Party";position:absolute;inset:0;display:grid;place-items:center;font-size:10px;font-weight:800;letter-spacing:.02em;white-space:nowrap;color:rgba(255,255,255,.6);text-shadow:0 0 3px rgba(0,0,0,.75);transform:rotate(-24deg);pointer-events:none}
 .paygal{grid-template-columns:repeat(4,1fr);max-height:none}
+/* Premium en la Tienda */
+.premc{margin:10px 0 18px;padding:16px;border-radius:22px;display:grid;gap:12px;border:1.5px solid transparent;background:linear-gradient(180deg,rgba(58,42,118,.82),rgba(28,22,74,.82)) padding-box,linear-gradient(120deg,#FFD25A,#FF6FB1 55%,#8B6BFF) border-box;box-shadow:0 0 26px rgba(255,190,90,.22),inset 0 1px 0 rgba(255,255,255,.18)}
+.premc-h{display:flex;align-items:center;gap:10px;font-size:18px}
+.premc-h .pill{margin-left:auto}
+.premc-i{display:grid;place-items:center;width:40px;height:40px;border-radius:12px;color:#3A2400;background:linear-gradient(180deg,#FFE08A,#F5A91E);box-shadow:0 0 16px rgba(255,190,70,.55)}
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
 /* ---------- tema de vidrio: un solo estilo oscuro para toda la app ---------- */
 html{background:#0D0B24}
@@ -3882,7 +3887,7 @@ function tiendaView(){
   }).join('');
   return '<header class="top"><div class="wrap"><div class="bar1"><button class="ib" data-act="back" aria-label="Volver al inicio">' + I.back + '</button><div class="tt"><div class="ttl">Tienda</div><div class="meta"><span>Stickers para decorar tus fotos</span></div></div></div></div></header>' +
     '<main class="wrap">' + (storeNative() ? '' : '<p class="muted small" style="margin-top:6px">Abre la app en tu iPhone para comprar. Aquí en el navegador solo puedes ver el catálogo.</p>') +
-    '<ul class="people sec" style="margin-top:6px">' + cards + '</ul>' + (storeNative() ? '<button class="link" data-act="vc-restore" style="margin-top:6px">Restaurar compras</button>' : '') + '</main>';
+    premiumCard() + '<h3 class="pl-h">Paquetes de stickers</h3><ul class="people sec" style="margin-top:6px">' + cards + '</ul>' + (storeNative() ? '<button class="link" data-act="vc-restore" style="margin-top:6px">Restaurar compras</button>' : '') + '</main>';
 }
 
 /* editor */
@@ -4469,6 +4474,13 @@ function premiumSheet(){
     '<ul class="prem">' + b('Fotos sin límite en todos tus eventos (gratis: ' + FREE_PHOTOS + ' por evento)') + b('Tus historias en video se quedan para siempre (gratis: 7 días)') + b('Todos los paquetes de stickers de la tienda incluidos') + '</ul>' +
     buy + (storeNative() && !isPremium() ? '<button class="link" data-act="vc-restore">Restaurar compras</button>' : '') +
     '<button class="link" data-act="close-sheet">Cerrar</button></div>';
+}
+/* Premium arriba en la Tienda, con sus ventajas (las mismas de la ventana de Premium) */
+function premiumCard(){
+  var b = function(t){ return '<li>' + t + '</li>'; };
+  return '<div class="premc"><div class="premc-h"><span class="premc-i" aria-hidden="true">' + svg('<path d="M4 18h16M4 18l-1-10 5 4 4-7 4 7 5-4-1 10"/>', 22) + '</span><strong>Friends Party Premium</strong>' + (isPremium() ? '<span class="pill va">Activo</span>' : '') + '</div>' +
+    '<ul class="prem">' + b('Fotos sin límite en todos tus eventos (gratis: ' + FREE_PHOTOS + ' por evento)') + b('Tus historias en video se quedan para siempre (gratis: 7 días)') + b('Todos los paquetes de stickers de la tienda incluidos') + '</ul>' +
+    (isPremium() ? '' : '<button class="btn primary block" data-act="vc-premium">Ver Premium</button>') + '</div>';
 }
 function premiumBlock(){
   return '<h3 class="pl-h">Plan</h3><ul class="people sec"><li><span class="nm">' + (isPremium() ? 'Premium' : 'Gratis') + '<small>' + (isPremium() ? 'Fotos y videos sin límite' : FREE_PHOTOS + ' fotos por evento, historias por 7 días') + '</small></span>' +
