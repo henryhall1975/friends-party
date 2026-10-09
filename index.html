@@ -664,6 +664,12 @@ button.pf-badge{width:100%;text-align:left}
 .lv-lock{color:var(--muted);display:grid}
 /* franja detrás de la hora y la batería, para que el contenido no se vea pasar por ahí */
 body::after{content:"";position:fixed;left:0;right:0;top:0;height:env(safe-area-inset-top,0px);z-index:30;pointer-events:none;background:rgba(13,11,36,.82);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px)}
+.prem li b{display:block;font-weight:700}
+.prem li small{display:block;color:var(--muted);font-size:13px;margin-top:1px}
+.plan-x{margin:-6px 0 14px}
+.tr-end{display:grid;gap:10px;margin-top:12px}
+.tr-end .tr-cta{margin-top:0}
+.tr-cta.ghost{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.22);box-shadow:inset 0 1px 0 rgba(255,255,255,.12)}
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
 /* ---------- tema de vidrio: un solo estilo oscuro para toda la app ---------- */
 html{background:#0D0B24}
@@ -2233,7 +2239,6 @@ function coverHTML(){
     '<div class="cv-cta"><button class="cv-go" data-act="cv-start"><span>Comenzar</span>' + svg('<path d="M5 12h14M13 6l6 6-6 6"/>', 22) + '</button>' +
     /* la primera vez solo se ve "Comenzar"; "Iniciar sesión" y "Crear cuenta" aparecen
        al volver a esta misma portada, después del tutorial */
-    (S.tourSeen ? '<div class="cv-two"><button class="cv-ghost" data-act="cv-login">Iniciar sesión</button><button class="cv-ghost" data-act="cv-signup">Crear cuenta</button></div>' : '') +
     '<p class="cv-foot"><span></span>UN MUNDO MÁS DIVERTIDO JUNTOS<span></span></p>' + FPI.picker(true) + '</div></div>';
 }
 function renderCover(){
@@ -2242,11 +2247,13 @@ function renderCover(){
   el.className = 'on'; el.innerHTML = coverHTML(); document.body.style.overflow = 'hidden';
 }
 function coverAct(a){
-  var go = a === 'cv-start' || a === 'cv-signup' || (a === 'cv-login' && S.me);
-  if (!go) { toast('Todavía no hay una cuenta en este teléfono. Toca «Crear cuenta» para empezar.'); return; }
+  /* sin cuenta en este teléfono, "Iniciar sesión" abre el formulario para entrar a una cuenta que ya existe */
+  if (!S.me) ui.acctMode = a === 'cv-login' ? 'srvlogin' : 'form';
   /* "Comenzar" muestra primero el tutorial de bienvenida (una sola vez por dispositivo);
      "Iniciar sesión" y "Crear cuenta" van directo a su formulario, sin pasar por ahí. */
-  if (a === 'cv-start' && !S.tourSeen) { ui.tourStep = 0; tourOn = true; renderTour(); return; }
+  /* "Comenzar" siempre pasa por el recorrido; al final de él se elige iniciar sesión o crear cuenta */
+  if (a === 'cv-start') { ui.tourStep = 0; ui.tourMax = 0; ui.tourMode = 'cover'; tourOn = true; renderTour(); return; }
+  if (!S.me) renderSheet();
   proceedAfterCover(a);
 }
 function proceedAfterCover(a){
@@ -2281,7 +2288,9 @@ function tourHTML(){
     '<div class="tr-body"><div class="tr-emoji' + (s.pic ? ' pic' : '') + '" aria-hidden="true">' + (s.pic ? '<img src="icons/intro/' + s.pic + '.jpg" alt="" width="320" height="320">' : s.img ? '<img src="' + s.img + '" alt="">' : s.mark ? '<span class="qr-mark tr-mark">' + I.crown + '</span>' : s.e) + '</div>' +
     '<div class="gp tr-gp"><h2 class="tr-title">' + esc(s.t) + '</h2><p class="tr-text">' + esc(s.d) + '</p></div></div>' +
     '<div class="tr-dots">' + TOUR_STEPS.map(function(_, k){ return '<button class="tr-dot' + (k === i ? ' on' : '') + '" data-act="tr-dot" data-i="' + k + '" aria-label="Paso ' + (k + 1) + ' de ' + n + '"></button>'; }).join('') + '</div>' +
-    '<button class="tr-cta" data-act="tr-next">' + (i === n - 1 ? 'Empezar' : 'Siguiente') + '</button></div>';
+    (i === n - 1 && ui.tourMode !== 'view'
+      ? '<div class="tr-end"><button class="tr-cta" data-act="tr-signup">Crear cuenta</button><button class="tr-cta ghost" data-act="tr-login">Iniciar sesión</button></div>'
+      : '<button class="tr-cta" data-act="tr-next">' + (i === n - 1 ? 'Cerrar' : 'Siguiente') + '</button>') + '</div>';
 }
 function renderTour(){
   var el = $('#tour');
@@ -2289,13 +2298,19 @@ function renderTour(){
   el.className = 'on'; el.innerHTML = tourHTML(); document.body.style.overflow = 'hidden';
 }
 function tourAct(a, t){
-  if (a === 'tr-dot') { ui.tourStep = +t.dataset.i; renderTour(); return; }
-  if (a === 'tr-next' && (ui.tourStep || 0) < TOUR_STEPS.length - 1) { ui.tourStep = (ui.tourStep || 0) + 1; renderTour(); return; }
-  /* 'tr-next' en el último paso ("Empezar"): termina el tutorial, no vuelve a salir en este teléfono,
-     y vuelve a la misma portada, ahora con "Iniciar sesión" y "Crear cuenta" visibles */
-  S.tourSeen = true; save();
+  var last = TOUR_STEPS.length - 1, view = ui.tourMode === 'view';
+  /* en el recorrido de bienvenida los puntos solo dejan volver a pasos ya vistos: hay que recorrerlo completo */
+  if (a === 'tr-dot') { var k = +t.dataset.i; if (view || k <= (ui.tourMax || 0)) { ui.tourStep = k; renderTour(); } return; }
+  if (a === 'tr-next' && (ui.tourStep || 0) < last) { ui.tourStep = (ui.tourStep || 0) + 1; ui.tourMax = Math.max(ui.tourMax || 0, ui.tourStep); renderTour(); return; }
+  if (!view) { S.tourSeen = true; save(); }
   var el = $('#tour'); el.classList.add('out');
-  setTimeout(function(){ tourOn = false; ui.tourStep = 0; renderTour(); renderCover(); }, 300);
+  setTimeout(function(){
+    tourOn = false; ui.tourStep = 0; renderTour();
+    if (view) return;
+    renderCover();
+    /* al terminar el recorrido: directo a crear cuenta o a iniciar sesión, según lo que eligió */
+    coverAct(a === 'tr-login' ? 'cv-login' : 'cv-signup');
+  }, 300);
 }
 
 /* ---------- eventos: plan, invitaciones y recordatorios ---------- */
@@ -3788,7 +3803,7 @@ function profileHTML(name){
   return head + '<main class="wrap"><div class="pf-head">' + av(name, 84) + '<div class="pf-stats">' + stat(D.photos.length, 'Fotos') + stat(D.followers.length, 'Seguidores', 'pf-followers') + stat(D.following.length, 'Siguiendo', 'pf-following') + stat(D.likes, 'Me gusta') + '</div></div>' + info +
     '<nav class="tabs" style="margin-top:14px" role="tablist"><button class="tab' + (tab === 'fotos' ? ' on' : '') + '" data-act="pf-tab" data-tab="fotos">Fotos<small>' + D.photos.length + '</small></button><button class="tab' + (tab === 'eventos' ? ' on' : '') + '" data-act="pf-tab" data-tab="eventos">Eventos<small>' + D.evs.length + '</small></button></nav>' +
     '<div style="height:12px"></div>' + body +
-    (me ? (ANDROID_APP ? '' : purchasesBlock() + premiumBlock()) + securityBlock() + blockedBlock() + legalBlock() + '<div style="height:20px"></div><button class="link danger" data-act="pf-wipe">' + (ui.armed === 'wipe' ? 'Toca otra vez para borrar todo' : 'Borrar mi cuenta y mis datos') + '</button>' : '<div style="height:20px"></div><button class="btn block" data-act="rp-open" data-n="' + esc(name) + '" data-k="usuario">⚑ Reportar a este usuario</button><button class="btn block danger" data-act="rp-block" data-n="' + esc(name) + '" style="margin-top:8px">' + (isBlocked(name) ? 'Desbloquear' : 'Bloquear') + ' a este usuario</button>') + '</main>';
+    (me ? (ANDROID_APP ? '' : purchasesBlock() + premiumBlock()) + securityBlock() + blockedBlock() + legalBlock() + '<button class="link" data-act="pf-intro" style="margin-top:14px">Ver la intro de la app</button><div style="height:20px"></div><button class="link danger" data-act="pf-wipe">' + (ui.armed === 'wipe' ? 'Toca otra vez para borrar todo' : 'Borrar mi cuenta y mis datos') + '</button>' : '<div style="height:20px"></div><button class="btn block" data-act="rp-open" data-n="' + esc(name) + '" data-k="usuario">⚑ Reportar a este usuario</button><button class="btn block danger" data-act="rp-block" data-n="' + esc(name) + '" style="margin-top:8px">' + (isBlocked(name) ? 'Desbloquear' : 'Bloquear') + ' a este usuario</button>') + '</main>';
 }
 function profileView(){ return profileHTML(S.me); }
 function userView(){ return ui.user && ui.user !== S.me ? profileHTML(ui.user) : profileHTML(S.me); }
@@ -3813,6 +3828,7 @@ function profileAct(a, t){
   if (a !== 'pf-wipe') ui.armed = null;
   switch (a) {
     case 'pf-open': ui.ustack = []; ui.view = 'profile'; render(false); window.scrollTo(0, 0); SB.pullFollows(); break;
+    case 'pf-intro': ui.tourStep = 0; ui.tourMode = 'view'; tourOn = true; renderTour(); break;
     case 'pf-find': ui.findRes = null; ui.sheet = 'find'; renderSheet(); break;
     case 'pf-levels': ui.lvlWho = t.dataset.n || S.me; ui.sheet = 'levels'; renderSheet(); break;
     case 'pf-tab': ui.pf.tab = t.dataset.tab; render(); break;
@@ -4958,20 +4974,28 @@ function premiumSheet(){
     : '<p class="muted small">US$ 1.99 al mes. Se renueva solo y lo cancelas cuando quieras desde los ajustes de Apple.</p><button class="btn primary block" disabled>Abre la app para suscribirte</button>';
   return '<div class="scrim" data-act="close-sheet"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="Premium"><h2>Friends Party Premium</h2>' +
     (isPremium() ? '<p class="muted">Ya eres Premium. Gracias por apoyar la app.</p>' : '<p class="muted">Sube sin límites y guarda tus recuerdos para siempre.</p>') +
-    '<ul class="prem">' + b('Fotos sin límite en todos tus eventos (gratis: ' + FREE_PHOTOS + ' por evento)') + b('Tus historias en video se quedan para siempre (gratis: 7 días)') + b('Todos los paquetes de stickers de la tienda incluidos') + '</ul>' +
+    premBenefits() +
     buy + (storeNative() && !isPremium() ? '<button class="link" data-act="vc-restore">Restaurar compras</button>' : '') +
     '<button class="link" data-act="close-sheet">Cerrar</button></div>';
+}
+/* las ventajas de Premium, cada una con lo que trae la versión gratuita para comparar */
+function premBenefits(){
+  var b = function(t, f){ return '<li><b>' + t + '</b>' + (f ? '<small>' + f + '</small>' : '') + '</li>'; };
+  return '<ul class="prem">' + b('Fotos ilimitadas en todos tus eventos', 'Versión gratuita: ' + FREE_PHOTOS + ' por evento') + b('Tus historias en video se quedan para siempre', 'Versión gratuita: 7 días') + b('Todos los paquetes de stickers de la tienda incluidos', 'Versión gratuita: se compran por separado') + '</ul>';
 }
 /* Premium arriba en la Tienda, con sus ventajas (las mismas de la ventana de Premium) */
 function premiumCard(){
   var b = function(t){ return '<li>' + t + '</li>'; };
   return '<div class="premc"><div class="premc-h"><span class="premc-i" aria-hidden="true">' + svg('<path d="M4 18h16M4 18l-1-10 5 4 4-7 4 7 5-4-1 10"/>', 22) + '</span><strong>Friends Party Premium</strong>' + (isPremium() ? '<span class="pill va">Activo</span>' : '') + '</div>' +
-    '<ul class="prem">' + b('Fotos sin límite en todos tus eventos (gratis: ' + FREE_PHOTOS + ' por evento)') + b('Tus historias en video se quedan para siempre (gratis: 7 días)') + b('Todos los paquetes de stickers de la tienda incluidos') + '</ul>' +
+    premBenefits() +
     (isPremium() ? '' : '<button class="btn primary block" data-act="vc-premium">Ver Premium</button>') + '</div>';
 }
 function premiumBlock(){
   return '<h3 class="pl-h">Plan</h3><ul class="people sec"><li><span class="nm">' + (isPremium() ? 'Premium' : 'Gratis') + '<small>' + (isPremium() ? 'Fotos y videos sin límite' : FREE_PHOTOS + ' fotos por evento, historias por 7 días') + '</small></span>' +
-    (isPremium() ? '<span class="pill va">Activo</span>' : '<button class="btn small" data-act="vc-premium">Ver Premium</button>') + '</li></ul>';
+    (isPremium() ? '<span class="pill va">Activo</span>' : '<button class="btn small" data-act="vc-premium">Ver Premium</button>') + '</li></ul>' +
+    '<p class="muted small plan-x">' + (isPremium()
+      ? 'Tu plan Premium incluye fotos ilimitadas en todos tus eventos, historias en video que se quedan para siempre y todos los paquetes de stickers.'
+      : 'Tu plan gratuito incluye ' + FREE_PHOTOS + ' fotos por evento e historias en video que duran 7 días. Con Premium tienes fotos ilimitadas, historias que se quedan para siempre y todos los paquetes de stickers.') + '</p>';
 }
 $('#vfile').addEventListener('change', function(e){
   var f = (e.target.files || [])[0]; e.target.value = '';
