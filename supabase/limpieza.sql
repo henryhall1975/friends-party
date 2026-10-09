@@ -68,3 +68,9 @@ select cron.schedule(
 );
 
 -- Para ver si corrió:  select * from cron.job_run_details order by start_time desc limit 5;
+
+-- 2026-10-08 · Eventos públicos para seguidores (aplicado como migración eventos_publicos_para_seguidores)
+-- alter table public.events add column if not exists is_public boolean not null default false;
+-- create policy "eventos: ver publicos de quien sigo" on public.events for select to authenticated
+--   using (is_public and exists (select 1 from public.follows f where f.follower_id = auth.uid() and f.followee_id = events.owner_id));
+-- create index if not exists events_owner_public_idx on public.events (owner_id) where is_public;
