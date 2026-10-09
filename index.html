@@ -530,6 +530,8 @@ details.loc summary{cursor:pointer;font-weight:700;color:var(--accent);padding:8
 /* íconos 3D de la tienda */
 .pk3{flex:none;width:58px;height:57px;object-fit:cover;border-radius:16px;box-shadow:0 0 0 1px rgba(255,255,255,.2),0 4px 12px rgba(0,0,0,.4)}
 .pk3.big{width:132px;height:129px;border-radius:30px}
+/* que no salga "Guardar imagen" al dejar presionados los stickers ni los íconos de la app */
+.paystrip img,.paygal img,.stk img,.pk3,.ev3,.hm-t img,.cv-tile img,.tr-emoji img,.em-ico img{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;-webkit-user-drag:none;pointer-events:none}
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
 /* ---------- tema de vidrio: un solo estilo oscuro para toda la app ---------- */
 html{background:#0D0B24}
@@ -1338,6 +1340,9 @@ function act(a, t){
 }
 
 /* al tocar Fecha u Hora se abre directo el calendario/reloj, sin tener que escribir los números */
+/* sin menú de guardar/copiar sobre stickers e íconos */
+document.addEventListener('contextmenu', function(e){ if (e.target && e.target.closest && e.target.closest('.paystrip,.paygal,.stk,.pk3,.hm-t,.cv-tile,.tr-emoji,.em,.ems')) e.preventDefault(); });
+document.addEventListener('dragstart', function(e){ if (e.target && e.target.tagName === 'IMG' && e.target.closest('.paystrip,.paygal,.stk')) e.preventDefault(); });
 document.addEventListener('click', function(e){
   var i = e.target;
   if (i && i.tagName === 'INPUT' && (i.type === 'date' || i.type === 'time') && i.showPicker) { try { i.showPicker(); } catch (_) {} }
