@@ -647,6 +647,21 @@ details.loc summary{cursor:pointer;font-weight:700;color:var(--accent);padding:8
 .hfind{position:absolute;left:-18px;bottom:-8px;z-index:2;display:grid;place-items:center;width:38px;height:38px;border-radius:50%;color:#fff;background:linear-gradient(160deg,#8A5BFF,#4A35D8);border:2px solid #14103A;box-shadow:0 0 12px rgba(120,90,255,.6),inset 0 1px 0 rgba(255,255,255,.35)}
 .pf-acts{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 #fd-res{min-height:120px}
+/* niveles de fiesta */
+button.pf-badge{width:100%;text-align:left}
+.pf-badge-go{margin-left:auto;opacity:.6;flex:none;display:grid}
+.lv-now{margin:0;font-weight:700;color:var(--sun)}
+.lv-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.lv-r{display:flex;align-items:center;gap:12px;padding:8px 12px;border-radius:16px;background:rgba(255,255,255,.05);border:1px solid var(--line)}
+.lv-r img{width:52px;height:62px;object-fit:contain;flex:none;filter:grayscale(.85) brightness(1.05);opacity:.7;-webkit-touch-callout:none;pointer-events:none}
+.lv-r.got img{filter:drop-shadow(0 3px 8px rgba(150,90,255,.5));opacity:1}
+.lv-t{display:grid;gap:1px;min-width:0;flex:1}
+.lv-t b{font-size:16px}
+.lv-t em{font-style:normal;font-size:13px;color:var(--muted)}
+.lv-t small{font-size:12px;font-weight:700;color:var(--sun)}
+.lv-r.here{border-color:#FF8AD0;box-shadow:0 0 16px rgba(255,90,200,.45)}
+.lv-ok{color:#7CF5C0;display:grid}
+.lv-lock{color:var(--muted);display:grid}
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
 /* ---------- tema de vidrio: un solo estilo oscuro para toda la app ---------- */
 html{background:#0D0B24}
@@ -2486,6 +2501,8 @@ function renderSheet(){
     el.innerHTML = photoLocSheet();
   } else if (ui.sheet === 'acct') {
     el.innerHTML = acctSheet();
+  } else if (ui.sheet === 'levels') {
+    el.innerHTML = levelsSheet();
   } else if (ui.sheet === 'find') {
     el.innerHTML = findSheet(); findWire(); focus = '#fd-q';
   } else if (ui.sheet === 'people') {
@@ -3728,7 +3745,7 @@ function profileHTML(name){
   var pTitle = pLvl ? pLvl.n : 'Sin nivel todavía';
   var pDesc = pLvl ? pLvl.d : (me ? 'Asiste a un evento y sube fotos para desbloquear ' + PARTY_LEVELS[0].n : 'Todavía no cumple asistir a un evento y subir fotos');
   var pLine = pLvl ? pCount + (pCount === 1 ? ' fiesta' : ' fiestas') + (pNext ? ' · faltan ' + (pNext.min - pCount) + ' para ' + pNext.n : ' · nivel máximo') : '';
-  var badge = '<div class="pf-badge' + (pLvl ? '' : ' off') + '"><span class="pf-badge-ic"><img src="' + pShow.img + '" alt="' + esc(pShow.n) + '" loading="lazy"></span><span class="pf-badge-txt"><b>' + esc(pTitle) + '</b><em>' + esc(pDesc) + '</em>' + (pLine ? '<small>' + esc(pLine) + '</small>' : '') + '</span></div>';
+  var badge = '<button type="button" class="pf-badge' + (pLvl ? '' : ' off') + '" data-act="pf-levels" data-n="' + esc(name) + '" aria-label="Ver todos los niveles"><span class="pf-badge-ic"><img src="' + pShow.img + '" alt="' + esc(pShow.n) + '" loading="lazy"></span><span class="pf-badge-txt"><b>' + esc(pTitle) + '</b><em>' + esc(pDesc) + '</em>' + (pLine ? '<small>' + esc(pLine) + '</small>' : '') + '</span><span class="pf-badge-go" aria-hidden="true">' + svg('<path d="M9 5l7 7-7 7"/>', 18) + '</span></button>';
   var info;
   if (me) {
     info = '<div class="pf-name">' + esc(pr.name) + '</div>' + (pr.bio ? '<div class="pf-bio">' + esc(pr.bio) + '</div>' : '') + badge +
@@ -3771,6 +3788,7 @@ function profileAct(a, t){
   switch (a) {
     case 'pf-open': ui.ustack = []; ui.view = 'profile'; render(false); window.scrollTo(0, 0); SB.pullFollows(); break;
     case 'pf-find': ui.findRes = null; ui.sheet = 'find'; renderSheet(); break;
+    case 'pf-levels': ui.lvlWho = t.dataset.n || S.me; ui.sheet = 'levels'; renderSheet(); break;
     case 'pf-tab': ui.pf.tab = t.dataset.tab; render(); break;
     case 'pf-edit': ensureProfile(); ui.acctMode = 'form'; ui.acctPhoto = S.profile.photo || ''; ui.sheet = 'acct'; renderSheet(); break;
     case 'pf-photo': ui.eid = t.dataset.e; ui.lb = t.dataset.id; renderLb(); break;
@@ -3854,6 +3872,19 @@ function openUser(n){
   ui.ustack.push({view: ui.view, eid: ui.eid, tab: ui.tab, from: ui.from, user: ui.user, pftab: ui.pf.tab});
   ui.user = n; ui.view = 'user'; ui.pf.tab = 'fotos'; render(false); window.scrollTo(0, 0);
   SB.pullUserFollows(n);
+}
+/* todos los niveles de fiesta y cómo se consiguen */
+function levelsSheet(){
+  var who = ui.lvlWho || S.me, me = who === S.me, c = partyCount(who), cur = partyLevel(c), nx = nextLevel(c);
+  var rows = PARTY_LEVELS.map(function(L){
+    var got = c >= L.min, here = cur && cur.n === L.n;
+    return '<li class="lv-r' + (got ? ' got' : '') + (here ? ' here' : '') + '"><img src="' + L.img + '" alt="" loading="lazy"><span class="lv-t"><b data-nt>' + esc(L.n) + '</b><em>' + esc(L.d) + '</em><small>' + (L.min === 1 ? 'Desde 1 fiesta' : 'Desde ' + L.min + ' fiestas') + '</small></span>' +
+      (here ? '<span class="pill va">' + (me ? 'Tu nivel' : 'Su nivel') + '</span>' : got ? '<span class="lv-ok" aria-hidden="true">' + svg('<path d="M5 12.5l4.5 4.5L19 7.5"/>', 18) + '</span>' : '<span class="lv-lock" aria-hidden="true">' + svg('<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>', 18) + '</span>') + '</li>';
+  }).join('');
+  return '<div class="scrim" data-act="close-sheet"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="Niveles de fiesta"><h2>Niveles de fiesta</h2>' +
+    '<p class="muted">Una fiesta cuenta cuando vas a un evento y subes al menos una foto ahí. El nivel nunca baja.</p>' +
+    (me ? '<p class="lv-now"><span>' + (c === 1 ? 'Llevas 1 fiesta' : 'Llevas ' + c + ' fiestas') + '</span>' + (nx ? ' · <span>' + (nx.min - c === 1 ? 'te falta 1 para ' : 'te faltan ' + (nx.min - c) + ' para ') + esc(nx.n) + '</span>' : ' · <span>nivel máximo</span>') + '</p>' : '') +
+    '<ul class="lv-list">' + rows + '</ul><button class="link" data-act="close-sheet">Cerrar</button></div>';
 }
 /* ---------- buscar personas para seguir ---------- */
 var findT = null;
