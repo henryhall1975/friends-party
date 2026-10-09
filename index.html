@@ -662,6 +662,8 @@ button.pf-badge{width:100%;text-align:left}
 .lv-r.here{border-color:#FF8AD0;box-shadow:0 0 16px rgba(255,90,200,.45)}
 .lv-ok{color:#7CF5C0;display:grid}
 .lv-lock{color:var(--muted);display:grid}
+/* franja detrás de la hora y la batería, para que el contenido no se vea pasar por ahí */
+body::after{content:"";position:fixed;left:0;right:0;top:0;height:env(safe-area-inset-top,0px);z-index:30;pointer-events:none;background:rgba(13,11,36,.82);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px)}
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
 /* ---------- tema de vidrio: un solo estilo oscuro para toda la app ---------- */
 html{background:#0D0B24}
@@ -4028,7 +4030,7 @@ function finishSignup(name, user, email, phone, bio, prov, h, pwd){
   S.me = name;
   S.profile = {name: name, user: user, email: email, phone: phone, bio: bio, photo: ui.acctPhoto || '', provider: prov, created: Date.now()};
   S.lock = {pw: h, bio: null}; S.keepLogin = true;
-  ensureDemos(); save(); ui.authed = true; ui.acctMode = 'form'; ui.sheet = null; renderSheet(); render(false);
+  ensureDemos(); save(); ui.authed = true; ui.acctMode = 'form'; ui.sheet = null; renderSheet(); render(false); toTop();
   toast('Cuenta creada. ¡Bienvenido, ' + name + '!');
   /* además de guardarla en este teléfono, se conecta sola con el servidor; si no hay internet, se reintenta sin pedir nada */
   if (email && pwd) {
@@ -4038,12 +4040,19 @@ function finishSignup(name, user, email, phone, bio, prov, h, pwd){
     });
   }
 }
+/* al cerrar el teclado el iPhone deja la página desplazada hacia abajo: se regresa al inicio */
+function toTop(){
+  try { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); } catch (e) {}
+  window.scrollTo(0, 0);
+  [120, 400, 800].forEach(function(ms){ setTimeout(function(){ if (!ui.sheet) window.scrollTo(0, 0); }, ms); });
+}
 function loginOk(){
   S.keepLogin = true; save();
   ui.authed = true; ui.fails = 0; ui.sheet = null; renderSheet();
   if (ui.afterLogin === 'profile') { ui.view = 'profile'; window.scrollTo(0, 0); }
   ui.afterLogin = '';
   render(false);
+  toTop();
   toast('Hola de nuevo, ' + S.me.split(' ')[0]);
   tryPendingJoin();
 }
@@ -5000,7 +5009,8 @@ Promise.race([loadP, new Promise(function(r){ setTimeout(function(){ r(null); },
     /* la sesión se queda abierta en este teléfono; solo se pide la contraseña si se cerró sesión o si la persona activó "pedir contraseña al abrir" */
     if (hasLock() && (S.askPw || !S.keepLogin || (S.profile && S.profile.email && !S.session))) ui.sheet = 'login'; else ui.authed = true;
   }
-  render(false); renderSheet(); renderCover();
+  try { history.scrollRestoration = 'manual'; } catch (e) {}
+  render(false); renderSheet(); renderCover(); window.scrollTo(0, 0);
   if (PENDING_JOIN && !S.me) toast('Alguien te invitó a Friends Party. Crea tu cuenta o inicia sesión para unirte.');
   if (PENDING_JOIN && APPSTORE_URL && !(window.navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches)) && /iphone|ipad|ipod/i.test(navigator.userAgent) && !/FriendsPartyApp/i.test(navigator.userAgent)) {
     var bn = document.createElement('a'); bn.className = 'getapp'; bn.href = APPSTORE_URL; bn.textContent = 'Descarga Friends Party en el App Store para unirte'; document.body.appendChild(bn);
