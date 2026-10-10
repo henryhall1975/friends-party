@@ -461,6 +461,8 @@ var D = {
   'Siguiendo': ['Following', '팔로잉'],
   'Seguir': ['Follow', '팔로우'],
   'Buscar personas': ['Find people', '사람 찾기'],
+  'Te mandamos una notificación cuando un amigo te invite a su grupo y cuando se acerque uno de tus eventos, para que no se te pase.': ['We send you a notification when a friend invites you to their group and when one of your events is coming up, so you don\'t miss it.', '친구가 그룹에 초대하거나 이벤트가 다가오면 놓치지 않도록 알림을 보내 드립니다.'],
+  'Los avisos llegan como notificación al iPhone de cada persona del grupo que tenga las notificaciones activadas, a las 8 de la mañana. También aparecen arriba en la pantalla de inicio. El dueño del evento elige cuáles se mandan.': ['Reminders arrive as a notification on the iPhone of each group member who has notifications turned on, at 8 in the morning. They also appear at the top of the home screen. The event owner chooses which ones are sent.', '알림은 알림을 켠 그룹 멤버의 iPhone으로 오전 8시에 전송됩니다. 홈 화면 상단에도 표시됩니다. 어떤 알림을 보낼지는 이벤트 주최자가 정합니다.'],
   'Usar otra cuenta': ['Use another account', '다른 계정 사용'],
   'Toca otra vez para confirmar': ['Tap again to confirm', '확인하려면 다시 누르세요'],
   'Se quitará de este teléfono la cuenta actual. Lo que ya está en el servidor no se pierde.': ['The current account will be removed from this phone. What is already on the server is not lost.', '현재 계정이 이 휴대폰에서 제거됩니다. 서버에 저장된 내용은 사라지지 않습니다.'],

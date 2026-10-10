@@ -1326,7 +1326,7 @@ var SB = {
       var starts = ev.date ? (ev.date + 'T' + (ev.time || '00:00') + ':00') : null;
       var eid = SB.uuid();
       var gg = ev.geo && !ev.geoDemo ? ev.geo : null;
-      return SB.rest('events', 'POST', {id: eid, group_id: gid, owner_id: S.serverId, title: ev.name, place_text: ev.place || '', starts_at: starts, lat: gg ? gg.lat : null, lon: gg ? gg.lon : null, is_public: !!ev.pub}, '', 'return=minimal').then(function(res){
+      return SB.rest('events', 'POST', {id: eid, group_id: gid, owner_id: S.serverId, title: ev.name, place_text: ev.place || '', starts_at: starts, lat: gg ? gg.lat : null, lon: gg ? gg.lon : null, is_public: !!ev.pub, remind_d3: !ev.remind || ev.remind.d3 !== false, remind_d1: !ev.remind || ev.remind.d1 !== false, remind_d0: !ev.remind || ev.remind.d0 !== false}, '', 'return=minimal').then(function(res){
         if (res.ok) { ev.serverId = eid; save(); return eid; }
         SB.fail('evento', res); return null;
       });
@@ -1362,7 +1362,7 @@ var SB = {
   pushEvent: function(ev){
     if (!ev || !ev.serverId || !SB.session || !SB.session.access_token) return Promise.resolve(false);
     var gg = ev.geo && !ev.geoDemo ? ev.geo : null;
-    return SB.rest('events', 'PATCH', {title: ev.name, place_text: ev.place || '', starts_at: ev.date ? (ev.date + 'T' + (ev.time || '00:00') + ':00') : null, lat: gg ? gg.lat : null, lon: gg ? gg.lon : null, is_public: !!ev.pub}, '?id=eq.' + ev.serverId, 'return=minimal')
+    return SB.rest('events', 'PATCH', {title: ev.name, place_text: ev.place || '', starts_at: ev.date ? (ev.date + 'T' + (ev.time || '00:00') + ':00') : null, lat: gg ? gg.lat : null, lon: gg ? gg.lon : null, is_public: !!ev.pub, remind_d3: !ev.remind || ev.remind.d3 !== false, remind_d1: !ev.remind || ev.remind.d1 !== false, remind_d0: !ev.remind || ev.remind.d0 !== false}, '?id=eq.' + ev.serverId, 'return=minimal')
       .then(function(r){ return !!r.ok; }).catch(function(){ return false; });
   },
   /* reintenta lo que quedó pendiente en este teléfono (eventos y fotos creados por el usuario) */
@@ -1465,7 +1465,7 @@ var SB = {
               date: erow.starts_at ? erow.starts_at.slice(0, 10) : '', time: erow.starts_at ? erow.starts_at.slice(11, 16) : '',
               emoji: '🎉', grad: 0, code: mkCode(), members: [S.me], created: Date.parse(erow.created_at) || Date.now(),
               geo: (typeof erow.lat === 'number' && typeof erow.lon === 'number') ? {lat: erow.lat, lon: erow.lon} : null, pub: !!erow.is_public,
-              rsvp: {}, invites: [], remind: {d3: true, d1: true, d0: true},
+              rsvp: {}, invites: [], remind: {d3: erow.remind_d3 !== false, d1: erow.remind_d1 !== false, d0: erow.remind_d0 !== false},
               photos: photos.filter(Boolean),
               chat: b.msgRows.map(function(m){ return {id: 'm_' + m.id, by: names[m.author_id] || 'Alguien', at: Date.parse(m.created_at), text: m.body || ''}; }),
               songs: b.songRows.map(function(s){ return {id: 's_' + s.id, title: s.title, artist: s.artist, platform: s.platform, url: s.external_url, note: '', by: names[s.added_by] || 'Alguien', at: Date.parse(s.created_at), likes: []}; })
@@ -1476,7 +1476,7 @@ var SB = {
     }).then(function(evs){
       (evs || []).forEach(function(nev){
         var existing = S.events.filter(function(e){ return e.serverId === nev.serverId; })[0];
-        if (existing) { var keep = existing.photos.filter(function(p){ return p.pend && !p.synced; }); existing.photos = nev.photos.concat(keep); existing.chat = nev.chat; existing.songs = nev.songs; Object.assign(existing, {name: nev.name, place: nev.place, date: nev.date, time: nev.time}); if (nev.geo) { existing.geo = nev.geo; delete existing.geoDemo; } existing.pub = nev.pub; }
+        if (existing) { var keep = existing.photos.filter(function(p){ return p.pend && !p.synced; }); existing.photos = nev.photos.concat(keep); existing.chat = nev.chat; existing.songs = nev.songs; Object.assign(existing, {name: nev.name, place: nev.place, date: nev.date, time: nev.time}); if (nev.geo) { existing.geo = nev.geo; delete existing.geoDemo; } existing.pub = nev.pub; existing.remind = nev.remind; }
         else S.events.push(nev);
       });
       save(); render(false);
@@ -1741,6 +1741,7 @@ function act(a, t){
       ui.sheet = null; renderSheet();
       ui.view = 'event'; ui.eid = ev.id; ui.tab = 'plan';
       render(false); window.scrollTo(0, 0);
+      setTimeout(pushAsk, 1500); /* para que le lleguen los recordatorios de este evento */
       break;
     case 'open': ui.from = null; ui.view = 'event'; ui.eid = t.dataset.id; ui.tab = defTab(S.events.filter(function(e){ return e.id === t.dataset.id; })[0]); render(false); window.scrollTo(0, 0); break;
     case 'back': ui.view = ui.from || 'home'; ui.from = null; ui.eid = null; render(false); window.scrollTo(0, 0); break;
@@ -2574,7 +2575,7 @@ function remindSheet(ev){
   return '<div class="scrim" data-act="close-sheet"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="Así llegan los avisos"><h2>Así llegan los avisos</h2>' +
     (items ? '<ul class="rmlist">' + items + '</ul>' : '<p class="muted">No tienes avisos activos.</p>') +
     '<p class="muted small">Los reciben: ' + (names.length ? esc(names.join(', ')) : 'nadie todavía') + '.</p>' +
-    '<p class="muted small">Los avisos aparecen arriba en la pantalla de inicio. Si activas las notificaciones, también te llegan al teléfono.</p>' +
+    '<p class="muted small">Los avisos llegan como notificación al iPhone de cada persona del grupo que tenga las notificaciones activadas, a las 8 de la mañana. También aparecen arriba en la pantalla de inicio. El dueño del evento elige cuáles se mandan.</p>' +
     '<button class="btn primary block" data-act="close-sheet">Entendido</button></div>';
 }
 function renderSheet(){
@@ -2660,7 +2661,7 @@ function planAct(a, t){
       if (ev.members.indexOf(S.me) < 0) ev.members.push(S.me);
       save(); render();
       break;
-    case 'pl-rm': ev.remind[t.dataset.k] = !ev.remind[t.dataset.k]; save(); render(); break;
+    case 'pl-rm': ev.remind[t.dataset.k] = !ev.remind[t.dataset.k]; save(); render(); SB.pushEvent(ev); setTimeout(pushAsk, 600); break;
     case 'pl-copy': copyText(inviteText(ev), 'Mensaje copiado'); break;
     case 'pl-grp':
       ev.invites.push({id: uid(), who: t.dataset.n, via: 'app', at: Date.now()});
@@ -2947,7 +2948,7 @@ function srvConnSheet(){
 }
 function pushSheet(){
   return '<div class="scrim" data-act="jn-pushoff"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="Avisos"><h2>¿Quieres que te avisemos?</h2>' +
-    '<p class="muted">Te mandamos una notificación cuando un amigo te invite a su grupo o a un evento, para que no se te pase.</p>' +
+    '<p class="muted">Te mandamos una notificación cuando un amigo te invite a su grupo y cuando se acerque uno de tus eventos, para que no se te pase.</p>' +
     '<button class="btn primary block" data-act="jn-pushon">Activar avisos</button><button class="link" data-act="jn-pushoff">Ahora no</button></div>';
 }
 
@@ -3014,6 +3015,7 @@ function afterJoinResult(r){
       save();
     });
     SB.pullAll().then(function(){ save(); render(false); });
+    setTimeout(pushAsk, 2000);
   } else toast(r.msg || 'No se pudo unir');
 }
 function doJoin(code){
