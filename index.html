@@ -678,6 +678,15 @@ body::after{content:"";position:fixed;left:0;right:0;top:0;height:env(safe-area-
 .evs-r:has(.evs-vis){align-items:start}
 .evs-r:has(.evs-vis) .evs-i{margin-top:22px}
 .pubev .evi{color:#fff}
+/* invitación abierta en Safari en vez de en la app */
+.jgate{position:fixed;inset:0;z-index:98;display:grid;place-items:center;padding:calc(16px + env(safe-area-inset-top,0px)) 16px calc(16px + env(safe-area-inset-bottom,0px));background:var(--lights);overflow-y:auto}
+.jgate-box{width:100%;max-width:400px;display:grid;gap:12px;justify-items:center;text-align:center;padding:22px 18px;border-radius:30px;border:1.5px solid transparent;background:linear-gradient(180deg,rgba(30,24,80,.96),rgba(18,15,52,.96)) padding-box,linear-gradient(140deg,#7C6BFF,#C65BFF 40%,#FF8A5C 75%,#5B8CFF) border-box;box-shadow:0 0 34px rgba(140,90,255,.4)}
+.jgate-box img{width:92px;height:auto;border-radius:24px}
+.jgate-box h2{margin:0;font-size:24px;letter-spacing:-.02em}
+.jgate-box p{margin:0}
+.jgate-box .btn{text-decoration:none}
+.jgate-code{font-size:30px;font-weight:800;letter-spacing:.12em;padding:10px 18px;border-radius:16px;background:rgba(255,255,255,.08);border:1px dashed rgba(255,255,255,.35);user-select:all;-webkit-user-select:all}
+.jgate-steps{margin:0;padding-left:20px;text-align:left;display:grid;gap:4px;color:var(--muted);font-size:15px}
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
 /* ---------- tema de vidrio: un solo estilo oscuro para toda la app ---------- */
 html{background:#0D0B24}
@@ -2939,6 +2948,26 @@ var PENDING_JOIN = (function(){
   var m = /[?&]join=([^&]+)/.exec(window.location.search);
   return m ? decodeURIComponent(m[1]) : '';
 })();
+/* Alguien escaneó un QR de invitación con la cámara del iPhone y cayó en Safari, no en la app.
+   Safari no puede pasarle el código a la app 1.0, así que se muestra el código para pegarlo en la app.
+   Con la app 1.1 (enlace friendsparty://) el botón "Abrir en la app" hace la unión solo: se enciende con APP_LINK_READY. */
+var APP_LINK_READY = false;
+function joinGate(code){
+  var el = document.createElement('div'); el.className = 'jgate';
+  el.innerHTML = '<div class="jgate-box"><img src="icons/menu/invitaciones.jpg" alt="" width="220" height="201"><h2>Te invitaron a Friends Party</h2>' +
+    (APP_LINK_READY ? '<a class="btn primary block" href="friendsparty://join?code=' + encodeURIComponent(code) + '">Abrir en la app</a>' : '') +
+    '<p class="muted">Tu código de invitación</p><div class="jgate-code" data-nt>' + esc(code) + '</div><button type="button" class="btn block" id="jg-copy">Copiar código</button>' +
+    '<ol class="jgate-steps"><li>Abre la app Friends Party.</li><li>Entra a Invitaciones.</li><li>Toca «Unirme con un código» y pega el código.</li></ol>' +
+    '<a class="link" href="' + APPSTORE_URL + '">¿No tienes la app? Descárgala en el App Store</a>' +
+    '<button type="button" class="link" id="jg-web">Seguir en el navegador</button></div>';
+  document.body.appendChild(el);
+  el.querySelector('#jg-copy').addEventListener('click', function(){
+    var done = function(){ toast('Código copiado'); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(code).then(done, function(){ toast('No se pudo copiar. Escríbelo a mano.'); });
+    else toast('No se pudo copiar. Escríbelo a mano.');
+  });
+  el.querySelector('#jg-web').addEventListener('click', function(){ el.remove(); });
+}
 function clearJoinUrl(){
   if (window.history && history.replaceState) history.replaceState(null, '', location.pathname);
 }
@@ -5078,7 +5107,7 @@ Promise.race([loadP, new Promise(function(r){ setTimeout(function(){ r(null); },
   render(false); renderSheet(); renderCover(); window.scrollTo(0, 0);
   if (PENDING_JOIN && !S.me) toast('Alguien te invitó a Friends Party. Crea tu cuenta o inicia sesión para unirte.');
   if (PENDING_JOIN && APPSTORE_URL && !(window.navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches)) && /iphone|ipad|ipod/i.test(navigator.userAgent) && !/FriendsPartyApp/i.test(navigator.userAgent)) {
-    var bn = document.createElement('a'); bn.className = 'getapp'; bn.href = APPSTORE_URL; bn.textContent = 'Descarga Friends Party en el App Store para unirte'; document.body.appendChild(bn);
+    joinGate(PENDING_JOIN);
   }
   SB.restore().then(function(ok){ if (ok) { SB.pullFollows(); pushRefresh(); SB.pullInvites(); setInterval(function(){ if (!document.hidden) SB.pullInvites(); }, 30000); SB.syncPending(); tryPendingJoin(); SB.ensureGroup().then(function(){ return SB.fetchGroupCode(); }); } }); /* recupera la sesión y reintenta lo pendiente */
   window.addEventListener('online', function(){ SB.retryConnect(); }); setInterval(function(){ if (!document.hidden) SB.retryConnect(); }, 20000);
