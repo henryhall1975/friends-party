@@ -1387,6 +1387,14 @@ var SB = {
     if (opts.eventId) body.event_id = opts.eventId; else if (opts.groupId) body.group_id = opts.groupId; else return;
     SB.rest('messages', 'POST', body, '', 'return=minimal').catch(function(){});
   },
+  /* eventos y fotos nuevos de mi grupo: se revisan al abrir la app y al volver a ella, como mucho una vez por minuto.
+     Sin esto, lo que crean o suben los demás no aparecía hasta volver a iniciar sesión. */
+  pullFresh: function(){
+    if (!SB.session || !SB.session.access_token || !S.serverId) return;
+    if (SB.freshAt && Date.now() - SB.freshAt < 60000) return;
+    SB.freshAt = Date.now();
+    SB.pullAll();
+  },
   /* trae los mensajes nuevos de mis grupos y de mis eventos, para que el chat se vea igual en todos los teléfonos.
      Lo que manda el servidor sustituye a lo local; se conservan las fotos compartidas en el chat (que solo viven en el teléfono)
      y los mensajes recién escritos que todavía no llegaron al servidor. */
@@ -1530,7 +1538,10 @@ var SB = {
         if (existing) { var keep = existing.photos.filter(function(p){ return p.pend && !p.synced; }); existing.photos = nev.photos.concat(keep); existing.chat = nev.chat; existing.songs = nev.songs; Object.assign(existing, {name: nev.name, place: nev.place, date: nev.date, time: nev.time}); if (nev.geo) { existing.geo = nev.geo; delete existing.geoDemo; } existing.pub = nev.pub; existing.remind = nev.remind; }
         else S.events.push(nev);
       });
-      save(); render(false);
+      save();
+      /* se redibuja sin mover la pantalla, y nunca mientras la persona está escribiendo (cerraría el teclado) */
+      var ae = document.activeElement, typing = ae && /^(INPUT|TEXTAREA)$/.test(ae.tagName) && ae.closest && ae.closest('#app');
+      if (!typing) render();
     }).catch(function(){}).then(function(){ return SB.syncPending(); });
   }
 };
@@ -5322,9 +5333,9 @@ Promise.race([loadP, new Promise(function(r){ setTimeout(function(){ r(null); },
   if (PENDING_JOIN && APPSTORE_URL && !(window.navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches)) && /iphone|ipad|ipod/i.test(navigator.userAgent) && !/FriendsPartyApp/i.test(navigator.userAgent)) {
     joinGate(PENDING_JOIN);
   }
-  SB.restore().then(function(ok){ if (ok) { SB.pullFollows(); pushRefresh(); SB.pullInvites(); SB.pullChat(); setInterval(function(){ if (!document.hidden) SB.pullInvites(); }, 30000); SB.syncPending(); tryPendingJoin(); SB.ensureGroup().then(function(){ return SB.fetchGroupCode(); }); } }); /* recupera la sesión y reintenta lo pendiente */
+  SB.restore().then(function(ok){ if (ok) { SB.pullFollows(); pushRefresh(); SB.pullInvites(); SB.pullChat(); SB.pullFresh(); setInterval(function(){ if (!document.hidden) SB.pullInvites(); }, 30000); SB.syncPending(); tryPendingJoin(); SB.ensureGroup().then(function(){ return SB.fetchGroupCode(); }); } }); /* recupera la sesión y reintenta lo pendiente */
   /* chat: se revisa al volver a la app y, mientras hay un chat abierto, cada 6 segundos; si no, cada 30 */
-  document.addEventListener('visibilitychange', function(){ if (!document.hidden) SB.pullChat(); });
+  document.addEventListener('visibilitychange', function(){ if (!document.hidden) { SB.pullChat(); SB.pullFresh(); } });
   var chatTick = 0; setInterval(function(){ if (document.hidden) return; chatTick++; var open = (ui.view === 'event' && ui.tab === 'chat') || ui.view === 'gchat' || ui.view === 'chats'; if (open || chatTick % 5 === 0) SB.pullChat(); }, 6000);
   window.addEventListener('online', function(){ SB.retryConnect(); }); setInterval(function(){ if (!document.hidden) SB.retryConnect(); }, 20000);
   setTimeout(loadStickers, 4000); /* los stickers no hacen falta al abrir la app: se piden en segundo plano, sin competir con lo primero que se ve */
