@@ -3006,6 +3006,17 @@ function doJoin(code){
 }
 /* si venías de un enlace/QR con ?join=, se intenta apenas termina el login o la creación de cuenta;
    la sesión del servidor a veces llega un instante después, por eso reintenta unas pocas veces */
+/* la app nativa entrega aquí una invitación que llegó por QR o enlace, sin recargar la página.
+   Si la persona todavía no entra (pantalla de contraseña o sin cuenta), queda pendiente y se usa al entrar. */
+window.fpJoin = function(code){
+  code = String(code || '').trim();
+  if (!code) return false;
+  PENDING_JOIN = code;
+  if (!S.me) toast('Alguien te invitó a Friends Party. Crea tu cuenta o inicia sesión para unirte.');
+  else if (!ui.authed) toast('Invitación recibida. Entra a tu cuenta para unirte.');
+  else tryPendingJoin();
+  return true;
+};
 function tryPendingJoin(tries){
   if (!PENDING_JOIN) return;
   if (SB.session && SB.session.access_token) {

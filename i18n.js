@@ -461,6 +461,7 @@ var D = {
   'Siguiendo': ['Following', '팔로잉'],
   'Seguir': ['Follow', '팔로우'],
   'Buscar personas': ['Find people', '사람 찾기'],
+  'Invitación recibida. Entra a tu cuenta para unirte.': ['Invitation received. Sign in to your account to join.', '초대를 받았습니다. 참여하려면 계정에 로그인하세요.'],
   'Continuar con Apple': ['Continue with Apple', 'Apple로 계속하기'],
   'o con tu correo': ['or with your email', '또는 이메일로'],
   'Abre la app en tu iPhone para entrar con Apple': ['Open the app on your iPhone to sign in with Apple', 'Apple로 로그인하려면 iPhone에서 앱을 여세요'],
