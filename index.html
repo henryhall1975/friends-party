@@ -693,6 +693,7 @@ body::after{content:"";position:fixed;left:0;right:0;top:0;height:env(safe-area-
 .orsep{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:13px}
 .orsep::before,.orsep::after{content:"";flex:1;height:1px;background:var(--line)}
 .notice.warn{border-left-color:#FF7D9C;background:rgba(255,125,156,.12);display:grid;gap:2px;margin-bottom:10px}
+.tr-note{margin:0;text-align:center;font-size:13px;color:rgba(255,255,255,.8)}
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
 /* ---------- tema de vidrio: un solo estilo oscuro para toda la app ---------- */
 html{background:#0D0B24}
@@ -2338,7 +2339,9 @@ function tourHTML(){
     '<div class="gp tr-gp"><h2 class="tr-title">' + esc(s.t) + '</h2><p class="tr-text">' + esc(s.d) + '</p></div></div>' +
     '<div class="tr-dots">' + TOUR_STEPS.map(function(_, k){ return '<button class="tr-dot' + (k === i ? ' on' : '') + '" data-act="tr-dot" data-i="' + k + '" aria-label="Paso ' + (k + 1) + ' de ' + n + '"></button>'; }).join('') + '</div>' +
     (i === n - 1 && ui.tourMode !== 'view'
-      ? '<div class="tr-end">' + (appleNative() && !S.me ? '<button class="tr-cta apple" data-act="tr-apple"><span aria-hidden="true">\uF8FF</span> <span>Continuar con Apple</span></button>' : '') + '<button class="tr-cta" data-act="tr-signup">Crear cuenta</button><button class="tr-cta ghost" data-act="tr-login">Iniciar sesión</button></div>'
+      ? '<div class="tr-end">' + (S.me
+        ? '<button class="tr-cta" data-act="tr-login">Entrar como ' + esc(S.me.split(' ')[0]) + '</button><button class="tr-cta ghost" data-act="tr-other">' + (ui.armed === 'other' ? 'Toca otra vez para confirmar' : 'Usar otra cuenta') + '</button>' + (ui.armed === 'other' ? '<p class="tr-note">Se quitará de este teléfono la cuenta actual. Lo que ya está en el servidor no se pierde.</p>' : '')
+        : (appleNative() ? '<button class="tr-cta apple" data-act="tr-apple"><span aria-hidden="true">\uF8FF</span> <span>Continuar con Apple</span></button>' : '') + '<button class="tr-cta" data-act="tr-signup">Crear cuenta</button><button class="tr-cta ghost" data-act="tr-login">Iniciar sesión</button>') + '</div>'
       : '<button class="tr-cta" data-act="tr-next">' + (i === n - 1 ? 'Cerrar' : 'Siguiente') + '</button>') + '</div>';
 }
 function renderTour(){
@@ -2349,6 +2352,7 @@ function renderTour(){
 function tourAct(a, t){
   var last = TOUR_STEPS.length - 1, view = ui.tourMode === 'view';
   /* en el recorrido de bienvenida los puntos solo dejan volver a pasos ya vistos: hay que recorrerlo completo */
+  if (a === 'tr-other') { if (ui.armed !== 'other') { ui.armed = 'other'; renderTour(); return; } switchAccount(); return; }
   if (a === 'tr-apple') { appleStart(); return; } /* la intro se queda abierta por si cancela en la hoja de Apple */
   if (a === 'tr-dot') { var k = +t.dataset.i; if (view || k <= (ui.tourMax || 0)) { ui.tourStep = k; renderTour(); } return; }
   if (a === 'tr-next' && (ui.tourStep || 0) < last) { ui.tourStep = (ui.tourStep || 0) + 1; ui.tourMax = Math.max(ui.tourMax || 0, ui.tourStep); renderTour(); return; }
@@ -4314,6 +4318,7 @@ function loginSheet(){
   if (pr.provider === 'apple') h += appleNative() ? appleBtn('lg-apple') : '<p class="muted">Esta cuenta entra con Apple. Abre la app en tu iPhone para iniciar sesión.</p>';
   if (L.bio) h += '<button class="btn block' + (L.pw ? '' : ' primary') + '" data-act="lg-bio">Entrar con Face ID o Touch ID</button>';
   if (L.pw) h += '<button class="link" data-act="lg-forgot">¿Olvidaste tu contraseña?</button>';
+  h += '<button class="link" data-act="lg-other">' + (ui.armed === 'lgother' ? 'Toca otra vez para confirmar' : 'Usar otra cuenta') + '</button>' + (ui.armed === 'lgother' ? '<p class="muted small" style="margin:0">Se quitará de este teléfono la cuenta actual. Lo que ya está en el servidor no se pierde.</p>' : '');
   return h + '</div>';
 }
 function lgprovSheet(){
@@ -4414,6 +4419,16 @@ function legalBlock(){
 }
 
 /* acciones */
+/* salir de verdad de la cuenta de este teléfono para poder entrar con otra o crear una nueva.
+   Lo que ya está en el servidor se conserva; lo que solo estaba en el teléfono se quita. */
+function switchAccount(){
+  SB.session = null; SB.retry = null;
+  S = {me: '', events: [], noteSeen: false, seeded: false, tourSeen: true};
+  save(); ui.view = 'home'; ui.eid = null; ui.from = null; ui.lb = null; ui.ustack = []; ui.user = ''; ui.authed = false; ui.armed = null;
+  ui.acctPhoto = ''; ui.acctMode = 'form'; ui.sheet = 'acct';
+  tourOn = false; ui.tourStep = 0; renderTour(); coverOn = false;
+  render(false); renderSheet(); renderLb(); renderCover();
+}
 function loginAct(a, t){
   var pw, id, ok;
   if (a !== 'lg-wipe') { if (ui.armed === 'lgwipe') { ui.armed = null; } }
@@ -4458,6 +4473,10 @@ function loginAct(a, t){
       }).catch(function(){ toast('No se pudo conectar con el servidor'); });
       break;
     case 'lg-back': ui.armed = null; ui.sheet = 'login'; renderSheet(); break;
+    case 'lg-other':
+      if (ui.armed !== 'lgother') { ui.armed = 'lgother'; renderSheet(); return; }
+      switchAccount();
+      break;
     case 'lg-wipe':
       if (ui.armed !== 'lgwipe') { ui.armed = 'lgwipe'; renderSheet(); return; }
       ui.armed = 'wipe'; profileAct('pf-wipe');
