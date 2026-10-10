@@ -4062,7 +4062,9 @@ function profileAct(a, t){
           var row = pr.data && pr.data[0];
           S.me = row ? row.display_name : em2.split('@')[0];
           S.profile = {name: S.me, user: row ? row.username : '', email: em2, phone: '', bio: row ? row.bio : '', photo: '', provider: '', created: Date.now()};
-          S.lock = {pw: null, bio: null};
+          S.lock = {pw: null, bio: null}; S.keepLogin = true;
+          /* guarda la contraseña como candado de este teléfono, para que exista "Cerrar sesión" */
+          try { hashPw(pw2).then(function(h){ if (S.lock && !S.lock.pw) { S.lock.pw = h; save(); } }).catch(function(){}); } catch (e) {}
           if (!S.seeded) { S.seeded = true; }
           save(); ui.authed = true; ui.acctMode = 'form'; ui.sheet = null; renderSheet(); render(false);
           toast('Bienvenido de nuevo, ' + S.me);
@@ -4458,7 +4460,7 @@ function securityBlock(){
     (ANDROID_APP || (IOS_APP && !L.bio && !bioNative()) ? '' : row('Face ID o Touch ID', L.bio ? 'Activado en este teléfono' : 'Desactivado', L.bio ? '<button class="btn small" data-act="lg-biooff">Desactivar</button>' : '<button class="btn small" data-act="lg-bioon">Activar</button>')) +
     (pr.provider ? row('Cuenta de ' + (pr.provider === 'apple' ? 'Apple' : 'Google'), 'Conectada', '') : '') +
     '</ul><p class="muted small">Es un candado para este teléfono. La verificación real, y entrar desde otro teléfono, llegan con el servidor.</p>' +
-    (hasLock() ? '<button class="btn block" data-act="lg-out">Cerrar sesión</button>' : '');
+    (hasLock() || SB.session ? '<button class="btn block" data-act="lg-out">Cerrar sesión</button>' : '');
 }
 function blockedBlock(){
   var b = S.blocked || [];
@@ -4598,6 +4600,8 @@ function loginAct(a, t){
       break;
     case 'lg-askpw': S.askPw = !S.askPw; save(); render(); toast(S.askPw ? 'Se pedirá tu contraseña cada vez que abras la app' : 'Tu sesión se queda abierta en este teléfono'); break;
     case 'lg-out':
+      /* sin candado en este teléfono no hay con qué volver a entrar: se sale de la cuenta (los datos siguen en el servidor) */
+      if (!hasLock()) { switchAccount(); return; }
       S.keepLogin = false; save();
       ui.authed = false; ui.view = 'home'; ui.eid = null; ui.lb = null; ui.ustack = []; ui.sheet = null; ui.fsel = null;
       coverOn = true; render(false); renderSheet(); renderLb(); renderCover();
