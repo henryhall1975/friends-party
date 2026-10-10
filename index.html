@@ -1440,7 +1440,12 @@ var SB = {
         names[S.serverId] = S.me;
         return Promise.all(bundles.map(function(b){
           var erow = b.erow;
+          /* las fotos que este teléfono ya tiene guardadas no se vuelven a descargar */
+          var have = {}, was = S.events.filter(function(e){ return e.serverId === erow.id; })[0];
+          if (was) was.photos.forEach(function(x){ if (x.data) have[x.id] = x; });
           return Promise.all(b.photoRows.map(function(p){
+            var old = have['p_' + p.id];
+            if (old) return Promise.resolve(Object.assign(old, {by: names[p.author_id] || old.by, synced: true}));
             return SB.downloadPhoto(p.storage_path).then(function(data){
               return {id: 'p_' + p.id, by: names[p.author_id] || 'Alguien', at: Date.parse(p.created_at) || Date.now(), data: data, synced: true};
             }).catch(function(){ return null; });
