@@ -2958,7 +2958,7 @@ function joinGate(code){
     (APP_LINK_READY ? '<a class="btn primary block" href="friendsparty://join?code=' + encodeURIComponent(code) + '">Abrir en la app</a>' : '') +
     '<p class="muted">Tu código de invitación</p><div class="jgate-code" data-nt>' + esc(code) + '</div><button type="button" class="btn block" id="jg-copy">Copiar código</button>' +
     '<ol class="jgate-steps"><li>Abre la app Friends Party.</li><li>Entra a Invitaciones.</li><li>Toca «Unirme con un código» y pega el código.</li></ol>' +
-    '<a class="link" href="' + APPSTORE_URL + '">¿No tienes la app? Descárgala en el App Store</a>' +
+    '<a class="link" id="jg-store" href="' + APPSTORE_URL + '">¿No tienes la app? Descárgala en el App Store</a>' +
     '<button type="button" class="link" id="jg-web">Seguir en el navegador</button></div>';
   document.body.appendChild(el);
   el.querySelector('#jg-copy').addEventListener('click', function(){
@@ -2966,6 +2966,8 @@ function joinGate(code){
     if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(code).then(done, function(){ toast('No se pudo copiar. Escríbelo a mano.'); });
     else toast('No se pudo copiar. Escríbelo a mano.');
   });
+  /* antes de ir al App Store se deja copiado el enlace de la invitación: la app recién instalada (1.1 en adelante) lo lee y te une sola */
+  el.querySelector('#jg-store').addEventListener('click', function(){ try { if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(joinUrl(code)); } catch (e) {} });
   el.querySelector('#jg-web').addEventListener('click', function(){ el.remove(); });
 }
 function clearJoinUrl(){
