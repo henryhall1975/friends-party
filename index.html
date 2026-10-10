@@ -703,6 +703,10 @@ body::after{content:"";position:fixed;left:0;right:0;top:0;height:env(safe-area-
 /* espacio al final de cada pantalla para que la barra fija de abajo no tape lo último */
 main.wrap{padding-top:14px;padding-bottom:calc(130px + env(safe-area-inset-bottom,0px))}
 .rs-l{font-weight:700;font-size:14px;display:grid;gap:4px}
+/* ilustración del inicio y trofeo de la intro */
+.hmv .empty img.ill{max-width:430px;border-radius:0;-webkit-mask-image:radial-gradient(ellipse 52% 52% at 50% 50%,#000 58%,transparent 98%);mask-image:radial-gradient(ellipse 52% 52% at 50% 50%,#000 58%,transparent 98%);-webkit-touch-callout:none;pointer-events:none}
+.tr-emoji.cup{width:220px;height:220px;border-radius:50%;background:radial-gradient(circle at 35% 26%,rgba(255,255,255,.3),rgba(140,110,255,.16) 52%,rgba(60,40,150,.22) 74%);box-shadow:0 0 0 1.5px rgba(200,180,255,.55),inset 0 0 34px rgba(150,110,255,.5),0 0 50px 10px rgba(150,100,255,.45)}
+.tr-emoji.cup img{max-height:176px;max-width:150px;filter:drop-shadow(0 6px 14px rgba(40,20,120,.6))}
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
 /* ---------- tema de vidrio: un solo estilo oscuro para toda la app ---------- */
 html{background:#0D0B24}
@@ -2418,7 +2422,7 @@ function tourFx(){
 function tourHTML(){
   var n = TOUR_STEPS.length, i = ui.tourStep || 0, s = TOUR_STEPS[i];
   return '<div class="tr">' + tourFx() +
-    '<div class="tr-body"><div class="tr-emoji' + (s.pic ? ' pic' : '') + '" aria-hidden="true">' + (s.pic ? '<img src="icons/intro/' + s.pic + '.jpg" alt="" width="320" height="320">' : s.img ? '<img src="' + s.img + '" alt="">' : s.mark ? '<span class="qr-mark tr-mark">' + I.crown + '</span>' : s.e) + '</div>' +
+    '<div class="tr-body"><div class="tr-emoji' + (s.pic ? ' pic' : s.img ? ' cup' : '') + '" aria-hidden="true">' + (s.pic ? '<img src="icons/intro/' + s.pic + '.jpg" alt="" width="320" height="320">' : s.img ? '<img src="' + s.img + '" alt="">' : s.mark ? '<span class="qr-mark tr-mark">' + I.crown + '</span>' : s.e) + '</div>' +
     '<div class="gp tr-gp"><h2 class="tr-title">' + esc(s.t) + '</h2><p class="tr-text">' + esc(s.d) + '</p></div></div>' +
     '<div class="tr-dots">' + TOUR_STEPS.map(function(_, k){ return '<button class="tr-dot' + (k === i ? ' on' : '') + '" data-act="tr-dot" data-i="' + k + '" aria-label="Paso ' + (k + 1) + ' de ' + n + '"></button>'; }).join('') + '</div>' +
     (i === n - 1 && ui.tourMode !== 'view'
@@ -2787,32 +2791,8 @@ function homeFx(){
   return '<div class="hfx" aria-hidden="true">' + h + '</div>';
 }
 function homeArt(){
-  var who = function(x, y, r){ return '<g transform="translate(' + x + ' ' + y + ')"><circle r="' + r + '" fill="#2C2472" stroke="#6D5BE8" stroke-opacity=".7"/><circle cy="' + (-r * 0.22) + '" r="' + (r * 0.3) + '" fill="#B9A8FF"/><path d="M' + (-r * 0.52) + ' ' + (r * 0.55) + 'a' + (r * 0.52) + ' ' + (r * 0.46) + ' 0 0 1 ' + (r * 1.04) + ' 0z" fill="#B9A8FF"/></g>'; };
-  var star = function(x, y, s, c){ return '<path transform="translate(' + x + ' ' + y + ') scale(' + s + ')" d="M0-10L2.6-2.6L10 0L2.6 2.6L0 10L-2.6 2.6L-10 0L-2.6-2.6Z" fill="' + c + '"/>'; };
-  var cells = '', r, c;
-  for (r = 0; r < 3; r++) for (c = 0; c < 4; c++) if (!(r === 2 && c > 1) && !(r === 1 && c > 1)) cells += '<rect x="' + (-52 + c * 28) + '" y="' + (-18 + r * 26) + '" width="20" height="18" rx="4" fill="#5B4BC4" opacity="' + (r === 0 ? '.95' : '.6') + '"/>';
-  return '<svg class="ill" viewBox="0 0 360 290" aria-hidden="true"><defs>' +
-    '<linearGradient id="ha1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FF7CC8"/><stop offset="1" stop-color="#8B5CF6"/></linearGradient>' +
-    '<linearGradient id="ha2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3A2F8F"/><stop offset="1" stop-color="#221A5E"/></linearGradient>' +
-    '<linearGradient id="ha3" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F26BE0"/><stop offset="1" stop-color="#A63BE8"/></linearGradient>' +
-    '<linearGradient id="ha4" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#FF5FD0"/><stop offset=".5" stop-color="#7C5CFF"/><stop offset="1" stop-color="#5BA8FF"/></linearGradient>' +
-    '<radialGradient id="ha5"><stop offset="0" stop-color="#B46BFF" stop-opacity=".75"/><stop offset="1" stop-color="#B46BFF" stop-opacity="0"/></radialGradient>' +
-    '<linearGradient id="ha6" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6B46E0"/><stop offset="1" stop-color="#2B1C7A"/></linearGradient></defs>' +
-    '<ellipse cx="180" cy="150" rx="160" ry="92" fill="none" stroke="url(#ha4)" stroke-width="2" opacity=".8" transform="rotate(-8 180 150)"/>' +
-    '<ellipse cx="180" cy="236" rx="150" ry="44" fill="url(#ha5)"/>' +
-    '<ellipse cx="180" cy="244" rx="112" ry="20" fill="#2B1C7A"/><rect x="68" y="232" width="224" height="12" fill="#2B1C7A"/>' +
-    '<ellipse cx="180" cy="232" rx="112" ry="20" fill="url(#ha6)" stroke="#E08BFF" stroke-opacity=".8" stroke-width="1.5"/>' +
-    '<g transform="translate(184 150) rotate(9)">' +
-      '<rect x="-72" y="-66" width="144" height="130" rx="18" fill="url(#ha2)" stroke="#7667E6" stroke-opacity=".6"/>' +
-      '<path d="M-72-30v-18a18 18 0 0 1 18-18h108a18 18 0 0 1 18 18v18z" fill="url(#ha1)"/>' + cells +
-      '<g fill="none" stroke="#8B5CF6" stroke-width="6" stroke-linecap="round"><path d="M-38-58v-20"/><path d="M0-58v-20"/><path d="M38-58v-20"/></g>' +
-      '<rect x="6" y="6" width="46" height="44" rx="10" fill="url(#ha3)" stroke="#FFB3F0" stroke-opacity=".7"/><path d="M29 17v22M18 28h22" stroke="#fff" stroke-width="5" stroke-linecap="round"/>' +
-    '</g>' +
-    '<g transform="translate(88 118) rotate(-38)"><path d="M0-34L22 22H-22Z" fill="#7C4DFF"/><path d="M-7-16L8-12L13 2L-12-3Z M-17 10L18 14L22 22H-22Z" fill="#FFC857"/></g>' +
-    '<g stroke-linecap="round" stroke-width="5" fill="none"><path d="M118 62q10-14 4-24" stroke="#FFC857"/><path d="M138 80q14-4 18-16" stroke="#8B7BFF"/><path d="M100 54q2-10-6-16" stroke="#FF6FD0"/><path d="M132 100q10 2 16-4" stroke="#FF8F6B"/><path d="M104 196q4 8 0 14" stroke="#FFC857"/></g>' +
-    '<g><circle cx="82" cy="44" r="4" fill="#8B7BFF"/><circle cx="160" cy="54" r="4" fill="#8B7BFF"/><circle cx="48" cy="118" r="4" fill="#8B7BFF"/><circle cx="100" cy="30" r="2.5" fill="#FF6FD0"/><circle cx="124" cy="158" r="2.5" fill="#C58BFF"/></g>' +
-    star(58, 66, 0.7, '#FFC857') + star(204, 44, 0.6, '#FFC857') + star(304, 150, 0.9, '#FFC857') + star(286, 182, 0.4, '#9B8BFF') +
-    who(252, 30, 20) + who(310, 82, 24) + who(70, 172, 22) + '</svg>';
+  /* ilustración 3D del diseño (calendario, gorro y burbujas), con los bordes difuminados para fundirse con el fondo */
+  return '<img class="ill" src="icons/inicio.jpg" alt="" width="800" height="612">';
 }
 /* íconos 3D del menú (recortes de la lámina de diseño) */
 var MENU_IMG = {'Eventos': 'eventos', 'Invitaciones': 'invitaciones', 'Chat': 'chat', 'Lugares': 'lugares', 'Fotos': 'fotos', 'Tienda': 'tienda'};
