@@ -692,6 +692,7 @@ body::after{content:"";position:fixed;left:0;right:0;top:0;height:env(safe-area-
 .applebtn span:first-child,.tr-cta.apple span:first-child{font-size:20px;line-height:1;margin-top:-2px}
 .orsep{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:13px}
 .orsep::before,.orsep::after{content:"";flex:1;height:1px;background:var(--line)}
+.notice.warn{border-left-color:#FF7D9C;background:rgba(255,125,156,.12);display:grid;gap:2px;margin-bottom:10px}
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
 /* ---------- tema de vidrio: un solo estilo oscuro para toda la app ---------- */
 html{background:#0D0B24}
@@ -2536,9 +2537,14 @@ function planBody(ev){
 }
 
 /* hojas: invitar y ver avisos */
+/* si la cuenta no está conectada al servidor, el código que se muestra solo existe en este teléfono y no le sirve a nadie */
+function notConnNote(){
+  if (S.session && S.groupCode) return '';
+  return '<div class="notice warn"><strong>Tu cuenta todavía no está conectada.</strong> <span>Este código no les va a funcionar a tus amigos hasta que la conectes.</span><button class="btn small primary" data-act="jn-srvconn" style="margin-top:8px">Conectar mi cuenta</button></div>';
+}
 function inviteSheet(){
   return '<div class="scrim" data-act="close-sheet"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="Invitar a un amigo"><h2>Invitar a un amigo</h2>' +
-    '<p class="muted small">Que tu amigo escanee este código con la cámara. Al entrar, ve este evento y los demás de tu grupo.</p>' +
+    '<p class="muted small">Que tu amigo escanee este código con la cámara. Al entrar, ve este evento y los demás de tu grupo.</p>' + notConnNote() +
     '<div class="qrframe"><div class="qrwrap" id="qr-target"><p class="muted small">Generando…</p></div><div class="qr-mark">' + I.crown + '</div></div>' +
     '<div class="code" style="text-align:center;margin-bottom:6px">' + esc(groupCode()) + '</div>' +
     '<h3 class="pl-h">Invitar por usuario</h3>' +
@@ -2808,7 +2814,7 @@ function invitesView(){
     : '';
   return '<header class="top"><div class="wrap"><div class="bar1"><button class="ib" data-act="back" aria-label="Volver al inicio">' + I.back + '</button><div class="tt"><div class="ttl">Invitaciones</div><div class="meta"><span>Tu grupo de la party</span></div></div></div></div></header>' +
     '<main class="wrap">' + secMenu('Invitaciones') + inboxHtml() +
-    '<h3 class="pl-h" style="margin-top:4px">Comparte tu grupo</h3><p class="muted small">Que tu amigo escanee este código con la cámara para unirse. Al entrar, ve tus eventos y fotos.</p>' +
+    '<h3 class="pl-h" style="margin-top:4px">Comparte tu grupo</h3><p class="muted small">Que tu amigo escanee este código con la cámara para unirse. Al entrar, ve tus eventos y fotos.</p>' + notConnNote() +
     '<div class="qrframe"><div class="qrwrap" id="qr-target"><p class="muted small">Generando…</p></div><div class="qr-mark">' + I.crown + '</div></div>' +
     '<div class="code" style="text-align:center;margin-bottom:6px">' + esc(groupCode()) + '</div>' +
     '<h3 class="pl-h">Otras formas de compartir</h3>' +
