@@ -702,6 +702,7 @@ body::after{content:"";position:fixed;left:0;right:0;top:0;height:env(safe-area-
 .link.danger{color:#FFB3C1}
 /* espacio al final de cada pantalla para que la barra fija de abajo no tape lo último */
 main.wrap{padding-top:14px;padding-bottom:calc(130px + env(safe-area-inset-bottom,0px))}
+.rs-l{font-weight:700;font-size:14px;display:grid;gap:4px}
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
 /* ---------- tema de vidrio: un solo estilo oscuro para toda la app ---------- */
 html{background:#0D0B24}
@@ -1080,6 +1081,16 @@ var SB = {
     var p = SB.retry; if (!p || S.session || p.busy) return;
     p.busy = true; p.n = (p.n || 0) + 1;
     SB.connect(p.email, p.pwd, false).then(function(res){ p.busy = false; if (res !== 'net' || p.n > 40) SB.retry = null; if (res === 'bad') toast('Ese correo ya tiene una cuenta. Cierra sesión y entra con su contraseña.'); });
+  },
+  /* recuperar contraseña: el servidor manda un correo con un enlace a esta misma página; al abrirlo se crea la contraseña nueva */
+  recover: function(email){
+    return SB.call('recover?redirect_to=' + encodeURIComponent(location.origin + location.pathname), {email: email});
+  },
+  setPassword: function(token, pwd){
+    return fetch(SUPABASE_URL + '/auth/v1/user', {
+      method: 'PUT', headers: {'Content-Type': 'application/json', 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + token},
+      body: JSON.stringify({password: pwd})
+    }).then(function(r){ return r.text().then(function(t){ var j = null; try { j = t ? JSON.parse(t) : null; } catch (e) {} return {ok: r.ok, status: r.status, data: j}; }); });
   },
   /* la sesión (access/refresh token) se guarda también en S para que sobreviva a cerrar o recargar la página */
   remember: function(session){ SB.session = session; S.session = session; save(); },
@@ -3043,6 +3054,41 @@ var PENDING_JOIN = (function(){
   var m = /[?&]join=([^&]+)/.exec(window.location.search);
   return m ? decodeURIComponent(m[1]) : '';
 })();
+/* Enlace de "recuperar contraseña": el correo trae a esta página con #access_token=...&type=recovery.
+   Aquí se crea la contraseña nueva; después la persona vuelve a la app y entra con ella. */
+var RESET = (function(){
+  var h = (window.location.hash || '').replace(/^#/, ''), o = {};
+  h.split('&').forEach(function(kv){ var i = kv.indexOf('='); if (i > 0) o[decodeURIComponent(kv.slice(0, i))] = decodeURIComponent(kv.slice(i + 1).replace(/\+/g, ' ')); });
+  if (o.type === 'recovery' && o.access_token) return {token: o.access_token};
+  if (o.error_code || o.error) return {error: o.error_code || o.error};
+  return null;
+})();
+function resetGate(){
+  if (window.history && history.replaceState) history.replaceState(null, '', location.pathname + location.search);
+  var el = document.createElement('div'); el.className = 'jgate';
+  var box = function(inner){ el.innerHTML = '<div class="jgate-box" style="text-align:left;justify-items:stretch"><h2 style="text-align:center">' + inner; };
+  if (RESET.error) {
+    box('El enlace ya no sirve</h2><p class="muted">Venció o ya se usó. Abre la app, toca «¿Olvidaste tu contraseña?» y pide un correo nuevo.</p></div>');
+    document.body.appendChild(el); return;
+  }
+  box('Crea tu contraseña nueva</h2><p class="muted small">Es la que vas a usar para entrar a Friends Party.</p>' +
+    '<label class="rs-l">Contraseña nueva<input id="rs-1" class="inp" type="password" autocomplete="new-password" placeholder="Mínimo 8 caracteres"></label>' +
+    '<label class="rs-l">Escríbela otra vez<input id="rs-2" class="inp" type="password" autocomplete="new-password"></label>' +
+    '<button type="button" class="btn primary block" id="rs-go">Guardar contraseña</button></div>');
+  document.body.appendChild(el);
+  var busy = false;
+  el.querySelector('#rs-go').addEventListener('click', function(){
+    var a = el.querySelector('#rs-1').value || '', b2 = el.querySelector('#rs-2').value || '';
+    if (a.length < 8) { toast('La contraseña necesita al menos 8 caracteres'); return; }
+    if (a !== b2) { toast('Las dos contraseñas no son iguales'); return; }
+    if (busy) return; busy = true; toast('Guardando…');
+    SB.setPassword(RESET.token, a).then(function(r){
+      busy = false;
+      if (!r.ok) { toast(r.status === 401 || r.status === 403 ? 'El enlace venció. Pide un correo nuevo desde la app.' : 'No se pudo guardar. Intenta de nuevo.'); return; }
+      box('Contraseña cambiada</h2><p class="muted">Listo. Abre la app Friends Party y entra con tu correo y tu contraseña nueva.</p></div>');
+    }).catch(function(){ busy = false; toast('No se pudo conectar con el servidor'); });
+  });
+}
 /* Alguien escaneó un QR de invitación con la cámara del iPhone y cayó en Safari, no en la app.
    Safari no puede pasarle el código a la app 1.0, así que se muestra el código para pegarlo en la app.
    Con la app 1.1 (enlace friendsparty://) el botón "Abrir en la app" hace la unión solo: se enciende con APP_LINK_READY. */
@@ -3905,7 +3951,7 @@ function acctSheet(){
       '<p class="muted small">Si ya creaste tu cuenta con correo y contraseña desde otro teléfono, entra aquí para traer tus eventos y fotos.</p>' + appleBtn('ac-applego') + (appleNative() ? '<div class="orsep"><span>o con tu correo</span></div>' : '') +
       '<label>Correo<input id="a-mail" class="inp" type="email" placeholder="tu@correo.com" autocomplete="email"></label>' +
       '<label>Contraseña<input id="a-pw" class="inp" type="password" autocomplete="current-password" placeholder="Tu contraseña"></label>' +
-      '<button class="btn primary block" data-act="ac-srvlogin">Entrar</button><button class="link" data-act="ac-prov" data-p="form">Volver</button></div>';
+      '<button class="btn primary block" data-act="ac-srvlogin">Entrar</button><button class="link" data-act="lg-forgot">¿Olvidaste tu contraseña?</button><button class="link" data-act="ac-prov" data-p="form">Volver</button></div>';
   }
   var appleFirst = /iphone|ipad|ipod|macintosh/i.test(navigator.userAgent);
   var apple = '<button class="apl" data-act="ac-prov" data-p="apple">Continuar con Apple</button>', google = '<button class="ggl" data-act="ac-prov" data-p="google">Continuar con Google</button>';
@@ -4403,13 +4449,16 @@ function lgprovSheet(){
     '<button class="btn primary block" data-act="lg-provok">Confirmar con ' + nm + '</button><button class="link" data-act="lg-back">Volver</button></div>';
 }
 function forgotSheet(){
+  var mail = (S.profile && S.profile.email) || ui.forgotMail || '';
   return '<div class="scrim"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="Olvidé mi contraseña"><h2>¿Olvidaste tu contraseña?</h2>' +
-    '<p class="muted small">Esta contraseña solo vive en este teléfono. Si ya conectaste tu cuenta al servidor, confírmalo aquí para quitar el candado sin perder tus fotos ni eventos.</p>' +
-    '<label>Correo de tu cuenta<input id="fg-mail" class="inp" type="email" autocomplete="email" placeholder="tu@correo.com" value="' + esc((S.profile && S.profile.email) || '') + '"></label>' +
-    '<label>Contraseña de tu cuenta<input id="fg-pw" class="inp" type="password" autocomplete="current-password" placeholder="Tu contraseña"></label>' +
-    '<button class="btn primary block" data-act="lg-recover">Confirmar y quitar el candado</button>' +
-    '<p class="muted small" style="margin:14px 0 0">¿Nunca conectaste tu cuenta al servidor? Entonces no hay forma de recuperar lo de este teléfono. Solo queda borrarlo y empezar de nuevo.</p>' +
-    '<button class="btn block danger" data-act="lg-wipe">' + (ui.armed === 'lgwipe' ? 'Toca otra vez para borrar todo' : 'Borrar la cuenta de este teléfono') + '</button><button class="link" data-act="lg-back">Volver</button></div>';
+    (ui.forgotSent
+      ? '<div class="notice"><strong>Te mandamos un correo.</strong> <span>Ábrelo, toca el enlace y crea tu contraseña nueva. Después vuelve aquí y entra con ella.</span></div><p class="muted small">Si no lo ves en unos minutos, revisa la carpeta de correo no deseado.</p>' +
+        '<button class="btn primary block" data-act="lg-back">Ya la cambié, entrar</button><button class="link" data-act="lg-resend">Mandar el correo otra vez</button>'
+      : '<p class="muted small">Escribe el correo de tu cuenta y te mandamos un enlace para crear una contraseña nueva.</p>' +
+        '<label>Correo de tu cuenta<input id="fg-mail" class="inp" type="email" autocomplete="email" placeholder="tu@correo.com" value="' + esc(mail) + '"></label>' +
+        '<button class="btn primary block" data-act="lg-sendreset">Enviarme el correo</button><button class="link" data-act="lg-back">Volver</button>') +
+    (S.me ? '<p class="muted small" style="margin:14px 0 0">¿Tu cuenta nunca tuvo correo? Entonces no hay forma de recuperarla; solo queda borrarla de este teléfono y empezar de nuevo.</p>' +
+      '<button class="btn block danger" data-act="lg-wipe">' + (ui.armed === 'lgwipe' ? 'Toca otra vez para borrar todo' : 'Borrar la cuenta de este teléfono') + '</button>' : '') + '</div>';
 }
 function pwdSheet(){
   var has = S.lock && S.lock.pw;
@@ -4520,10 +4569,21 @@ function loginAct(a, t){
           if (S.profile.email) SB.connect(S.profile.email, pw, true).then(function(res){ if (res === 'net') SB.retry = {email: S.profile.email, pwd: pw}; });
           return;
         }
-        ui.fails++;
-        if (ui.fails >= 5) { ui.fails = 0; ui.failUntil = Date.now() + 30000; toast('Demasiados intentos. Espera 30 segundos.'); }
-        else toast('El correo o la contraseña no coinciden');
-        var f = $('#l-pw'); if (f) { f.value = ''; f.focus(); }
+        var bad = function(){
+          ui.fails++;
+          if (ui.fails >= 5) { ui.fails = 0; ui.failUntil = Date.now() + 30000; toast('Demasiados intentos. Espera 30 segundos.'); }
+          else toast('El correo o la contraseña no coinciden');
+          var f = $('#l-pw'); if (f) { f.value = ''; f.focus(); }
+        };
+        /* puede ser la contraseña nueva que creó desde el correo de recuperación: la confirma el servidor y se guarda en el teléfono */
+        var mail = (S.profile.email || '').toLowerCase();
+        if (!mail || !(id === mail || id === S.profile.user)) { bad(); return; }
+        SB.signIn(S.profile.email, pw).then(function(r){
+          if (!r.ok || !r.data || !r.data.access_token) { bad(); return; }
+          SB.remember({access_token: r.data.access_token, refresh_token: r.data.refresh_token});
+          if (r.data.user && r.data.user.id) S.serverId = r.data.user.id;
+          return hashPw(pw).then(function(h){ S.lock = S.lock || {pw: null, bio: null}; S.lock.pw = h; save(); loginOk(); SB.pullAll(); });
+        }).catch(bad);
       }, function(){ toast('No se pudo verificar la contraseña'); });
       break;
     case 'lg-bio': bioLogin(); break;
@@ -4533,21 +4593,21 @@ function loginAct(a, t){
       if (S.profile.provider === ui.lgProv) loginOk();
       else toast('Esta cuenta no se creó con ' + (ui.lgProv === 'apple' ? 'Apple' : 'Google') + '. Usa el método con el que la creaste.');
       break;
-    case 'lg-forgot': ui.sheet = 'forgot'; renderSheet(); break;
-    case 'lg-recover':
-      var fm = ($('#fg-mail').value || '').trim(), fp = $('#fg-pw').value || '';
-      if (!fm || !fp) { toast('Escribe tu correo y tu contraseña'); return; }
-      toast('Verificando…');
-      SB.signIn(fm, fp).then(function(r){
-        if (!r.ok || !r.data || !r.data.access_token) { toast('El correo o la contraseña no coinciden'); return; }
-        SB.remember({access_token: r.data.access_token, refresh_token: r.data.refresh_token});
-        S.serverId = r.data.user && r.data.user.id;
-        S.lock = {pw: null, bio: null}; save();
-        loginOk();
-        toast('Candado quitado. Ya puedes entrar normal.');
-      }).catch(function(){ toast('No se pudo conectar con el servidor'); });
+    case 'lg-forgot': ui.forgotSent = false; ui.sheet = 'forgot'; renderSheet(); break;
+    case 'lg-resend': ui.forgotSent = false; renderSheet(); break;
+    case 'lg-sendreset':
+      var rm = ($('#fg-mail').value || '').trim();
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(rm)) { toast('Revisa tu correo'); $('#fg-mail').focus(); return; }
+      if (ui.resetBusy) return;
+      ui.resetBusy = true; toast('Enviando…');
+      SB.recover(rm).then(function(r){
+        ui.resetBusy = false;
+        if (r.status === 429) { toast('Ya te mandamos uno hace poco. Espera un minuto e intenta de nuevo.'); return; }
+        if (!r.ok) { toast('No se pudo enviar el correo. Intenta de nuevo.'); return; }
+        ui.forgotMail = rm; ui.forgotSent = true; renderSheet();
+      }).catch(function(){ ui.resetBusy = false; toast('No se pudo conectar con el servidor'); });
       break;
-    case 'lg-back': ui.armed = null; ui.sheet = 'login'; renderSheet(); break;
+    case 'lg-back': ui.armed = null; ui.forgotSent = false; ui.sheet = S.me ? 'login' : 'acct'; renderSheet(); break;
     case 'lg-other':
       if (ui.armed !== 'lgother') { ui.armed = 'lgother'; renderSheet(); return; }
       switchAccount();
@@ -5329,6 +5389,7 @@ Promise.race([loadP, new Promise(function(r){ setTimeout(function(){ r(null); },
   }
   try { history.scrollRestoration = 'manual'; } catch (e) {}
   render(false); renderSheet(); renderCover(); window.scrollTo(0, 0);
+  if (RESET) resetGate();
   if (PENDING_JOIN && !S.me) toast('Alguien te invitó a Friends Party. Crea tu cuenta o inicia sesión para unirte.');
   if (PENDING_JOIN && APPSTORE_URL && !(window.navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches)) && /iphone|ipad|ipod/i.test(navigator.userAgent) && !/FriendsPartyApp/i.test(navigator.userAgent)) {
     joinGate(PENDING_JOIN);
