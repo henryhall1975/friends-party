@@ -687,6 +687,11 @@ body::after{content:"";position:fixed;left:0;right:0;top:0;height:env(safe-area-
 .jgate-box .btn{text-decoration:none}
 .jgate-code{font-size:30px;font-weight:800;letter-spacing:.12em;padding:10px 18px;border-radius:16px;background:rgba(255,255,255,.08);border:1px dashed rgba(255,255,255,.35);user-select:all;-webkit-user-select:all}
 .jgate-steps{margin:0;padding-left:20px;text-align:left;display:grid;gap:4px;color:var(--muted);font-size:15px}
+/* iniciar sesión con Apple */
+.applebtn,.tr-cta.apple{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:52px;border-radius:999px;background:#fff;color:#000;border:0;font-weight:700;font-size:17px;box-shadow:0 6px 20px rgba(0,0,0,.35)}
+.applebtn span:first-child,.tr-cta.apple span:first-child{font-size:20px;line-height:1;margin-top:-2px}
+.orsep{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:13px}
+.orsep::before,.orsep::after{content:"";flex:1;height:1px;background:var(--line)}
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
 /* ---------- tema de vidrio: un solo estilo oscuro para toda la app ---------- */
 html{background:#0D0B24}
@@ -1078,7 +1083,7 @@ var SB = {
         return true;
       }
       /* el servidor ya no reconoce la sesión guardada (no es falla de red): hay que volver a pedir la contraseña */
-      if ((res.status === 400 || res.status === 401) && S.keepLogin && S.lock && S.lock.pw) {
+      if ((res.status === 400 || res.status === 401) && S.keepLogin && ((S.lock && S.lock.pw) || (S.profile && S.profile.provider === 'apple'))) {
         S.keepLogin = false; S.session = null; SB.session = null; save();
         if (ui.authed) { ui.authed = false; ui.sheet = 'login'; renderSheet(); }
       }
@@ -2327,7 +2332,7 @@ function tourHTML(){
     '<div class="gp tr-gp"><h2 class="tr-title">' + esc(s.t) + '</h2><p class="tr-text">' + esc(s.d) + '</p></div></div>' +
     '<div class="tr-dots">' + TOUR_STEPS.map(function(_, k){ return '<button class="tr-dot' + (k === i ? ' on' : '') + '" data-act="tr-dot" data-i="' + k + '" aria-label="Paso ' + (k + 1) + ' de ' + n + '"></button>'; }).join('') + '</div>' +
     (i === n - 1 && ui.tourMode !== 'view'
-      ? '<div class="tr-end"><button class="tr-cta" data-act="tr-signup">Crear cuenta</button><button class="tr-cta ghost" data-act="tr-login">Iniciar sesión</button></div>'
+      ? '<div class="tr-end">' + (appleNative() && !S.me ? '<button class="tr-cta apple" data-act="tr-apple"><span aria-hidden="true">\uF8FF</span> <span>Continuar con Apple</span></button>' : '') + '<button class="tr-cta" data-act="tr-signup">Crear cuenta</button><button class="tr-cta ghost" data-act="tr-login">Iniciar sesión</button></div>'
       : '<button class="tr-cta" data-act="tr-next">' + (i === n - 1 ? 'Cerrar' : 'Siguiente') + '</button>') + '</div>';
 }
 function renderTour(){
@@ -2338,6 +2343,7 @@ function renderTour(){
 function tourAct(a, t){
   var last = TOUR_STEPS.length - 1, view = ui.tourMode === 'view';
   /* en el recorrido de bienvenida los puntos solo dejan volver a pasos ya vistos: hay que recorrerlo completo */
+  if (a === 'tr-apple') { appleStart(); return; } /* la intro se queda abierta por si cancela en la hoja de Apple */
   if (a === 'tr-dot') { var k = +t.dataset.i; if (view || k <= (ui.tourMax || 0)) { ui.tourStep = k; renderTour(); } return; }
   if (a === 'tr-next' && (ui.tourStep || 0) < last) { ui.tourStep = (ui.tourStep || 0) + 1; ui.tourMax = Math.max(ui.tourMax || 0, ui.tourStep); renderTour(); return; }
   if (!view) { S.tourSeen = true; save(); }
@@ -3784,6 +3790,7 @@ function acctSheet(){
   var first = !S.me, p = S.profile || {}, mode = first ? ui.acctMode : 'form';
   var v = function(k){ return esc(p[k] || ''); };
   var scrim = '<div class="scrim"' + (first ? '' : ' data-act="close-sheet"') + '></div>';
+  if (first && mode === 'applenew') return appleNewSheet();
   if (first && mode !== 'form' && mode !== 'srvlogin') {
     var nm = mode === 'apple' ? 'Apple' : 'Google';
     return scrim + '<div class="sheet" role="dialog" aria-modal="true" aria-label="Continuar con ' + nm + '"><h2>Continuar con ' + nm + '</h2>' +
@@ -3794,14 +3801,14 @@ function acctSheet(){
   }
   if (first && mode === 'srvlogin') {
     return scrim + '<div class="sheet" role="dialog" aria-modal="true" aria-label="Entrar con tu cuenta"><h2>Entrar con tu cuenta</h2>' +
-      '<p class="muted small">Si ya creaste tu cuenta con correo y contraseña desde otro teléfono, entra aquí para traer tus eventos y fotos.</p>' +
+      '<p class="muted small">Si ya creaste tu cuenta con correo y contraseña desde otro teléfono, entra aquí para traer tus eventos y fotos.</p>' + appleBtn('ac-applego') + (appleNative() ? '<div class="orsep"><span>o con tu correo</span></div>' : '') +
       '<label>Correo<input id="a-mail" class="inp" type="email" placeholder="tu@correo.com" autocomplete="email"></label>' +
       '<label>Contraseña<input id="a-pw" class="inp" type="password" autocomplete="current-password" placeholder="Tu contraseña"></label>' +
       '<button class="btn primary block" data-act="ac-srvlogin">Entrar</button><button class="link" data-act="ac-prov" data-p="form">Volver</button></div>';
   }
   var appleFirst = /iphone|ipad|ipod|macintosh/i.test(navigator.userAgent);
   var apple = '<button class="apl" data-act="ac-prov" data-p="apple">Continuar con Apple</button>', google = '<button class="ggl" data-act="ac-prov" data-p="google">Continuar con Google</button>';
-  var prov = ''; /* los botones de Apple y Google se quitaron: eran de mentira */
+  var prov = first && appleNative() ? appleBtn('ac-applego') + '<div class="orsep"><span>o con tu correo</span></div>' : ''; /* Apple de verdad, solo en la app de iPhone; los botones de prueba se quitaron */
   return scrim + '<div class="sheet" role="dialog" aria-modal="true" aria-label="' + (first ? 'Crear cuenta' : 'Editar perfil') + '"><h2>' + (first ? 'Crea tu cuenta' : 'Editar perfil') + '</h2>' + prov +
     '<div class="acct-photo"><div id="a-prev">' + acctPrev() + '</div><div class="acct-btns"><button class="btn small" data-act="ac-photo">' + (ui.acctPhoto ? 'Cambiar foto' : 'Elegir foto de perfil') + '</button>' + (ui.acctPhoto ? '<button class="link small" data-act="ac-nophoto">Quitar foto</button>' : '') + '</div></div>' +
     '<label>Nombre<input id="a-name" class="inp" placeholder="Tu nombre" maxlength="30" autocomplete="name" value="' + v('name') + '"></label>' +
@@ -3941,6 +3948,8 @@ function profileAct(a, t){
     case 'ac-photo': $('#pfile').click(); break;
     case 'ac-nophoto': ui.acctPhoto = ''; acctKeep(); break;
     case 'ac-prov': ui.acctMode = t.dataset.p; renderSheet(); break;
+    case 'ac-applego': appleStart(); break;
+    case 'ac-apple': appleFinish(); break;
     case 'ac-save':
       var g = function(id){ var e = document.getElementById(id); return e ? (e.value || '').trim() : ''; };
       var simple = !S.me && ui.acctMode !== 'form';
@@ -3997,6 +4006,72 @@ function levelsSheet(){
     '<p class="muted">Una fiesta cuenta cuando vas a un evento y subes al menos una foto ahí. El nivel nunca baja.</p>' +
     (me ? '<p class="lv-now"><span>' + (c === 1 ? 'Llevas 1 fiesta' : 'Llevas ' + c + ' fiestas') + '</span>' + (nx ? ' · <span>' + (nx.min - c === 1 ? 'te falta 1 para ' : 'te faltan ' + (nx.min - c) + ' para ') + esc(nx.n) + '</span>' : ' · <span>nivel máximo</span>') + '</p>' : '') +
     '<ul class="lv-list">' + rows + '</ul><button class="link" data-act="close-sheet">Cerrar</button></div>';
+}
+/* ---------- iniciar sesión con Apple (solo dentro de la app de iPhone 1.1 en adelante) ----------
+   La app nativa muestra la hoja de Apple y devuelve un token; el servidor lo valida y abre la sesión.
+   Cuenta que ya existía: entra directo. Cuenta nueva: se piden nombre y usuario antes de terminar. */
+function appleNative(){ return IOS_APP && window.webkit && webkit.messageHandlers && webkit.messageHandlers.appleid; }
+function appleBtn(act){ return appleNative() ? '<button type="button" class="apl applebtn" data-act="' + act + '"><span aria-hidden="true"></span> <span>Continuar con Apple</span></button>' : ''; }
+function appleStart(){ if (!appleNative()) { toast('Abre la app en tu iPhone para entrar con Apple'); return; } ui.appleBusy = true; webkit.messageHandlers.appleid.postMessage('signin'); }
+function appleEnter(){
+  /* ya hay cuenta y sesión: cerrar portada y hojas, y traer todo del servidor */
+  S.keepLogin = true; save();
+  ui.authed = true; ui.fails = 0; ui.acctMode = 'form'; ui.sheet = null; coverOn = false;
+  if (tourOn) { tourOn = false; ui.tourStep = 0; S.tourSeen = true; renderTour(); }
+  renderSheet(); renderCover(); render(false); toTop();
+  tryPendingJoin(); SB.ensureGroup().then(function(){ return SB.fetchGroupCode(); });
+  SB.pullInvites(); SB.pullAll(); SB.pullFollows();
+  if (pushNative()) webkit.messageHandlers.push.postMessage('status');
+}
+window.fpApple = function(res){
+  ui.appleBusy = false;
+  if (!res || !res.ok) { if (!res || res.error !== 'cancelled') toast('No se pudo continuar con Apple. Intenta de nuevo.'); return; }
+  toast('Entrando…');
+  SB.call('token?grant_type=id_token', {provider: 'apple', id_token: res.token, nonce: res.nonce}).then(function(r){
+    if (!r.ok || !r.data || !r.data.access_token || !r.data.user) { toast('No se pudo iniciar sesión con Apple. Intenta de nuevo.'); return; }
+    var uid2 = r.data.user.id, mail = r.data.user.email || res.email || '';
+    /* este teléfono ya tiene otra cuenta guardada: Apple solo sirve para volver a entrar a la misma */
+    if (S.me && S.serverId && S.serverId !== uid2) { toast('Ese Apple ID es de otra cuenta. Entra con la cuenta de este teléfono.'); return; }
+    SB.remember({access_token: r.data.access_token, refresh_token: r.data.refresh_token});
+    S.serverId = uid2; save();
+    if (S.me) { if (S.profile) { S.profile.provider = S.profile.provider || 'apple'; } appleEnter(); toast('Hola de nuevo, ' + S.me.split(' ')[0]); return; }
+    return SB.rest('profiles', 'GET', null, '?id=eq.' + uid2 + '&select=*').then(function(pr){
+      var row = pr.data && pr.data[0];
+      if (row) {
+        S.me = row.display_name || row.username;
+        S.profile = {name: S.me, user: row.username || '', email: mail, phone: '', bio: row.bio || '', photo: '', provider: 'apple', created: Date.now()};
+        S.lock = {pw: null, bio: null}; if (!S.seeded) S.seeded = true;
+        appleEnter(); toast('Bienvenido de nuevo, ' + S.me);
+      } else {
+        /* cuenta nueva: faltan el nombre visible y el @usuario */
+        ui.apple = {name: res.name || '', email: mail}; ui.acctPhoto = ''; ui.acctMode = 'applenew'; ui.sheet = 'acct';
+        if (tourOn) { tourOn = false; ui.tourStep = 0; S.tourSeen = true; save(); renderTour(); }
+        coverOn = false; renderCover(); renderSheet();
+      }
+    });
+  }).catch(function(){ toast('No se pudo conectar con el servidor'); });
+};
+function appleNewSheet(){
+  var a = ui.apple || {};
+  return '<div class="scrim"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="Crea tu cuenta"><h2>Crea tu cuenta</h2>' +
+    '<p class="muted small">Entraste con tu Apple ID. Solo falta elegir cómo te verán tus amigos.</p>' +
+    '<label>Nombre<input id="a-name" class="inp" placeholder="Tu nombre" maxlength="30" autocomplete="name" value="' + esc(a.name || '') + '"></label>' +
+    '<label>Usuario<input id="a-user" class="inp" placeholder="tu.usuario" maxlength="21" autocapitalize="none" autocomplete="username" value="' + esc(a.name ? userFrom(a.name) : '') + '"></label>' +
+    '<p class="muted small">Al crear tu cuenta, confirmas que tienes 18 años o más y aceptas los <a href="terms.html" target="_blank" rel="noopener">Términos de uso</a> y la <a href="privacy.html" target="_blank" rel="noopener">Política de privacidad</a>.</p>' +
+    '<button class="btn primary block" data-act="ac-apple">Crear cuenta</button></div>';
+}
+function appleFinish(){
+  var name = ($('#a-name').value || '').trim(), user = ($('#a-user').value || '').trim().replace(/^@/, '').toLowerCase();
+  if (!name) { toast('Escribe tu nombre'); $('#a-name').focus(); return; }
+  if (!/^[a-z0-9._]{3,20}$/.test(user)) { toast('El usuario lleva de 3 a 20 letras, números, punto o guion bajo'); $('#a-user').focus(); return; }
+  if (!S.session || !S.serverId) { toast('Se perdió la sesión. Toca «Continuar con Apple» otra vez.'); ui.acctMode = 'form'; renderSheet(); return; }
+  SB.upsertProfile(S.serverId, user, name, '').then(function(r){
+    if (!r.ok) { toast(r.status === 409 ? 'Ese usuario ya está ocupado. Prueba con otro.' : 'No se pudo crear la cuenta. Intenta de nuevo.'); return; }
+    S.me = name;
+    S.profile = {name: name, user: user, email: (ui.apple && ui.apple.email) || '', phone: '', bio: '', photo: '', provider: 'apple', created: Date.now()};
+    S.lock = {pw: null, bio: null}; ui.apple = null;
+    ensureDemos(); appleEnter(); toast('Cuenta creada. ¡Bienvenido, ' + name + '!');
+  }).catch(function(){ toast('No se pudo conectar con el servidor'); });
 }
 /* ---------- buscar personas para seguir ---------- */
 var findT = null;
@@ -4191,6 +4266,7 @@ function loginSheet(){
   if (L.pw) h += '<label>Correo o usuario<input id="l-id" class="inp" autocomplete="username" autocapitalize="none" placeholder="tu@correo.com" value="' + esc(pr.email || pr.user) + '"></label>' +
     '<label>Contraseña<input id="l-pw" class="inp" type="password" autocomplete="current-password" placeholder="Tu contraseña"></label>' +
     '<button class="btn primary block" id="l-go" data-act="lg-pw">Iniciar sesión</button>';
+  if (pr.provider === 'apple') h += appleNative() ? appleBtn('lg-apple') : '<p class="muted">Esta cuenta entra con Apple. Abre la app en tu iPhone para iniciar sesión.</p>';
   if (L.bio) h += '<button class="btn block' + (L.pw ? '' : ' primary') + '" data-act="lg-bio">Entrar con Face ID o Touch ID</button>';
   if (L.pw) h += '<button class="link" data-act="lg-forgot">¿Olvidaste tu contraseña?</button>';
   return h + '</div>';
@@ -4316,6 +4392,7 @@ function loginAct(a, t){
       }, function(){ toast('No se pudo verificar la contraseña'); });
       break;
     case 'lg-bio': bioLogin(); break;
+    case 'lg-apple': appleStart(); break;
     case 'lg-prov': ui.lgProv = t.dataset.p; ui.sheet = 'lgprov'; renderSheet(); break;
     case 'lg-provok':
       if (S.profile.provider === ui.lgProv) loginOk();
