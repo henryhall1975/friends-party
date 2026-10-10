@@ -1069,7 +1069,7 @@ var SB = {
       S.serverId = r.data.user.id; SB.retry = null; save();
       return SB.upsertProfile(S.serverId, (S.profile && S.profile.user) || userFrom(S.me), S.me, (S.profile && S.profile.bio) || '').catch(function(){}).then(function(){
         tryPendingJoin(); SB.ensureGroup().then(function(){ return SB.fetchGroupCode(); });
-        SB.pullInvites(); SB.pullAll(); SB.pullFollows(); render(false);
+        SB.pullInvites(); SB.pullAll().then(function(){ SB.pullChat(); }); SB.pullFollows(); render(false);
         return 'ok';
       });
     }).catch(function(){ return 'net'; });
@@ -1383,8 +1383,59 @@ var SB = {
   syncMessage: function(opts){
     if (!SB.session || !SB.session.access_token) return;
     var body = {author_id: S.serverId, body: opts.text || null};
+    if (opts.id) body.id = opts.id;
     if (opts.eventId) body.event_id = opts.eventId; else if (opts.groupId) body.group_id = opts.groupId; else return;
     SB.rest('messages', 'POST', body, '', 'return=minimal').catch(function(){});
+  },
+  /* trae los mensajes nuevos de mis grupos y de mis eventos, para que el chat se vea igual en todos los teléfonos.
+     Lo que manda el servidor sustituye a lo local; se conservan las fotos compartidas en el chat (que solo viven en el teléfono)
+     y los mensajes recién escritos que todavía no llegaron al servidor. */
+  pullChat: function(){
+    if (!SB.session || !SB.session.access_token || !S.serverId || SB.chatBusy) return Promise.resolve();
+    var gids = (S.myGroups && S.myGroups.length ? S.myGroups : (S.serverGroupId ? [S.serverGroupId] : []));
+    var evs = S.events.filter(function(e){ return e.serverId; });
+    var parts = [];
+    if (gids.length) parts.push('group_id.in.(' + gids.join(',') + ')');
+    if (evs.length) parts.push('event_id.in.(' + evs.map(function(e){ return e.serverId; }).join(',') + ')');
+    if (!parts.length) return Promise.resolve();
+    SB.chatBusy = true;
+    /* la primera vez en cada arranque se averigua a qué grupos pertenezco (el mío y aquellos a los que me uní) */
+    var ready = SB.gLoaded ? Promise.resolve() : SB.rest('group_members', 'GET', null, '?user_id=eq.' + S.serverId + '&select=group_id').then(function(gm){
+      if (gm.ok) { SB.gLoaded = true; var gl = (gm.data || []).map(function(x){ return x.group_id; }); if (gl.length) { S.myGroups = gl; gids = gl; parts = []; parts.push('group_id.in.(' + gids.join(',') + ')'); if (evs.length) parts.push('event_id.in.(' + evs.map(function(e){ return e.serverId; }).join(',') + ')'); } }
+    }).catch(function(){});
+    return ready.then(function(){ return SB.rest('messages', 'GET', null, '?or=(' + parts.join(',') + ')&select=id,group_id,event_id,author_id,body,created_at&order=created_at.asc&limit=600'); }).then(function(r){
+      if (!r.ok) return;
+      var rows = r.data || [], ids = {};
+      rows.forEach(function(m){ if (m.author_id) ids[m.author_id] = 1; });
+      return SB.resolveNames(Object.keys(ids)).then(function(names){
+        names[S.serverId] = S.me;
+        var conv = function(m){ return {id: 'm_' + m.id, by: names[m.author_id] || 'Alguien', at: Date.parse(m.created_at), text: m.body || ''}; };
+        var merge = function(local, server){
+          var have = {}; server.forEach(function(m){ have[m.id] = 1; });
+          var keep = (local || []).filter(function(m){ return !have[m.id] && (m.photoId || (String(m.id).indexOf('m_') !== 0 ? Date.now() - m.at < 120000 && m.by === S.me && !server.some(function(x){ return x.by === S.me && x.text === m.text && Math.abs(x.at - m.at) < 120000; }) : false)); });
+          return server.concat(keep).sort(function(a, b){ return a.at - b.at; });
+        };
+        var before = JSON.stringify([S.group && S.group.chat ? S.group.chat.length : 0].concat(evs.map(function(e){ return (e.chat || []).length; })));
+        evs.forEach(function(e){ e.chat = merge(e.chat, rows.filter(function(m){ return m.event_id === e.serverId; }).map(conv)); });
+        if (S.group) {
+          /* el mismo mensaje se manda a cada grupo al que pertenezco: aquí se muestra una sola vez */
+          var g = [], seen = {};
+          rows.filter(function(m){ return m.group_id; }).map(function(m){ var c = conv(m); c.k = m.author_id + '|' + c.text + '|' + Math.round(c.at / 15000); return c; }).forEach(function(c){ if (!seen[c.k]) { seen[c.k] = 1; delete c.k; g.push(c); } });
+          S.group.chat = merge(S.group.chat, g);
+        }
+        var after = JSON.stringify([S.group && S.group.chat ? S.group.chat.length : 0].concat(evs.map(function(e){ return (e.chat || []).length; })));
+        if (before !== after) {
+          save();
+          var inEv = ui.view === 'event' && ui.tab === 'chat', inG = ui.view === 'gchat';
+          if (inEv || inG) {
+            /* con un chat abierto solo se cambia la lista de mensajes: redibujar todo cerraría el teclado */
+            var box = document.querySelector('main .msgs') || document.querySelector('main .empty'), cv = inEv ? cur() : null;
+            var html = inEv ? (cv ? chatBody(cv) : '') : (markRead('g'), bubbles(S.group.chat, null));
+            if (box && html) { var near = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 160; box.outerHTML = html; if (near) window.scrollTo(0, document.documentElement.scrollHeight); }
+          } else if (!ui.sheet && /^(home|chats)$/.test(ui.view)) render();
+        }
+      });
+    }).catch(function(){}).then(function(){ SB.chatBusy = false; });
   },
   /* canciones que se comparten en un evento */
   syncSong: function(ev, song){
@@ -1424,7 +1475,7 @@ var SB = {
     return SB.rest('group_members', 'GET', null, '?user_id=eq.' + S.serverId + '&select=group_id').then(function(gm){
       var gids = (gm.data || []).map(function(r){ return r.group_id; });
       if (!gids.length) return [];
-      S.serverGroupId = S.serverGroupId || gids[0];
+      S.serverGroupId = S.serverGroupId || gids[0]; S.myGroups = gids;
       return Promise.all(gids.map(function(gid){
         return SB.rest('events', 'GET', null, '?group_id=eq.' + gid).then(function(er){ return er.data || []; });
       }));
@@ -1781,8 +1832,9 @@ function act(a, t){
     case 'dl-all': downloadAll(cur()); break;
     case 'send':
       var txt = (ui.draft || '').trim(); if (!txt) return;
-      ev = cur(); ev.chat.push({id: uid(), by: S.me, at: Date.now(), text: txt});
-      if (ev.serverId) SB.syncMessage({text: txt, eventId: ev.serverId});
+      ev = cur(); var mid = SB.uuid();
+      ev.chat.push({id: ev.serverId && S.session ? 'm_' + mid : uid(), by: S.me, at: Date.now(), text: txt});
+      if (ev.serverId) SB.syncMessage({id: mid, text: txt, eventId: ev.serverId});
       ui.draft = ''; ui.stick = true; save(); render(false);
       var ci = $('#chatin'); if (ci) ci.focus();
       break;
@@ -4936,8 +4988,14 @@ function chatAct(a, t){
     case 'ch-back': ui.view = 'chats'; render(false); window.scrollTo(0, 0); break;
     case 'ch-send':
       var txt = (ui.gdraft || '').trim(); if (!txt) return;
-      S.group.chat.push({id: uid(), by: S.me, at: Date.now(), text: txt});
-      SB.ensureGroup().then(function(gid){ if (gid) SB.syncMessage({text: txt, groupId: gid}); });
+      var gmid = SB.uuid();
+      S.group.chat.push({id: S.session ? 'm_' + gmid : uid(), by: S.me, at: Date.now(), text: txt});
+      /* se manda a cada grupo al que pertenezco, para que lo vean tanto quienes se unieron al mío como aquellos a cuyo grupo me uní */
+      SB.ensureGroup().then(function(gid){
+        if (!gid) return;
+        var all = (S.myGroups || []).slice(); if (all.indexOf(gid) < 0) all.unshift(gid);
+        all.forEach(function(g, k){ SB.syncMessage({id: g === gid ? gmid : SB.uuid(), text: txt, groupId: g}); });
+      });
       ui.gdraft = ''; ui.stick = true; save(); render(false);
       var ci = $('#gchatin'); if (ci) ci.focus();
       break;
@@ -5264,7 +5322,10 @@ Promise.race([loadP, new Promise(function(r){ setTimeout(function(){ r(null); },
   if (PENDING_JOIN && APPSTORE_URL && !(window.navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches)) && /iphone|ipad|ipod/i.test(navigator.userAgent) && !/FriendsPartyApp/i.test(navigator.userAgent)) {
     joinGate(PENDING_JOIN);
   }
-  SB.restore().then(function(ok){ if (ok) { SB.pullFollows(); pushRefresh(); SB.pullInvites(); setInterval(function(){ if (!document.hidden) SB.pullInvites(); }, 30000); SB.syncPending(); tryPendingJoin(); SB.ensureGroup().then(function(){ return SB.fetchGroupCode(); }); } }); /* recupera la sesión y reintenta lo pendiente */
+  SB.restore().then(function(ok){ if (ok) { SB.pullFollows(); pushRefresh(); SB.pullInvites(); SB.pullChat(); setInterval(function(){ if (!document.hidden) SB.pullInvites(); }, 30000); SB.syncPending(); tryPendingJoin(); SB.ensureGroup().then(function(){ return SB.fetchGroupCode(); }); } }); /* recupera la sesión y reintenta lo pendiente */
+  /* chat: se revisa al volver a la app y, mientras hay un chat abierto, cada 6 segundos; si no, cada 30 */
+  document.addEventListener('visibilitychange', function(){ if (!document.hidden) SB.pullChat(); });
+  var chatTick = 0; setInterval(function(){ if (document.hidden) return; chatTick++; var open = (ui.view === 'event' && ui.tab === 'chat') || ui.view === 'gchat' || ui.view === 'chats'; if (open || chatTick % 5 === 0) SB.pullChat(); }, 6000);
   window.addEventListener('online', function(){ SB.retryConnect(); }); setInterval(function(){ if (!document.hidden) SB.retryConnect(); }, 20000);
   setTimeout(loadStickers, 4000); /* los stickers no hacen falta al abrir la app: se piden en segundo plano, sin competir con lo primero que se ve */
   try {
