@@ -694,6 +694,14 @@ body::after{content:"";position:fixed;left:0;right:0;top:0;height:env(safe-area-
 .orsep::before,.orsep::after{content:"";flex:1;height:1px;background:var(--line)}
 .notice.warn{border-left-color:#FF7D9C;background:rgba(255,125,156,.12);display:grid;gap:2px;margin-bottom:10px}
 .tr-note{margin:0;text-align:center;font-size:13px;color:rgba(255,255,255,.8)}
+/* acciones al final del evento y enlaces legibles sobre el fondo */
+.ev-acts{display:grid;gap:8px;margin-top:22px}
+.ev-acts .btn{justify-content:flex-start;background:rgba(22,18,58,.78);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+.btn.danger{color:#FFB3C1;border-color:rgba(255,125,156,.55)}
+.link{color:#FFA6C9;text-shadow:0 1px 2px rgba(10,8,30,.95),0 0 12px rgba(10,8,30,.8)}
+.link.danger{color:#FFB3C1}
+/* espacio al final de cada pantalla para que la barra fija de abajo no tape lo último */
+main.wrap{padding-top:14px;padding-bottom:calc(130px + env(safe-area-inset-bottom,0px))}
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
 /* ---------- tema de vidrio: un solo estilo oscuro para toda la app ---------- */
 html{background:#0D0B24}
@@ -2533,10 +2541,12 @@ function planBody(ev){
   var rm = '<h3 class="pl-h">Recordatorios</h3><p class="muted small">Se avisa a quienes van o tal vez van (' + go + ').</p><div class="mus">' +
     [['d3', '3 días antes'], ['d1', '1 día antes'], ['d0', 'El mismo día']].map(function(k){
       return '<button class="cb' + (ev.remind[k[0]] ? ' on' : '') + '" aria-pressed="' + !!ev.remind[k[0]] + '" data-act="pl-rm" data-k="' + k[0] + '">' + k[1] + '</button>';
-    }).join('') + '</div><button class="link" data-act="pl-remind">Ver cómo llegan los avisos</button>';
+    }).join('') + '</div>';
 
-  var more = '<button class="link" data-act="pl-edit">Editar evento</button><br>' +
-    '<button class="link danger" data-act="ev-del">' + (ui.armed === 'e' + ev.id ? 'Toca otra vez para eliminar' : 'Eliminar evento') + '</button>';
+  /* acciones del evento como botones: el texto suelto no se leía sobre las ondas del fondo */
+  var more = '<div class="ev-acts"><button class="btn" data-act="pl-remind">' + svg('<path d="M6 9a6 6 0 0 1 12 0c0 6 2.5 7 2.5 7h-17S6 15 6 9M10 20a2 2 0 0 0 4 0"/>', 18) + ' Ver cómo llegan los avisos</button>' +
+    '<button class="btn" data-act="pl-edit">' + svg('<path d="M4 20l1-4L16 5l3 3L8 19l-4 1zM14 7l3 3"/>', 18) + ' Editar evento</button>' +
+    '<button class="btn danger" data-act="ev-del">' + svg('<path d="M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13"/>', 18) + ' ' + (ui.armed === 'e' + ev.id ? 'Toca otra vez para eliminar' : 'Eliminar evento') + '</button></div>';
   return hero + routeBlock(ev) + seg + people + rm + more; /* musicBlock(ev) quitado por ahora, junto con la sección Música */
 }
 
