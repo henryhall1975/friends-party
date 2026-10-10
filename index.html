@@ -5309,7 +5309,8 @@ function premiumSheet(){
   return '<div class="scrim" data-act="close-sheet"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="Premium"><h2>Friends Party Premium</h2>' +
     (isPremium() ? '<p class="muted">Ya eres Premium. Gracias por apoyar la app.</p>' : '<p class="muted">Sube sin límites y guarda tus recuerdos para siempre.</p>') +
     premBenefits() +
-    buy + (storeNative() && !isPremium() ? '<button class="link" data-act="vc-restore">Restaurar compras</button>' : '') +
+    buy + (isPremium() ? '' : '<p class="muted small"><a href="terms.html" target="_blank" rel="noopener">Términos de uso</a> · <a href="privacy.html" target="_blank" rel="noopener">Política de privacidad</a></p>') +
+    (storeNative() && !isPremium() ? '<button class="link" data-act="vc-restore">Restaurar compras</button>' : '') +
     '<button class="link" data-act="close-sheet">Cerrar</button></div>';
 }
 /* las ventajas de Premium, cada una con lo que trae la versión gratuita para comparar */
