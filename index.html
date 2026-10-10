@@ -3988,7 +3988,30 @@ function profileAct(a, t){
       if (!S.me) {
         if (simple) finishSignup(name, user, email, phone, bio, prov, null, null);
         else if (!(window.crypto && crypto.subtle)) toast('Este navegador no permite crear contraseñas aquí');
-        else hashPw(pwd).then(function(h){ finishSignup(name, user, email, phone, bio, prov, h, pwd); }, function(){ toast('No se pudo crear la contraseña'); });
+        else {
+          /* primero se crea en el servidor: así nunca queda una cuenta que solo existe en el teléfono con un correo que ya era de otra cuenta */
+          var goLocal = function(){ hashPw(pwd).then(function(h){ finishSignup(name, user, email, phone, bio, prov, h, pwd); }, function(){ toast('No se pudo crear la contraseña'); }); };
+          if (ui.signBusy) return;
+          ui.signBusy = true; toast('Creando tu cuenta…');
+          SB.signUp(email, pwd).then(function(r){
+            if (r.ok && r.data && r.data.access_token) { ui.signBusy = false; goLocal(); return; }
+            var exists = r.data && (r.data.error_code === 'user_already_exists' || /already registered/i.test(r.data.msg || ''));
+            if (!exists) {
+              ui.signBusy = false;
+              if (r.status >= 500 || r.status === 429 || !r.status) goLocal(); /* falla del servidor: se crea en el teléfono y se conecta sola después */
+              else toast('No se pudo crear la cuenta. Revisa tu correo y tu contraseña.');
+              return;
+            }
+            /* ese correo ya tiene cuenta: con la misma contraseña es la suya y se entra a ella; con otra, no se crea un duplicado */
+            return SB.signIn(email, pwd).then(function(r2){
+              ui.signBusy = false;
+              if (r2.ok && r2.data && r2.data.access_token) { profileAct('ac-srvlogin', t); return; }
+              ui.acctMode = 'srvlogin'; renderSheet();
+              var m = document.getElementById('a-mail'); if (m) m.value = email;
+              toast('Ese correo ya tiene una cuenta. Entra con su contraseña.');
+            });
+          }).catch(function(){ ui.signBusy = false; goLocal(); /* sin internet: se crea en el teléfono y se conecta sola en cuanto haya señal */ });
+        }
       } else {
         ensureProfile();
         if (name !== S.me) renameMe(S.me, name);
