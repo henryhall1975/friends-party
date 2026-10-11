@@ -3072,7 +3072,7 @@ function resetGate(){
 /* Alguien escaneó un QR de invitación con la cámara del iPhone y cayó en Safari, no en la app.
    Safari no puede pasarle el código a la app 1.0, así que se muestra el código para pegarlo en la app.
    Con la app 1.1 (enlace friendsparty://) el botón "Abrir en la app" hace la unión solo: se enciende con APP_LINK_READY. */
-var APP_LINK_READY = false;
+var APP_LINK_READY = true;
 function joinGate(code){
   var el = document.createElement('div'); el.className = 'jgate';
   el.innerHTML = '<div class="jgate-box"><img src="icons/menu/invitaciones.jpg" alt="" width="220" height="201"><h2>Te invitaron a Friends Party</h2>' +
