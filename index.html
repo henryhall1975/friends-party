@@ -1337,6 +1337,11 @@ var SB = {
     try { toast(friendly); } catch (e) {}
     S.lastSyncError = txt; save();
   },
+  /* borra el evento en el servidor; solo le funciona a su dueño (los demás lo dejan de ver en su teléfono) */
+  dropEvent: function(sid){
+    if (!sid || !SB.session || !SB.session.access_token || !S.serverId) return Promise.resolve(false);
+    return SB.rest('events', 'DELETE', null, '?id=eq.' + sid + '&owner_id=eq.' + S.serverId, 'return=minimal').then(function(r){ return !!r.ok; }).catch(function(){ return false; });
+  },
   /* crea el evento también en el servidor; guarda ev.serverId para las fotos */
   syncEvent: function(ev){
     if (!SB.session || !SB.session.access_token) return Promise.resolve(null);
@@ -1505,11 +1510,23 @@ var SB = {
       var gids = (gm.data || []).map(function(r){ return r.group_id; });
       if (!gids.length) return [];
       S.serverGroupId = S.serverGroupId || gids[0]; S.myGroups = gids;
+      var okAll = true;
       return Promise.all(gids.map(function(gid){
-        return SB.rest('events', 'GET', null, '?group_id=eq.' + gid).then(function(er){ return er.data || []; });
-      }));
+        return SB.rest('events', 'GET', null, '?group_id=eq.' + gid).then(function(er){ if (!er.ok || !er.data) okAll = false; return er.data || []; });
+      })).then(function(n){ n.complete = okAll; return n; });
     }).then(function(nested){
       var rows = [].concat.apply([], nested || []);
+      /* los eventos que eliminé en este teléfono no vuelven; si el servidor aún los tiene, se reintenta borrarlos */
+      var gone = S.gone || {};
+      rows.forEach(function(r){ if (gone[r.id]) SB.dropEvent(r.id); });
+      rows = rows.filter(function(r){ return !gone[r.id]; });
+      /* y los que su dueño eliminó en el servidor dejan de aparecer aquí (solo con la lista completa en mano) */
+      if (nested && nested.complete) {
+        var alive = {}; rows.forEach(function(r){ alive[r.id] = 1; });
+        var before = S.events.length;
+        S.events = S.events.filter(function(e){ return !e.serverId || alive[e.serverId] || (Date.now() - (e.created || 0) < 120000) || e.photos.some(function(ph){ return ph.pend && !ph.synced; }); });
+        if (S.events.length !== before) { if (ui.eid && !S.events.some(function(e){ return e.id === ui.eid; })) { ui.view = 'home'; ui.eid = null; } save(); }
+      }
       return Promise.all(rows.map(function(erow){
         return Promise.all([
           SB.rest('photos', 'GET', null, '?event_id=eq.' + erow.id + '&order=created_at.asc'),
@@ -1891,6 +1908,7 @@ function act(a, t){
       ev = cur();
       if (ui.armed !== 'e' + ev.id) { ui.armed = 'e' + ev.id; render(); return; }
       S.events = S.events.filter(function(e){ return e.id !== ev.id; });
+      if (ev.serverId) { S.gone = S.gone || {}; S.gone[ev.serverId] = 1; SB.dropEvent(ev.serverId); }
       ui.armed = null; ui.view = 'home'; ui.eid = null; save(); render(false); window.scrollTo(0, 0); toast('Evento eliminado');
       break;
   }
