@@ -254,6 +254,7 @@ var D = {
   'Que tu amigo escanee este código con la cámara para unirse. Al entrar, ve tus eventos y fotos.': ['Have your friend scan this code with their camera to join. Once in, they\'ll see your events and photos.', '친구가 카메라로 이 코드를 스캔하면 참여할 수 있어요. 들어오면 내 이벤트와 사진을 볼 수 있어요.'],
   'Otras formas de compartir': ['Other ways to share', '다른 방법으로 공유'],
   'Copiar invitación': ['Copy invite', '초대 메시지 복사'],
+  'Compartir invitación': ['Share invite', '카카오톡 등으로 공유'],
   'Usuario de Friends Party (o el nombre)': ['Friends Party username (or name)', 'Friends Party 사용자 이름 (또는 이름)'],
   '@usuario o Ana': ['@username or Ana', '@사용자이름 또는 이름'],
   'WhatsApp (con código de país)': ['WhatsApp (with country code)', 'WhatsApp (국가 번호 포함)'],
