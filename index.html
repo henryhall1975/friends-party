@@ -3091,6 +3091,10 @@ function loadQrDecoder(){
 /* detecta ?join=CODIGO en la URL al abrir la app (por ejemplo, al escanear un QR con la cámara del teléfono) */
 /* enlace de la app en App Store; cuando esté publicada, pegarlo aquí. Si alguien abre un QR de invitación sin la app, se le ofrece descargarla */
 var APPSTORE_URL = 'https://apps.apple.com/app/friends-party/id6817054301';
+/* Android: la ficha de Play Store recibe el código en "referrer" y la app recién instalada lo lee y te une sola (1.2 en adelante) */
+var PLAY_ID = 'com.henryhall.friendsparty';
+function playUrl(code){ return 'https://play.google.com/store/apps/details?id=' + PLAY_ID + (code ? '&referrer=' + encodeURIComponent('join=' + code) : ''); }
+var ANDROID_WEB = /android/i.test(navigator.userAgent) && !/FriendsPartyAndroid/.test(navigator.userAgent);
 var PENDING_JOIN = (function(){
   var m = /[?&]join=([^&]+)/.exec(window.location.search);
   return m ? decodeURIComponent(m[1]) : '';
@@ -3137,10 +3141,13 @@ var APP_LINK_READY = true;
 function joinGate(code){
   var el = document.createElement('div'); el.className = 'jgate';
   el.innerHTML = '<div class="jgate-box"><img src="icons/menu/invitaciones.jpg" alt="" width="220" height="201"><h2>Te invitaron a Friends Party</h2>' +
-    (APP_LINK_READY ? '<a class="btn primary block" href="friendsparty://join?code=' + encodeURIComponent(code) + '">Abrir en la app</a>' : '') +
+    /* en Android el mismo botón abre la app si está instalada y, si no, lleva a Play Store con el código guardado */
+    (ANDROID_WEB ? '<a class="btn primary block" href="intent://join?code=' + encodeURIComponent(code) + '#Intent;scheme=friendsparty;package=' + PLAY_ID + ';S.browser_fallback_url=' + encodeURIComponent(playUrl(code)) + ';end">Abrir en la app</a>'
+      : APP_LINK_READY ? '<a class="btn primary block" href="friendsparty://join?code=' + encodeURIComponent(code) + '">Abrir en la app</a>' : '') +
     '<p class="muted">Tu código de invitación</p><div class="jgate-code" data-nt>' + esc(code) + '</div><button type="button" class="btn block" id="jg-copy">Copiar código</button>' +
     '<ol class="jgate-steps"><li>Abre la app Friends Party.</li><li>Entra a Invitaciones.</li><li>Toca «Unirme con un código» y pega el código.</li></ol>' +
-    '<a class="link" id="jg-store" href="' + APPSTORE_URL + '">¿No tienes la app? Descárgala en el App Store</a>' +
+    (ANDROID_WEB ? '<a class="link" id="jg-store" href="' + playUrl(code) + '">¿No tienes la app? Descárgala en Google Play</a>'
+      : '<a class="link" id="jg-store" href="' + APPSTORE_URL + '">¿No tienes la app? Descárgala en el App Store</a>') +
     '<button type="button" class="link" id="jg-web">Seguir en el navegador</button></div>';
   document.body.appendChild(el);
   el.querySelector('#jg-copy').addEventListener('click', function(){
@@ -5447,7 +5454,7 @@ Promise.race([loadP, new Promise(function(r){ setTimeout(function(){ r(null); },
   render(false); renderSheet(); renderCover(); window.scrollTo(0, 0);
   if (RESET) resetGate();
   if (PENDING_JOIN && !S.me) toast('Alguien te invitó a Friends Party. Crea tu cuenta o inicia sesión para unirte.');
-  if (PENDING_JOIN && APPSTORE_URL && !(window.navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches)) && /iphone|ipad|ipod/i.test(navigator.userAgent) && !/FriendsPartyApp/i.test(navigator.userAgent)) {
+  if (PENDING_JOIN && APPSTORE_URL && !(window.navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches)) && ((/iphone|ipad|ipod/i.test(navigator.userAgent) && !/FriendsPartyApp/i.test(navigator.userAgent)) || ANDROID_WEB)) {
     joinGate(PENDING_JOIN);
   }
   SB.restore().then(function(ok){ if (ok) { SB.pullFollows(); pushRefresh(); SB.pullInvites(); SB.pullChat(); SB.pullFresh(); setInterval(function(){ if (!document.hidden) SB.pullInvites(); }, 30000); SB.syncPending(); tryPendingJoin(); SB.ensureGroup().then(function(){ return SB.fetchGroupCode(); }); } }); /* recupera la sesión y reintenta lo pendiente */

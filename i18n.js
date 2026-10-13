@@ -517,6 +517,7 @@ var D = {
   'Entra a Invitaciones.': ['Go to Invitations.', '초대로 이동하세요.'],
   'Toca «Unirme con un código» y pega el código.': ['Tap “Join with a code” and paste the code.', '「코드로 참여」를 누르고 코드를 붙여 넣으세요.'],
   '¿No tienes la app? Descárgala en el App Store': ['Don\'t have the app? Get it on the App Store', '앱이 없나요? App Store에서 받으세요'],
+  '¿No tienes la app? Descárgala en Google Play': ["Don't have the app? Get it on Google Play", '앱이 없나요? Google Play에서 받기'],
   'Seguir en el navegador': ['Continue in the browser', '브라우저에서 계속'],
   '¿Quién puede verlo?': ['Who can see it?', '누가 볼 수 있나요?'],
   'Privado': ['Private', '비공개'],
