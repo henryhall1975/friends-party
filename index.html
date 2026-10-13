@@ -442,6 +442,8 @@ details.loc summary{cursor:pointer;font-weight:700;color:var(--accent);padding:8
 .fsbar .btn{flex:1;padding:0 8px;font-size:15px}
 /* Perfil */
 .pfbtn{border-radius:50%;padding:0;display:grid;place-items:center}
+.pw-eye{position:absolute;width:36px;height:36px;display:grid;place-items:center;border-radius:10px;color:rgba(255,255,255,.75);background:transparent;padding:0;z-index:1}
+.pw-eye:active{color:#fff;background:rgba(255,255,255,.1)}
 .pmf{position:relative;display:inline-block;flex:none;line-height:0}
 .pmf-i{position:absolute;max-width:none;pointer-events:none;-webkit-user-select:none;user-select:none;filter:drop-shadow(0 2px 6px rgba(0,0,0,.45))}
 .hmv .pfbtn:has(.pmf){box-shadow:none}
@@ -1922,6 +1924,32 @@ document.addEventListener('click', function(e){
   var ev = b.dataset.k === 'ev' ? cur() : null, text = ev ? inviteText(ev) : groupMsg();
   navigator.share({text: text}).catch(function(err){ if (err && err.name !== 'AbortError') copyText(text, 'Mensaje copiado'); });
 });
+/* ojito para ver u ocultar lo que escribes en cualquier campo de contraseña */
+(function(){
+  var OPEN = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+  var SHUT = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18M10.6 5.2A10.6 10.6 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4M6.5 6.6C3.7 8.4 2 12 2 12s3.6 7 10 7c1.6 0 3-.4 4.3-1M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>';
+  function place(inp, b){
+    b.style.top = (inp.offsetTop + Math.max(0, (inp.offsetHeight - 36) / 2)) + 'px';
+    b.style.left = (inp.offsetLeft + inp.offsetWidth - 42) + 'px';
+  }
+  function add(inp){
+    if (inp.dataset.eye) return; inp.dataset.eye = '1';
+    var par = inp.parentNode; if (!par) return;
+    if (getComputedStyle(par).position === 'static') par.style.position = 'relative';
+    var b = document.createElement('button');
+    b.type = 'button'; b.className = 'pw-eye'; b.setAttribute('data-nt', ''); b.setAttribute('aria-label', 'Mostrar u ocultar la contraseña'); b.innerHTML = OPEN;
+    inp.style.paddingRight = '46px';
+    par.insertBefore(b, inp.nextSibling); place(inp, b);
+    b.addEventListener('click', function(e){
+      e.preventDefault(); e.stopPropagation();
+      var show = inp.type === 'password'; inp.type = show ? 'text' : 'password'; b.innerHTML = show ? SHUT : OPEN; place(inp, b);
+    });
+    inp.addEventListener('focus', function(){ place(inp, b); });
+  }
+  function scan(){ var l = document.querySelectorAll('input[type="password"]'); for (var i = 0; i < l.length; i++) add(l[i]); }
+  if (window.MutationObserver) new MutationObserver(scan).observe(document.documentElement, {childList: true, subtree: true});
+  scan();
+})();
 /* sin menú de guardar/copiar sobre stickers e íconos */
 document.addEventListener('contextmenu', function(e){ if (e.target && e.target.closest && e.target.closest('.paystrip,.paygal,.stk,.pk3,.hm-t,.cv-tile,.tr-emoji,.em,.ems')) e.preventDefault(); });
 document.addEventListener('dragstart', function(e){ if (e.target && e.target.tagName === 'IMG' && e.target.closest('.paystrip,.paygal,.stk')) e.preventDefault(); });
