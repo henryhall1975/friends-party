@@ -1187,6 +1187,14 @@ var SB = {
     if (!SB.session || !SB.session.access_token) return Promise.resolve({ok: false, msg: 'Inicia sesión primero'});
     return SB.rpc('join_group_by_code', {code: code}).then(function(r){
       if (r.ok && r.data) return {ok: true, kind: 'group', id: r.data};
+      /* no es de un grupo: puede ser el código de UN evento (el QR de "Invitar amigos" dentro de un evento) */
+      if (r.status === 400) return SB.rpc('join_event_by_code', {code: code}).then(function(r2){
+        if (r2.ok && r2.data) return {ok: true, kind: 'event', id: r2.data};
+        return r2;
+      });
+      return r;
+    }).then(function(r){
+      if (r.ok) return r;
       if (r.status === 401 || r.status === 403) return {ok: false, msg: 'Tu sesión venció. Cierra y vuelve a abrir la app, y escanea otra vez.'};
       if (!r.ok && r.status !== 400 && r.status !== 404) return {ok: false, msg: 'No se pudo conectar con el servidor. Intenta de nuevo.'};
       return {ok: false, msg: 'Ese código no existe. Revísalo con quien te invitó.'};
@@ -1532,6 +1540,19 @@ var SB = {
         return SB.rest('events', 'GET', null, '?group_id=eq.' + gid).then(function(er){ if (!er.ok || !er.data) okAll = false; return er.data || []; });
       })).then(function(n){ n.complete = okAll; return n; });
     }).then(function(nested){
+      /* además, los eventos a los que me invitaron con su propio código (sin ser de su grupo) */
+      nested = nested || []; var complete = nested.complete === true; /* sin la lista completa de grupos no se borra nada local */
+      return SB.rest('event_members', 'GET', null, '?user_id=eq.' + S.serverId + '&select=event_id').then(function(em){
+        if (!em.ok) { complete = false; return nested; }
+        var have = {}; [].concat.apply([], nested).forEach(function(r){ have[r.id] = 1; });
+        var extra = (em.data || []).map(function(x){ return x.event_id; }).filter(function(id){ return id && !have[id]; });
+        if (!extra.length) return nested;
+        return SB.rest('events', 'GET', null, '?id=in.(' + extra.join(',') + ')').then(function(er){
+          if (!er.ok || !er.data) complete = false; else nested.push(er.data);
+          return nested;
+        });
+      }).then(function(n){ n.complete = complete; return n; });
+    }).then(function(nested){
       var rows = [].concat.apply([], nested || []);
       /* los eventos que eliminé en este teléfono no vuelven; si el servidor aún los tiene, se reintenta borrarlos */
       var gone = S.gone || {};
@@ -1575,7 +1596,7 @@ var SB = {
             }).catch(function(){ return null; });
           })).then(function(photos){
             return {
-              id: 'srv_' + erow.id, serverId: erow.id, name: erow.title, place: erow.place_text || '',
+              id: 'srv_' + erow.id, serverId: erow.id, inviteCode: erow.invite_code || '', name: erow.title, place: erow.place_text || '',
               date: erow.starts_at ? erow.starts_at.slice(0, 10) : '', time: erow.starts_at ? erow.starts_at.slice(11, 16) : '',
               emoji: '🎉', grad: 0, code: mkCode(), members: [S.me], created: Date.parse(erow.created_at) || Date.now(),
               geo: (typeof erow.lat === 'number' && typeof erow.lon === 'number') ? {lat: erow.lat, lon: erow.lon} : null, pub: !!erow.is_public,
@@ -1590,7 +1611,7 @@ var SB = {
     }).then(function(evs){
       (evs || []).forEach(function(nev){
         var existing = S.events.filter(function(e){ return e.serverId === nev.serverId; })[0];
-        if (existing) { var keep = existing.photos.filter(function(p){ return p.pend && !p.synced; }); existing.photos = nev.photos.concat(keep); existing.chat = nev.chat; existing.songs = nev.songs; Object.assign(existing, {name: nev.name, place: nev.place, date: nev.date, time: nev.time}); if (nev.geo) { existing.geo = nev.geo; delete existing.geoDemo; } existing.pub = nev.pub; existing.remind = nev.remind; }
+        if (existing) { var keep = existing.photos.filter(function(p){ return p.pend && !p.synced; }); existing.photos = nev.photos.concat(keep); existing.chat = nev.chat; existing.songs = nev.songs; Object.assign(existing, {name: nev.name, place: nev.place, date: nev.date, time: nev.time, inviteCode: nev.inviteCode || existing.inviteCode}); if (nev.geo) { existing.geo = nev.geo; delete existing.geoDemo; } existing.pub = nev.pub; existing.remind = nev.remind; }
         else S.events.push(nev);
       });
       save();
@@ -1908,8 +1929,8 @@ function act(a, t){
       ev = cur();
       var msg = inviteText(ev);
       if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(msg).then(function(){ toast('Invitación copiada'); }, function(){ toast('Código: ' + groupCode()); });
-      } else toast('Código: ' + groupCode());
+        navigator.clipboard.writeText(msg).then(function(){ toast('Invitación copiada'); }, function(){ toast('Código: ' + evCode(ev)); });
+      } else toast('Código: ' + evCode(ev));
       break;
     case 'sim':
       ev = cur();
@@ -2596,8 +2617,8 @@ function inviteText(ev){
   var l = [T('¡Te invito a "{x}"!', {x: ev.name})];
   if (ev.date) l.push('📅 ' + fmtDay(ev.date) + (ev.time ? ', ' + fmtHour(ev.time) : ''));
   if (ev.place) l.push('📍 ' + ev.place);
-  l.push(T('Únete en Friends Party con el código {c}.', {c: groupCode()}));
-  l.push(joinUrl(groupCode()));
+  l.push(T('Únete en Friends Party con el código {c}.', {c: evCode(ev)}));
+  l.push(joinUrl(evCode(ev)));
   return l.join('\n');
 }
 function remindMsg(ev, k){
@@ -2711,9 +2732,9 @@ function notConnNote(){
 }
 function inviteSheet(){
   return '<div class="scrim" data-act="close-sheet"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="Invitar a un amigo"><h2>Invitar a un amigo</h2>' +
-    '<p class="muted small">Que tu amigo escanee este código con la cámara. Al entrar, ve este evento y los demás de tu grupo.</p>' + notConnNote() +
+    '<p class="muted small">Que tu amigo escanee este código con la cámara. Al entrar, ve solo este evento.</p>' + notConnNote() +
     '<div class="qrframe"><div class="qrwrap" id="qr-target"><p class="muted small">Generando…</p></div><div class="qr-mark">' + I.crown + '</div></div>' +
-    '<div class="code" style="text-align:center;margin-bottom:6px">' + esc(groupCode()) + '</div>' +
+    '<div class="code" id="ev-code" style="text-align:center;margin-bottom:6px">' + esc(evCode(cur())) + '</div>' +
     (navigator.share ? '<button class="btn block" data-act="inv-share" data-k="ev" style="margin-bottom:12px">Compartir invitación</button>' : '') +
     '<h3 class="pl-h">Invitar por usuario</h3>' +
     '<label>Usuario de Friends Party<input id="i-name" class="inp" placeholder="@usuario" maxlength="40" autocomplete="off" autocapitalize="none"></label><div id="i-found"></div>' +
@@ -2759,7 +2780,9 @@ function renderSheet(){
       '<button class="btn primary block evs-go" data-act="create-event">' + (ed ? 'Guardar cambios' : 'Crear evento') + '<span class="chev">' + svg('<path d="M9 5l7 7-7 7"/>', 18) + '</span></button><button class="link" data-act="close-sheet">Cancelar</button></div>';
     focus = '#f-name';
   } else if (ui.sheet === 'invite') {
-    el.innerHTML = inviteSheet(); wireUserSearch('i-name', 'i-found'); renderQrInto(groupCode());
+    el.innerHTML = inviteSheet(); wireUserSearch('i-name', 'i-found'); renderQrInto(evCode(cur()));
+    /* si el evento aún no tenía su código del servidor, se pide y se rehace el QR con él */
+    (function(ev){ if (ev && !ev.inviteCode) ensureEvCode(ev).then(function(c){ if (c && ui.sheet === 'invite' && cur() === ev) { renderQrInto(c); var ce = document.getElementById('ev-code'); if (ce) ce.textContent = c; } }); })(cur());
   } else if (ui.sheet === 'remind') {
     el.innerHTML = remindSheet(cur());
   } else if (ui.sheet === 'photoloc') {
@@ -2910,6 +2933,20 @@ function ensureGroup(){
 }
 /* código real del grupo (del servidor) si ya lo tenemos; si no, el local, de respaldo, solo para no dejar la pantalla vacía */
 function groupCode(){ return S.groupCode || S.group.code; }
+/* el código de UN evento: quien entra con él ve solo ese evento, no los demás de tu grupo.
+   Si el evento todavía no tiene código del servidor, se usa el del grupo para que la invitación igual funcione. */
+function evCode(ev){ return (ev && ev.serverId && ev.inviteCode) || groupCode(); }
+function ensureEvCode(ev){
+  if (!ev || ev.inviteCode || !SB.session || !SB.session.access_token) return Promise.resolve(ev && ev.inviteCode);
+  return SB.syncEvent(ev).then(function(sid){
+    if (!sid) return null;
+    return SB.rest('events', 'GET', null, '?id=eq.' + sid + '&select=invite_code').then(function(r){
+      var c = r.ok && r.data && r.data[0] && r.data[0].invite_code;
+      if (c) { ev.inviteCode = c; save(); }
+      return c || null;
+    });
+  }).catch(function(){ return null; });
+}
 function groupMsg(){
   return T('{x} te invita a su grupo en Friends Party. Aquí planeamos fiestas y guardamos las fotos juntos.', {x: S.me || T('Un amigo')}) + '\n' + T('Código del grupo: {c}.', {c: groupCode()}) + '\n' + joinUrl(groupCode());
 }

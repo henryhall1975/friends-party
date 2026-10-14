@@ -206,7 +206,7 @@ var D = {
   'Toca otra vez para eliminar': ['Tap again to delete', '삭제하려면 한 번 더 누르세요'],
   'Eliminar evento': ['Delete event', '이벤트 삭제'],
   'Invitar a un amigo': ['Invite a friend', '친구 초대하기'],
-  'Que tu amigo escanee este código con la cámara. Al entrar, ve este evento y los demás de tu grupo.': ['Have your friend scan this code with their camera. Once in, they\'ll see this event and the rest of your group\'s.', '친구가 카메라로 이 코드를 스캔하면 돼요. 들어오면 이 이벤트와 그룹의 다른 이벤트도 볼 수 있어요.'],
+  'Que tu amigo escanee este código con la cámara. Al entrar, ve solo este evento.': ['Have your friend scan this code with their camera. They\'ll only see this event.', '친구가 카메라로 이 코드를 스캔하게 하세요. 친구는 이 이벤트만 볼 수 있어요.'],
   'Generando…': ['Generating…', '만드는 중…'],
   'Invitar por usuario': ['Invite by username', '사용자 이름으로 초대'],
   'Usuario de Friends Party': ['Friends Party username', 'Friends Party 사용자 이름'],
