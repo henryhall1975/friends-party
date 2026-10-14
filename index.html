@@ -454,6 +454,10 @@ details.loc summary{cursor:pointer;font-weight:700;color:var(--accent);padding:8
 .pf-stats{display:flex;flex:1;justify-content:space-around;text-align:center}
 .pf-stats b{display:block;font-size:20px;font-weight:800;line-height:1.1}
 .pf-stats span{font-size:13px;color:var(--muted)}
+/* con el marco de Premium el avatar ocupa más ancho: las cuatro cifras van en dos filas para que no se encimen */
+.pf-head:has(.pmf){gap:14px}
+.pf-head:has(.pmf) .pf-stats{display:grid;grid-template-columns:1fr 1fr;row-gap:14px;column-gap:6px}
+.pf-stats span{white-space:nowrap}
 .pf-name{font-weight:800;font-size:18px}
 .pf-priv{margin:6px 0 12px}
 .evi{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-size:20px;flex:none}
