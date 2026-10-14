@@ -1105,7 +1105,7 @@ var SB = {
     }).then(function(r){ return r.text().then(function(t){ var j = null; try { j = t ? JSON.parse(t) : null; } catch (e) {} return {ok: r.ok, status: r.status, data: j}; }); });
   },
   /* la sesión (access/refresh token) se guarda también en S para que sobreviva a cerrar o recargar la página */
-  remember: function(session){ SB.session = session; S.session = session; save(); },
+  remember: function(session){ SB.session = session; S.session = session; SB._lastRefresh = Date.now(); save(); },
   /* al abrir la app, si hay una sesión guardada, renovarla (el access token dura poco tiempo) */
   restore: function(){
     if (!S.session || !S.session.refresh_token) return Promise.resolve(false);
@@ -1123,9 +1123,15 @@ var SB = {
       return false;
     }).catch(function(){ return false; });
   },
-  rest: function(table, method, body, query, prefer){
+  /* una sola renovación a la vez, aunque varias llamadas descubran al mismo tiempo que la sesión venció */
+  refreshOnce: function(){
+    if (!SB._refreshing) SB._refreshing = SB.restore().then(function(ok){ SB._refreshing = null; return ok; }, function(){ SB._refreshing = null; return false; });
+    return SB._refreshing;
+  },
+  rest: function(table, method, body, query, prefer, retried){
     var h = {'Content-Type': 'application/json', 'apikey': SUPABASE_KEY};
-    if (SB.session && SB.session.access_token) h.Authorization = 'Bearer ' + SB.session.access_token;
+    var sent = SB.session && SB.session.access_token;
+    if (sent) h.Authorization = 'Bearer ' + sent;
     if (prefer) h.Prefer = prefer;
     return fetch(SUPABASE_URL + '/rest/v1/' + table + (query || ''), {
       method: method || 'GET', headers: h, body: body ? JSON.stringify(body) : undefined
@@ -1134,6 +1140,13 @@ var SB = {
         var j = null; try { j = t ? JSON.parse(t) : null; } catch (e) {}
         return {ok: r.ok, status: r.status, data: j};
       });
+    }).then(function(res){
+      /* la sesión dura una hora: si la app quedó abierta (o en segundo plano) más tiempo, el servidor responde 401;
+         se renueva la sesión y se repite la llamada una vez, sin que la persona se entere */
+      if (res.status === 401 && sent && !retried && S.session && S.session.refresh_token) {
+        return SB.refreshOnce().then(function(ok){ return ok ? SB.rest(table, method, body, query, prefer, true) : res; });
+      }
+      return res;
     });
   },
   upsertProfile: function(id, username, name, bio){
@@ -1174,6 +1187,8 @@ var SB = {
     if (!SB.session || !SB.session.access_token) return Promise.resolve({ok: false, msg: 'Inicia sesión primero'});
     return SB.rpc('join_group_by_code', {code: code}).then(function(r){
       if (r.ok && r.data) return {ok: true, kind: 'group', id: r.data};
+      if (r.status === 401 || r.status === 403) return {ok: false, msg: 'Tu sesión venció. Cierra y vuelve a abrir la app, y escanea otra vez.'};
+      if (!r.ok && r.status !== 400 && r.status !== 404) return {ok: false, msg: 'No se pudo conectar con el servidor. Intenta de nuevo.'};
       return {ok: false, msg: 'Ese código no existe. Revísalo con quien te invitó.'};
     }).catch(function(){ return {ok: false, msg: 'No se pudo conectar con el servidor'}; });
   },
@@ -5459,7 +5474,8 @@ Promise.race([loadP, new Promise(function(r){ setTimeout(function(){ r(null); },
   }
   SB.restore().then(function(ok){ if (ok) { SB.pullFollows(); pushRefresh(); SB.pullInvites(); SB.pullChat(); SB.pullFresh(); setInterval(function(){ if (!document.hidden) SB.pullInvites(); }, 30000); SB.syncPending(); tryPendingJoin(); SB.ensureGroup().then(function(){ return SB.fetchGroupCode(); }); } }); /* recupera la sesión y reintenta lo pendiente */
   /* chat: se revisa al volver a la app y, mientras hay un chat abierto, cada 6 segundos; si no, cada 30 */
-  document.addEventListener('visibilitychange', function(){ if (!document.hidden) { SB.pullChat(); SB.pullFresh(); } });
+  /* al volver a la app después de un rato, la sesión se renueva antes de pedir nada */
+  document.addEventListener('visibilitychange', function(){ if (!document.hidden) { (S.session && S.session.refresh_token && Date.now() - (SB._lastRefresh || 0) > 30 * 60 * 1000 ? SB.refreshOnce() : Promise.resolve()).then(function(){ SB.pullChat(); SB.pullFresh(); }); } });
   var chatTick = 0; setInterval(function(){ if (document.hidden) return; chatTick++; var open = (ui.view === 'event' && ui.tab === 'chat') || ui.view === 'gchat' || ui.view === 'chats'; if (open || chatTick % 5 === 0) SB.pullChat(); }, 6000);
   window.addEventListener('online', function(){ SB.retryConnect(); }); setInterval(function(){ if (!document.hidden) SB.retryConnect(); }, 20000);
   setTimeout(loadStickers, 4000); /* los stickers no hacen falta al abrir la app: se piden en segundo plano, sin competir con lo primero que se ve */

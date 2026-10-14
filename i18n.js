@@ -49,6 +49,8 @@ var D = {
   'Escribe o escanea un código': ['Type or scan a code', '코드를 입력하거나 스캔하세요'],
   'Inicia sesión primero': ['Log in first', '먼저 로그인하세요'],
   'Ese código no existe. Revísalo con quien te invitó.': ['That code doesn\'t exist. Check it with the person who invited you.', '없는 코드예요. 초대한 친구에게 다시 확인해 보세요.'],
+  'Tu sesión venció. Cierra y vuelve a abrir la app, y escanea otra vez.': ['Your session expired. Close and reopen the app, then scan again.', '로그인이 만료되었어요. 앱을 닫았다가 다시 열고 다시 스캔해 주세요.'],
+  'No se pudo conectar con el servidor. Intenta de nuevo.': ['Couldn\'t reach the server. Please try again.', '서버에 연결할 수 없어요. 다시 시도해 주세요.'],
   'No se pudo conectar con el servidor': ['Couldn\'t connect to the server', '서버에 연결하지 못했어요'],
   'Teléfono registrado para avisos ✅': ['Phone registered for notifications ✅', '알림을 받을 휴대폰이 등록됐어요 ✅'],
   'No se pudo registrar el teléfono: sin conexión': ['Couldn\'t register the phone: no connection', '휴대폰을 등록하지 못했어요: 연결 없음'],
