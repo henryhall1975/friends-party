@@ -32,3 +32,7 @@ begin
   return eid;
 end;
 $$;
+
+-- cada quien puede salirse de un evento al que lo invitaron
+create policy "miembros_evento: salir" on public.event_members
+  for delete to authenticated using (user_id = (select auth.uid()));

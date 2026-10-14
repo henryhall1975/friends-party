@@ -1189,7 +1189,7 @@ var SB = {
       if (r.ok && r.data) return {ok: true, kind: 'group', id: r.data};
       /* no es de un grupo: puede ser el código de UN evento (el QR de "Invitar amigos" dentro de un evento) */
       if (r.status === 400) return SB.rpc('join_event_by_code', {code: code}).then(function(r2){
-        if (r2.ok && r2.data) return {ok: true, kind: 'event', id: r2.data};
+        if (r2.ok && r2.data) { if (S.gone && S.gone[r2.data]) { delete S.gone[r2.data]; save(); } return {ok: true, kind: 'event', id: r2.data}; }
         return r2;
       });
       return r;
@@ -1361,6 +1361,34 @@ var SB = {
     }[where] || (where.indexOf('foto') === 0 ? 'No se pudo subir esta foto al servidor. Sigue guardada en tu teléfono; lo intentaremos de nuevo.' : 'No se pudo conectar con el servidor. Lo intentaremos de nuevo.');
     try { toast(friendly); } catch (e) {}
     S.lastSyncError = txt; save();
+  },
+  /* salir de un evento al que te invitaron (no lo borra: solo dejas de ser parte) */
+  leaveEvent: function(sid){
+    if (!sid || !SB.session || !SB.session.access_token || !S.serverId) return Promise.resolve(false);
+    return SB.rest('event_members', 'DELETE', null, '?event_id=eq.' + sid + '&user_id=eq.' + S.serverId, 'return=minimal').then(function(r){ return !!r.ok; }).catch(function(){ return false; });
+  },
+  /* los grupos de OTRAS personas en los que estoy (para poder salirme) */
+  pullOtherGroups: function(){
+    if (!SB.session || !SB.session.access_token || !S.serverId) return Promise.resolve();
+    if (SB.ogAt && Date.now() - SB.ogAt < 30000) return Promise.resolve();
+    SB.ogAt = Date.now();
+    return SB.rest('group_members', 'GET', null, '?user_id=eq.' + S.serverId + '&select=group_id').then(function(gm){
+      if (!gm.ok) return;
+      var gids = (gm.data || []).map(function(x){ return x.group_id; });
+      if (!gids.length) { S.otherGroups = []; return; }
+      return SB.rest('groups', 'GET', null, '?id=in.(' + gids.join(',') + ')&select=id,owner_id').then(function(gr){
+        if (!gr.ok) return;
+        var others = (gr.data || []).filter(function(g){ return g.owner_id !== S.serverId; });
+        return SB.resolveNames(others.map(function(g){ return g.owner_id; })).then(function(names){
+          var list = others.map(function(g){ return {id: g.id, owner: names[g.owner_id] || T('Alguien')}; });
+          if (JSON.stringify(list) !== JSON.stringify(S.otherGroups || [])) { S.otherGroups = list; save(); if (ui.view === 'invites') render(false); }
+        });
+      });
+    }).catch(function(){});
+  },
+  leaveGroup: function(gid){
+    if (!gid || !SB.session || !SB.session.access_token || !S.serverId) return Promise.resolve(false);
+    return SB.rest('group_members', 'DELETE', null, '?group_id=eq.' + gid + '&user_id=eq.' + S.serverId, 'return=minimal').then(function(r){ return !!r.ok; }).catch(function(){ return false; });
   },
   /* borra el evento en el servidor; solo le funciona a su dueño (los demás lo dejan de ver en su teléfono) */
   dropEvent: function(sid){
@@ -1556,7 +1584,7 @@ var SB = {
       var rows = [].concat.apply([], nested || []);
       /* los eventos que eliminé en este teléfono no vuelven; si el servidor aún los tiene, se reintenta borrarlos */
       var gone = S.gone || {};
-      rows.forEach(function(r){ if (gone[r.id]) SB.dropEvent(r.id); });
+      rows.forEach(function(r){ if (gone[r.id]) { if (r.owner_id === S.serverId) SB.dropEvent(r.id); else SB.leaveEvent(r.id); } });
       rows = rows.filter(function(r){ return !gone[r.id]; });
       /* y los que su dueño eliminó en el servidor dejan de aparecer aquí (solo con la lista completa en mano) */
       if (nested && nested.complete) {
@@ -1596,7 +1624,7 @@ var SB = {
             }).catch(function(){ return null; });
           })).then(function(photos){
             return {
-              id: 'srv_' + erow.id, serverId: erow.id, inviteCode: erow.invite_code || '', name: erow.title, place: erow.place_text || '',
+              id: 'srv_' + erow.id, serverId: erow.id, ownerId: erow.owner_id || '', inviteCode: erow.invite_code || '', name: erow.title, place: erow.place_text || '',
               date: erow.starts_at ? erow.starts_at.slice(0, 10) : '', time: erow.starts_at ? erow.starts_at.slice(11, 16) : '',
               emoji: '🎉', grad: 0, code: mkCode(), members: [S.me], created: Date.parse(erow.created_at) || Date.now(),
               geo: (typeof erow.lat === 'number' && typeof erow.lon === 'number') ? {lat: erow.lat, lon: erow.lon} : null, pub: !!erow.is_public,
@@ -1611,7 +1639,7 @@ var SB = {
     }).then(function(evs){
       (evs || []).forEach(function(nev){
         var existing = S.events.filter(function(e){ return e.serverId === nev.serverId; })[0];
-        if (existing) { var keep = existing.photos.filter(function(p){ return p.pend && !p.synced; }); existing.photos = nev.photos.concat(keep); existing.chat = nev.chat; existing.songs = nev.songs; Object.assign(existing, {name: nev.name, place: nev.place, date: nev.date, time: nev.time, inviteCode: nev.inviteCode || existing.inviteCode}); if (nev.geo) { existing.geo = nev.geo; delete existing.geoDemo; } existing.pub = nev.pub; existing.remind = nev.remind; }
+        if (existing) { var keep = existing.photos.filter(function(p){ return p.pend && !p.synced; }); existing.photos = nev.photos.concat(keep); existing.chat = nev.chat; existing.songs = nev.songs; Object.assign(existing, {name: nev.name, place: nev.place, date: nev.date, time: nev.time, inviteCode: nev.inviteCode || existing.inviteCode, ownerId: nev.ownerId || existing.ownerId}); if (nev.geo) { existing.geo = nev.geo; delete existing.geoDemo; } existing.pub = nev.pub; existing.remind = nev.remind; }
         else S.events.push(nev);
       });
       save();
@@ -1782,7 +1810,7 @@ function eventView(){
 function render(keep){
   var y = window.scrollY;
   app.innerHTML = ui.view === 'home' ? home() : ui.view === 'invites' ? invitesView() : ui.view === 'music' ? musicView() : ui.view === 'tienda' ? tiendaView() : ui.view === 'places' ? placesView() : ui.view === 'place' ? placeView() : ui.view === 'fotos' ? fotosView() : ui.view === 'chats' ? chatsView() : ui.view === 'gchat' ? gchatView() : ui.view === 'profile' ? profileView() : ui.view === 'user' ? userView() : eventView();
-  if (ui.view === 'invites') renderQrInto(groupCode());
+  if (ui.view === 'invites') { renderQrInto(groupCode()); SB.pullOtherGroups(); }
   checkLevelUp();
   if (keep !== false) window.scrollTo(0, y);
   if (ui.stick) { ui.stick = false; window.scrollTo(0, document.documentElement.scrollHeight); }
@@ -1945,9 +1973,10 @@ function act(a, t){
     case 'ev-del':
       ev = cur();
       if (ui.armed !== 'e' + ev.id) { ui.armed = 'e' + ev.id; render(); return; }
+      var mine = isMineEv(ev);
       S.events = S.events.filter(function(e){ return e.id !== ev.id; });
-      if (ev.serverId) { S.gone = S.gone || {}; S.gone[ev.serverId] = 1; SB.dropEvent(ev.serverId); }
-      ui.armed = null; ui.view = 'home'; ui.eid = null; save(); render(false); window.scrollTo(0, 0); toast('Evento eliminado');
+      if (ev.serverId) { S.gone = S.gone || {}; S.gone[ev.serverId] = 1; if (mine) SB.dropEvent(ev.serverId); else SB.leaveEvent(ev.serverId); }
+      ui.armed = null; ui.view = 'home'; ui.eid = null; save(); render(false); window.scrollTo(0, 0); toast(mine ? 'Evento eliminado' : 'Saliste del evento');
       break;
   }
 }
@@ -2720,7 +2749,7 @@ function planBody(ev){
   /* acciones del evento como botones: el texto suelto no se leía sobre las ondas del fondo */
   var more = '<div class="ev-acts"><button class="btn" data-act="pl-remind">' + svg('<path d="M6 9a6 6 0 0 1 12 0c0 6 2.5 7 2.5 7h-17S6 15 6 9M10 20a2 2 0 0 0 4 0"/>', 18) + ' Ver cómo llegan los avisos</button>' +
     '<button class="btn" data-act="pl-edit">' + svg('<path d="M4 20l1-4L16 5l3 3L8 19l-4 1zM14 7l3 3"/>', 18) + ' Editar evento</button>' +
-    '<button class="btn danger" data-act="ev-del">' + svg('<path d="M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13"/>', 18) + ' ' + (ui.armed === 'e' + ev.id ? 'Toca otra vez para eliminar' : 'Eliminar evento') + '</button></div>';
+    '<button class="btn danger" data-act="ev-del">' + svg('<path d="M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13"/>', 18) + ' ' + (isMineEv(ev) ? (ui.armed === 'e' + ev.id ? 'Toca otra vez para eliminar' : 'Eliminar evento') : (ui.armed === 'e' + ev.id ? 'Toca otra vez para salir' : 'Salir del evento')) + '</button></div>';
   return hero + routeBlock(ev) + seg + people + rm + more; /* musicBlock(ev) quitado por ahora, junto con la sección Música */
 }
 
@@ -2935,6 +2964,8 @@ function ensureGroup(){
 function groupCode(){ return S.groupCode || S.group.code; }
 /* el código de UN evento: quien entra con él ve solo ese evento, no los demás de tu grupo.
    Si el evento todavía no tiene código del servidor, se usa el del grupo para que la invitación igual funcione. */
+/* ¿el evento es mío? (los creados en este teléfono y los que traen mi id de dueño) */
+function isMineEv(ev){ return !ev.serverId || !ev.ownerId || ev.ownerId === S.serverId; }
 function evCode(ev){ return (ev && ev.serverId && ev.inviteCode) || groupCode(); }
 function ensureEvCode(ev){
   if (!ev || ev.inviteCode || !SB.session || !SB.session.access_token) return Promise.resolve(ev && ev.inviteCode);
@@ -2977,6 +3008,13 @@ function inboxHtml(){
       '<button class="btn primary small" data-act="jn-accept" data-id="' + esc(x.id) + '">Aceptar</button><button class="link small" data-act="jn-decline" data-id="' + esc(x.id) + '">Rechazar</button></li>';
   }).join('') + '</ul></div>';
 }
+/* grupos de otras personas en los que estás: ves todos sus eventos mientras sigas dentro */
+function otherGroupsHtml(){
+  var l = S.otherGroups || [];
+  if (!l.length) return '';
+  return '<h3 class="pl-h">Grupos en los que estás (' + l.length + ')</h3><p class="muted small">Ves todos los eventos de estos grupos. Si sales, dejas de verlos (menos los eventos a los que te invitaron directamente).</p><ul class="people">' +
+    l.map(function(g){ return '<li>' + av(g.owner, 36) + '<span class="nm">' + T('Grupo de {x}', {x: esc(g.owner)}) + '</span><button class="btn small danger" data-act="gr-leave" data-id="' + esc(g.id) + '">' + (ui.armed === 'gl' + g.id ? 'Toca otra vez' : 'Salir') + '</button></li>'; }).join('') + '</ul>';
+}
 function invitesView(){
   var g = S.group, evInv = [];
   S.events.forEach(function(ev){ (ev.invites || []).forEach(function(v){ evInv.push({ev: ev, v: v}); }); });
@@ -3007,7 +3045,7 @@ function invitesView(){
     '<div class="inv3"><button class="btn primary" data-act="gr-wa">WhatsApp</button><button class="btn primary" data-act="gr-mail">Correo</button><button class="btn primary" data-act="gr-app">En la app</button></div>' +
     '<p class="muted small">«En la app» le llega a tu amigo dentro de Friends Party si ya la tiene descargada. Si WhatsApp o el correo no se abren, copia el mensaje y pégalo ahí.</p></div>' +
     '<div class="joincard"><h3 class="pl-h" style="margin-top:0">¿Tienes un código?</h3><p class="muted small">Si un amigo te compartió un código o un QR, únete aquí y verás sus fotos y eventos.</p><button class="btn primary block" data-act="jn-open">Unirme con un código</button></div>' +
-    '<h3 class="pl-h">Mi grupo (' + g.members.length + ')</h3>' + members +
+    '<h3 class="pl-h">Mi grupo (' + g.members.length + ')</h3>' + members + otherGroupsHtml() +
     '<h3 class="pl-h">Invitaciones enviadas (' + g.invites.length + ')</h3>' + sent + evs + '</main>';
 }
 
@@ -3015,6 +3053,24 @@ function groupAct(a, t){
   var g = S.group, nm, ph, mail, via, text;
   switch (a) {
     case 'gr-copy': copyText(groupMsg(), 'Mensaje copiado'); break;
+    case 'gr-leave':
+      var lg = t.dataset.id;
+      if (ui.armed !== 'gl' + lg) { ui.armed = 'gl' + lg; render(false); return; }
+      ui.armed = null;
+      SB.leaveGroup(lg).then(function(ok){
+        if (!ok) { toast('No se pudo salir del grupo. Intenta de nuevo.'); render(false); return; }
+        S.otherGroups = (S.otherGroups || []).filter(function(x){ return x.id !== lg; });
+        S.myGroups = (S.myGroups || []).filter(function(x){ return x !== lg; });
+        if (S.serverGroupId === lg) { S.serverGroupId = null; S.groupCode = ''; }
+        S.group.members = [S.me]; save(); render(false);
+        toast('Saliste del grupo');
+        SB.ogAt = 0; SB.gLoaded = false;
+        SB.pullAll().then(function(){ return SB.pullGroupMembers(); }).then(function(names){
+          (names || []).forEach(function(n){ if (S.group.members.indexOf(n) < 0) S.group.members.push(n); });
+          save(); render(false);
+        });
+      });
+      break;
     case 'gr-wa': case 'gr-mail': case 'gr-app':
       nm = ($('#g-name').value || '').trim();
       if (!nm) { toast('Escribe el nombre de tu amigo'); $('#g-name').focus(); return; }
