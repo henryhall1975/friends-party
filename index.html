@@ -388,7 +388,7 @@ main{padding:14px 0 130px}
 .hmv .hm-t{background:linear-gradient(180deg,rgba(255,255,255,.09),rgba(255,255,255,.035));border-color:rgba(255,255,255,.13);box-shadow:inset 0 1px 0 rgba(255,255,255,.07);border-radius:16px}
 .hmv .hm-t svg{fill:currentColor;fill-opacity:.24;filter:drop-shadow(0 0 6px currentColor)}
 .hmv .hm-t span{color:#DCD8F5}
-.hmv .hm-t[data-k="Invitaciones"] svg{color:#A78BFA}
+.hmv .hm-t[data-k="Amigos"] svg{color:#A78BFA}
 .hmv .hm-t[data-k="Chat"] svg{color:#C58BFF}
 .hmv .hm-t[data-k="Lugares"] svg{color:#2DD4BF}
 .hmv .hm-t[data-k="Fotos"] svg{color:#7C9BFF}
@@ -458,6 +458,13 @@ details.loc summary{cursor:pointer;font-weight:700;color:var(--accent);padding:8
 .pf-head:has(.pmf){gap:14px}
 .pf-head:has(.pmf) .pf-stats{display:grid;grid-template-columns:1fr 1fr;row-gap:14px;column-gap:6px}
 .pf-stats span{white-space:nowrap}
+.past-t{display:flex;align-items:center;justify-content:space-between;width:100%;margin:18px 0 10px;padding:12px 16px;border-radius:16px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:inherit;font-weight:700;font-size:16px}
+.mo-card{display:flex;align-items:center;gap:14px;text-align:left}
+.mo-cv{width:72px;height:72px;border-radius:16px;object-fit:cover;flex:none}
+.mo-ic{display:grid;place-items:center;background:rgba(255,255,255,.08);font-size:34px}
+.mo-ic .ev3,.mo-ic img{width:56px;height:56px;border-radius:12px}
+.fm-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+.fm-grid img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:6px}
 .pf-name{font-weight:800;font-size:18px}
 .pf-priv{margin:6px 0 12px}
 .evi{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-size:20px;flex:none}
@@ -970,7 +977,11 @@ function mpAct(a, t){
 }
 /* quién ve el evento: privado (solo tú y quienes asisten) o público (también tus seguidores, en tu perfil) */
 function visBtns(){ var p = !!(ui.form && ui.form.pub); return '<button type="button" class="' + (p ? '' : 'on') + '" aria-pressed="' + !p + '" data-act="pick-vis" data-v="0">Privado</button><button type="button" class="' + (p ? 'on' : '') + '" aria-pressed="' + p + '" data-act="pick-vis" data-v="1">Público</button>'; }
-function visText(){ return ui.form && ui.form.pub ? 'Tus seguidores también lo ven en tu perfil (nombre, fecha y lugar). Las fotos siguen siendo solo para quienes asisten.' : 'Solo lo ves tú y quienes asisten.'; }
+function visText(){
+  if (ui.form && ui.form.kind === 'momento') return ui.form.pub ? 'Tus seguidores lo ven en Momentos, con sus fotos.' : 'Solo lo ves tú y quienes invites.';
+  return ui.form && ui.form.pub ? 'Tus seguidores también lo ven en tu perfil (nombre, fecha y lugar). Las fotos siguen siendo solo para quienes asisten.' : 'Solo lo ves tú y quienes asisten.';
+}
+function isMoment(ev){ return !!ev && ev.kind === 'momento'; }
 /* fila rápida de íconos en "Nuevo evento": el elegido primero y cuatro de los más usados */
 function evQuick(){
   var sel = (ui.form && ui.form.emoji) || '🎂', list = [sel];
@@ -1390,6 +1401,29 @@ var SB = {
       });
     }).catch(function(){});
   },
+  /* momentos públicos de la gente que sigo (el servidor solo devuelve los que puedo ver) */
+  pullFriendMoments: function(){
+    if (!SB.session || !SB.session.access_token || !S.serverId) return Promise.resolve();
+    return SB.rest('events', 'GET', null, '?kind=eq.momento&is_public=eq.true&owner_id=neq.' + S.serverId + '&select=id,title,place_text,owner_id,created_at&order=created_at.desc&limit=50').then(function(r){
+      if (!r.ok) return;
+      var rows = r.data || [];
+      return SB.resolveNames(rows.map(function(x){ return x.owner_id; })).then(function(names){
+        var list = rows.map(function(x){ return {id: x.id, title: x.title, place: x.place_text || '', owner: names[x.owner_id] || T('Alguien')}; });
+        if (JSON.stringify(list) !== JSON.stringify(S.friendMoments || [])) { S.friendMoments = list; save(); if (ui.view === 'momentos') render(false); }
+      });
+    }).catch(function(){});
+  },
+  pullFriendMomentPhotos: function(id){
+    ui.fmPhotos = ui.fmPhotos || {};
+    if (!SB.session || !SB.session.access_token) { ui.fmPhotos[id] = []; render(false); return Promise.resolve(); }
+    return SB.rest('photos', 'GET', null, '?event_id=eq.' + id + '&select=storage_path&order=created_at.desc&limit=60').then(function(r){
+      var rows = (r.ok && r.data) || [];
+      return Promise.all(rows.map(function(p){ return SB.downloadPhoto(p.storage_path).catch(function(){ return null; }); })).then(function(list){
+        ui.fmPhotos[id] = list.filter(Boolean);
+        if (ui.view === 'fmoment' && ui.fm === id) render(false);
+      });
+    }).catch(function(){ ui.fmPhotos[id] = []; if (ui.view === 'fmoment') render(false); });
+  },
   leaveGroup: function(gid){
     if (!gid || !SB.session || !SB.session.access_token || !S.serverId) return Promise.resolve(false);
     return SB.rest('group_members', 'DELETE', null, '?group_id=eq.' + gid + '&user_id=eq.' + S.serverId, 'return=minimal').then(function(r){ return !!r.ok; }).catch(function(){ return false; });
@@ -1409,7 +1443,7 @@ var SB = {
       var starts = ev.date ? (ev.date + 'T' + (ev.time || '00:00') + ':00') : null;
       var eid = SB.uuid();
       var gg = ev.geo && !ev.geoDemo ? ev.geo : null;
-      return SB.rest('events', 'POST', {id: eid, group_id: gid, owner_id: S.serverId, title: ev.name, place_text: ev.place || '', starts_at: starts, lat: gg ? gg.lat : null, lon: gg ? gg.lon : null, is_public: !!ev.pub, remind_d3: !ev.remind || ev.remind.d3 !== false, remind_d1: !ev.remind || ev.remind.d1 !== false, remind_d0: !ev.remind || ev.remind.d0 !== false}, '', 'return=minimal').then(function(res){
+      return SB.rest('events', 'POST', {id: eid, group_id: gid, owner_id: S.serverId, title: ev.name, place_text: ev.place || '', starts_at: starts, lat: gg ? gg.lat : null, lon: gg ? gg.lon : null, is_public: !!ev.pub, kind: isMoment(ev) ? 'momento' : 'evento', remind_d3: !ev.remind || ev.remind.d3 !== false, remind_d1: !ev.remind || ev.remind.d1 !== false, remind_d0: !ev.remind || ev.remind.d0 !== false}, '', 'return=minimal').then(function(res){
         if (res.ok) { ev.serverId = eid; save(); return eid; }
         SB.fail('evento', res); return null;
       });
@@ -1628,7 +1662,7 @@ var SB = {
             }).catch(function(){ return null; });
           })).then(function(photos){
             return {
-              id: 'srv_' + erow.id, serverId: erow.id, ownerId: erow.owner_id || '', inviteCode: erow.invite_code || '', name: erow.title, place: erow.place_text || '',
+              id: 'srv_' + erow.id, serverId: erow.id, kind: erow.kind || 'evento', ownerId: erow.owner_id || '', inviteCode: erow.invite_code || '', name: erow.title, place: erow.place_text || '',
               date: erow.starts_at ? erow.starts_at.slice(0, 10) : '', time: erow.starts_at ? erow.starts_at.slice(11, 16) : '',
               emoji: '🎉', grad: 0, code: mkCode(), members: [S.me], created: Date.parse(erow.created_at) || Date.now(),
               geo: (typeof erow.lat === 'number' && typeof erow.lon === 'number') ? {lat: erow.lat, lon: erow.lon} : null, pub: !!erow.is_public,
@@ -1643,7 +1677,7 @@ var SB = {
     }).then(function(evs){
       (evs || []).forEach(function(nev){
         var existing = S.events.filter(function(e){ return e.serverId === nev.serverId; })[0];
-        if (existing) { var keep = existing.photos.filter(function(p){ return p.pend && !p.synced; }); existing.photos = nev.photos.concat(keep); existing.chat = nev.chat; existing.songs = nev.songs; Object.assign(existing, {name: nev.name, place: nev.place, date: nev.date, time: nev.time, inviteCode: nev.inviteCode || existing.inviteCode, ownerId: nev.ownerId || existing.ownerId}); if (nev.geo) { existing.geo = nev.geo; delete existing.geoDemo; } existing.pub = nev.pub; existing.remind = nev.remind; }
+        if (existing) { var keep = existing.photos.filter(function(p){ return p.pend && !p.synced; }); existing.photos = nev.photos.concat(keep); existing.chat = nev.chat; existing.songs = nev.songs; Object.assign(existing, {name: nev.name, place: nev.place, date: nev.date, time: nev.time, inviteCode: nev.inviteCode || existing.inviteCode, ownerId: nev.ownerId || existing.ownerId, kind: nev.kind || existing.kind}); if (nev.geo) { existing.geo = nev.geo; delete existing.geoDemo; } existing.pub = nev.pub; existing.remind = nev.remind; }
         else S.events.push(nev);
       });
       save();
@@ -1801,19 +1835,21 @@ function eventView(){
   var ev = cur();
   if (!ev) { ui.view = 'home'; return home(); }
   var tab = function(k, label, n){ return '<button class="tab' + (ui.tab === k ? ' on' : '') + '" role="tab" aria-selected="' + (ui.tab === k) + '" data-act="tab" data-tab="' + k + '">' + label + (n !== '' && n != null ? '<small>' + n + '</small>' : '') + '</button>'; };
-  var body = ui.tab === 'fotos' ? fotosBody(ev) : ui.tab === 'chat' ? chatBody(ev) : planBody(ev);
+  var mo = isMoment(ev);
+  var body = ui.tab === 'fotos' ? fotosBody(ev) : ui.tab === 'chat' ? chatBody(ev) : mo ? momentBody(ev) : planBody(ev);
   var bar = '';
   if (ui.tab === 'fotos') bar = fotosBar();
   if (ui.tab === 'chat') bar = '<div class="bar"><div class="wrap comp"><button class="btn sq" data-act="ch-attach" data-k="ev" aria-label="Enviar una foto">' + I.image + '</button><input id="chatin" class="inp" placeholder="Escribe un mensaje" aria-label="Mensaje" autocomplete="off" value="' + esc(ui.draft) + '"><button class="btn primary sq" data-act="send" aria-label="Enviar">' + I.send + '</button></div></div>';
   if (ui.tab === 'plan') bar = '<div class="bar"><div class="wrap"><button class="btn primary block" data-act="pl-invite">' + I.plus + ' Invitar amigos</button></div></div>';
+  if (isMoment(ev) && ui.tab === 'plan' && !isMineEv(ev)) bar = '';
   return '<header class="top"><div class="wrap"><div class="bar1"><button class="ib" data-act="back" aria-label="Volver a eventos">' + I.back + '</button><div class="tt"><div class="ttl" data-nt>' + evIco(ev.emoji) + ' ' + esc(ev.name) + '</div><div class="meta">' +
     (ev.place ? '<span>' + I.pin + esc(ev.place) + '</span>' : '') + (ev.date ? '<span>' + I.cal + esc(fmtDate(ev.date) + (ev.time ? ', ' + fmtHour(ev.time) : '')) + '</span>' : '') +
-    '</div></div></div><nav class="tabs" role="tablist">' + tab('plan', 'Plan', '') + tab('fotos', 'Fotos', ev.photos.length) + tab('chat', 'Chat', ev.chat.length || '') + '</nav></div></header>' +
-    '<main class="wrap">' + secMenu('Eventos') + body + '</main>' + bar;
+    '</div></div></div><nav class="tabs" role="tablist">' + (mo ? tab('fotos', 'Fotos', ev.photos.length) + tab('chat', 'Chat', ev.chat.length || '') + tab('plan', 'Info', '') : tab('plan', 'Plan', '') + tab('fotos', 'Fotos', ev.photos.length) + tab('chat', 'Chat', ev.chat.length || '')) + '</nav></div></header>' +
+    '<main class="wrap">' + secMenu(mo ? 'Momentos' : 'Eventos') + body + '</main>' + bar;
 }
 function render(keep){
   var y = window.scrollY;
-  app.innerHTML = ui.view === 'home' ? home() : ui.view === 'invites' ? invitesView() : ui.view === 'music' ? musicView() : ui.view === 'tienda' ? tiendaView() : ui.view === 'places' ? placesView() : ui.view === 'place' ? placeView() : ui.view === 'fotos' ? fotosView() : ui.view === 'chats' ? chatsView() : ui.view === 'gchat' ? gchatView() : ui.view === 'profile' ? profileView() : ui.view === 'user' ? userView() : eventView();
+  app.innerHTML = ui.view === 'home' ? home() : ui.view === 'invites' ? invitesView() : ui.view === 'music' ? musicView() : ui.view === 'tienda' ? tiendaView() : ui.view === 'places' ? placesView() : ui.view === 'place' ? placeView() : ui.view === 'fotos' ? fotosView() : ui.view === 'momentos' ? momentosView() : ui.view === 'fmoment' ? friendMomentView() : ui.view === 'chats' ? chatsView() : ui.view === 'gchat' ? gchatView() : ui.view === 'profile' ? profileView() : ui.view === 'user' ? userView() : eventView();
   if (ui.view === 'invites') { renderQrInto(groupCode()); SB.pullOtherGroups(); }
   checkLevelUp();
   if (keep !== false) window.scrollTo(0, y);
@@ -1866,7 +1902,12 @@ function act(a, t){
   var ev, list, i;
   switch (a) {
     case 'note-ok': S.noteSeen = true; save(); render(); break;
-    case 'new-event': ui.editId = null; ui.sheet = 'new'; renderSheet(); break;
+    case 'new-event': ui.editId = null; ui.newKind = null; ui.sheet = 'new'; renderSheet(); break;
+    case 'past-toggle': ui.showPast = !ui.showPast; render(false); break;
+    case 'fm-back': ui.view = 'momentos'; ui.fm = null; render(false); window.scrollTo(0, 0); break;
+    case 'new-moment': ui.editId = null; ui.newKind = 'momento'; ui.sheet = 'new'; renderSheet(); break;
+    case 'mo-open': ui.view = 'event'; ui.eid = t.dataset.id; ui.tab = 'fotos'; ui.from = 'momentos'; render(false); window.scrollTo(0, 0); break;
+    case 'fm-open': ui.view = 'fmoment'; ui.fm = t.dataset.id; render(false); window.scrollTo(0, 0); SB.pullFriendMomentPhotos(t.dataset.id); break;
     case 'close-sheet': ui.editId = null; ui.sheet = null; renderSheet(); break;
     case 'pick-emoji':
       ui.form.emoji = t.dataset.e;
@@ -1897,21 +1938,22 @@ function act(a, t){
       break;
     case 'create-event':
       var name = ($('#f-name').value || '').trim();
-      if (!name) { toast('Ponle un nombre al evento'); $('#f-name').focus(); return; }
-      var data = {name: name, place: ($('#f-place').value || '').trim(), date: $('#f-date').value, time: $('#f-time').value, notes: ($('#f-notes').value || '').trim(), emoji: ui.form.emoji || '🎂', pub: !!ui.form.pub};
+      var mk = ui.form.kind === 'momento';
+      if (!name) { toast(mk ? 'Ponle un nombre al momento' : 'Ponle un nombre al evento'); $('#f-name').focus(); return; }
+      var data = {name: name, place: ($('#f-place').value || '').trim(), date: $('#f-date').value, time: $('#f-time').value, notes: ($('#f-notes').value || '').trim(), emoji: ui.form.emoji || '🎂', pub: !!ui.form.pub, kind: mk ? 'momento' : 'evento'};
       if (ui.editId) {
         ev = S.events.filter(function(e){ return e.id === ui.editId; })[0];
         if (ev) { Object.assign(ev, data); if (ui.form.geo !== undefined) { ev.geo = ui.form.geo; delete ev.geoDemo; } SB.pushEvent(ev); }
         ui.editId = null; ui.sheet = null; renderSheet(); save(); render(); toast('Cambios guardados');
         break;
       }
-      ev = newEvent(data); ev.toSync = true; ev.pub = !!data.pub; if (ui.form.geo) ev.geo = ui.form.geo;
+      ev = newEvent(data); ev.toSync = true; ev.pub = !!data.pub; ev.kind = data.kind; if (ui.form.geo) ev.geo = ui.form.geo;
       S.events.push(ev); save();
       SB.syncEvent(ev);
-      ui.sheet = null; renderSheet();
-      ui.view = 'event'; ui.eid = ev.id; ui.tab = 'plan';
+      ui.sheet = null; ui.newKind = null; renderSheet();
+      ui.view = 'event'; ui.eid = ev.id; ui.tab = mk ? 'fotos' : 'plan'; ui.from = mk ? 'momentos' : null;
       render(false); window.scrollTo(0, 0);
-      setTimeout(pushAsk, 1500); /* para que le lleguen los recordatorios de este evento */
+      if (!mk) setTimeout(pushAsk, 1500); /* para que le lleguen los recordatorios de este evento */
       break;
     case 'open': ui.from = null; ui.view = 'event'; ui.eid = t.dataset.id; ui.tab = defTab(S.events.filter(function(e){ return e.id === t.dataset.id; })[0]); render(false); window.scrollTo(0, 0); break;
     case 'back': ui.view = ui.from || 'home'; ui.from = null; ui.eid = null; render(false); window.scrollTo(0, 0); break;
@@ -2473,12 +2515,12 @@ function artSVG(){
 }
 
 var CV_TILES = [
-  ['Eventos', svg('<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4M8.5 14h.01M12 14h.01M15.5 14h.01"/>', 24), ''],
-  ['Invitaciones', svg('<circle cx="9" cy="8" r="3.5"/><path d="M3 20c0-3.5 2.7-6 6-6s6 2.5 6 6M18 8v6M15 11h6"/>', 24), ''],
   /* 'Música' se quitó por ahora del menú y de la portada; el código sigue abajo (musicBlock, musicView) por si se vuelve a activar */
-  ['Chat', svg('<path d="M21 12a8 8 0 0 1-11.7 7L4 20l1.2-4.6A8 8 0 1 1 21 12z"/><path d="M8.5 12h.01M12 12h.01M15.5 12h.01"/>', 24), ''],
-  ['Lugares', svg('<path d="M12 21s7-6.2 7-11.5A7 7 0 0 0 5 9.5C5 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>', 24), 'cy'],
+  ['Eventos', svg('<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4M8.5 14h.01M12 14h.01M15.5 14h.01"/>', 24), ''],
+  ['Momentos', svg('<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M4 18l5-5 4 4 3-3 4 4"/>', 24), ''],
   ['Fotos', svg('<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M4 18l5-5 4 4 3-3 4 4"/>', 24), ''],
+  ['Chat', svg('<path d="M21 12a8 8 0 0 1-11.7 7L4 20l1.2-4.6A8 8 0 1 1 21 12z"/><path d="M8.5 12h.01M12 12h.01M15.5 12h.01"/>', 24), ''],
+  ['Amigos', svg('<circle cx="9" cy="8" r="3.5"/><path d="M3 20c0-3.5 2.7-6 6-6s6 2.5 6 6M18 8v6M15 11h6"/>', 24), ''],
   ['Tienda', svg('<path d="M4 9l1.5-5h13L20 9M4 9v10a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V9M4 9h16M9 13a3 3 0 0 0 6 0"/>', 24), 'pk']
 ];
 if (ANDROID_APP) CV_TILES = CV_TILES.filter(function(t){ return t[0] !== 'Tienda'; });
@@ -2625,7 +2667,7 @@ function norm(ev){
   return ev;
 }
 function defTab(ev){
-  if (!ev) return 'fotos';
+  if (!ev || isMoment(ev)) return 'fotos';
   var n = daysUntil(ev.date);
   return (n !== null && n >= 0 && !ev.photos.length) ? 'plan' : 'fotos';
 }
@@ -2708,7 +2750,7 @@ function remHTML(r){
   return '<button class="rem" data-act="open" data-id="' + ev.id + '"><span class="bell">' + I.bell + '</span><span><strong>' + title + '</strong><span>' + esc(ev.name) + (ev.time ? ' a las ' + esc(fmtHour(ev.time)) : '') + '</span></span></button>';
 }
 function home(){
-  var evs = S.events.slice().sort(function(a, b){
+  var evs = S.events.filter(function(e){ return !isMoment(e); }).sort(function(a, b){
     var da = daysUntil(a.date), db = daysUntil(b.date), ua = da !== null && da >= 0, ub = db !== null && db >= 0;
     if (ua !== ub) return ua ? -1 : 1;
     if (ua) return da - db;
@@ -2717,10 +2759,30 @@ function home(){
   var rems = dueReminders();
   return '<div class="wrap hmv"><header class="hero">' + homeFx() + '<div><h1>Friends<br><span class="h1g">Party</span></h1><div class="tagl">Eventos que te unen</div></div>' + (S.me ? '<div class="hero-r"><button class="hfind" data-act="pf-find" aria-label="Buscar personas">' + svg('<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>', 20) + '</button><button class="pfbtn" data-act="pf-open" aria-label="Mi perfil">' + avP(S.me, 68) + '</button></div>' : '') + '</header>' + homeMenu() +
     (rems.length ? '<div class="rems">' + rems.map(remHTML).join('') + '</div>' : '') +
-    (evs.length ? '<div class="list">' + evs.map(card).join('') + '</div>' : '<div class="empty">' + homeArt() + '<div class="gp"><p><strong>Todavía no tienes eventos.</strong></p><p class="muted">Crea uno y comparte su código con tus amigos.</p></div></div>') +
+    (evs.length ? evListHtml(evs) : '<div class="empty">' + homeArt() + '<div class="gp"><p><strong>Todavía no tienes eventos.</strong></p><p class="muted">Crea uno y comparte su código con tus amigos.</p></div></div>') +
     '</div><div class="bar hb"><div class="wrap"><button class="btn primary block" data-act="new-event">' + I.plus + ' Nuevo evento<span class="chev">' + svg('<path d="M9 5l7 7-7 7"/>', 22) + '</span></button></div></div>';
 }
 
+/* los que vienen arriba; los que ya pasaron en un apartado plegable para que no estorben */
+function evListHtml(evs){
+  var past = evs.filter(function(e){ var n = daysUntil(e.date); return n !== null && n < 0; });
+  var next = evs.filter(function(e){ return past.indexOf(e) < 0; });
+  return '<div class="list"' + (past.length ? ' style="padding-bottom:0"' : '') + '>' + (next.length ? next.map(card).join('') : '<div class="gp" style="padding:16px"><p class="muted" style="margin:0">No tienes eventos próximos. Crea uno nuevo abajo.</p></div>') + '</div>' +
+    (past.length ? '<button class="past-t" data-act="past-toggle" aria-expanded="' + !!ui.showPast + '">' + T('Eventos pasados ({n})', {n: past.length}) + svg(ui.showPast ? '<path d="M6 15l6-6 6 6"/>' : '<path d="M6 9l6 6 6-6"/>', 20) + '</button>' +
+      (ui.showPast ? '<div class="list">' + past.map(card).join('') + '</div>' : '') : '');
+}
+/* pestaña Info de un momento: sin fecha, sin "¿vas a ir?" ni recordatorios */
+function momentBody(ev){
+  var g = GR[ev.grad % GR.length];
+  var hero = '<section class="pl-hero" style="background:linear-gradient(rgba(20,12,60,.4),rgba(20,12,60,.4)),linear-gradient(135deg,' + g[0] + ',' + g[1] + ')"><div class="k">' + T('Momento') + '</div><div class="big" data-nt>' + esc(ev.name) + '</div><ul>' +
+    (ev.place ? '<li>' + I.pin + esc(ev.place) + '</li>' : '') + '<li>' + I.image + ev.photos.length + (ev.photos.length === 1 ? ' foto' : ' fotos') + '</li>' +
+    '<li>' + (ev.pub ? 'Público: lo ven tus seguidores' : 'Privado: solo tú y quienes invites') + '</li></ul>' + (ev.notes ? '<p class="notes">' + esc(ev.notes) + '</p>' : '') + '</section>';
+  var people = '<h3 class="pl-h">Personas (' + ev.members.length + ')</h3><ul class="people">' + ev.members.map(function(m){ return '<li class="lnk"><button class="rowbtn" data-act="us-open" data-n="' + esc(m) + '">' + av(m, 36) + '<span class="nm">' + esc(m) + (m === S.me ? ' (tú)' : '') + '</span></button></li>'; }).join('') + '</ul>';
+  var mine = isMineEv(ev);
+  var more = '<div class="ev-acts">' + (mine ? '<button class="btn" data-act="pl-edit">' + svg('<path d="M4 20l1-4L16 5l3 3L8 19l-4 1zM14 7l3 3"/>', 18) + ' Editar momento</button>' : '') +
+    '<button class="btn danger" data-act="ev-del">' + svg('<path d="M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13"/>', 18) + ' ' + (mine ? (ui.armed === 'e' + ev.id ? 'Toca otra vez para eliminar' : 'Eliminar momento') : (ui.armed === 'e' + ev.id ? 'Toca otra vez para salir' : 'Salir del momento')) + '</button></div>';
+  return hero + people + more;
+}
 /* pestaña Plan */
 function planBody(ev){
   var n = daysUntil(ev.date), g = GR[ev.grad % GR.length], mine = ev.rsvp[S.me] || '';
@@ -2765,7 +2827,7 @@ function notConnNote(){
 }
 function inviteSheet(){
   return '<div class="scrim" data-act="close-sheet"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="Invitar a un amigo"><h2>Invitar a un amigo</h2>' +
-    '<p class="muted small">Que tu amigo escanee este código con la cámara. Al entrar, ve solo este evento.</p>' + notConnNote() +
+    '<p class="muted small">' + (isMoment(cur()) ? 'Que tu amigo escanee este código con la cámara. Al entrar, ve solo este momento y puede subir fotos.' : 'Que tu amigo escanee este código con la cámara. Al entrar, ve solo este evento.') + '</p>' + notConnNote() +
     '<div class="qrframe"><div class="qrwrap" id="qr-target"><p class="muted small">Generando…</p></div><div class="qr-mark">' + I.crown + '</div></div>' +
     '<div class="code" id="ev-code" style="text-align:center;margin-bottom:6px">' + esc(evCode(cur())) + '</div>' +
     (navigator.share ? '<button class="btn block" data-act="inv-share" data-k="ev" style="margin-bottom:12px">Compartir invitación</button>' : '') +
@@ -2795,22 +2857,23 @@ function renderSheet(){
     focus = '#f-me';
   } else if (ui.sheet === 'new') {
     var ed = ui.editId ? S.events.filter(function(e){ return e.id === ui.editId; })[0] : null;
-    ui.form = {emoji: ed ? ed.emoji : '🎂', geo: ed && ed.geo && !ed.geoDemo ? ed.geo : null, pub: !!(ed && ed.pub)};
-    var ttl = ed ? 'Editar evento' : 'Nuevo evento';
+    var mo = ed ? isMoment(ed) : ui.newKind === 'momento';
+    ui.form = {emoji: ed ? ed.emoji : (mo ? '🎉' : '🎂'), geo: ed && ed.geo && !ed.geoDemo ? ed.geo : null, pub: !!(ed && ed.pub), kind: mo ? 'momento' : 'evento'};
+    var ttl = mo ? (ed ? 'Editar momento' : 'Nuevo momento') : (ed ? 'Editar evento' : 'Nuevo evento');
     var tw = T(ttl).split(' '), tlast = tw.length > 1 ? tw.pop() : '';
     var row = function(ico, inner){ return '<div class="evs-r"><span class="evs-i" aria-hidden="true">' + svg(ico, 22) + '</span>' + inner + '</div>'; };
     el.innerHTML = '<div class="scrim" data-act="close-sheet"></div><div class="sheet evs" role="dialog" aria-modal="true" aria-label="' + ttl + '">' +
-      '<div class="evs-h"><div><h2 data-nt>' + esc(tw.join(' ')) + (tlast ? ' <span>' + esc(tlast) + '</span>' : '') + '</h2>' + (ed ? '' : '<p class="muted">Crea un evento y reúne a tus amigos</p>') + '</div><img class="evs-art" src="icons/menu/eventos.jpg" alt="" width="220" height="201"></div>' +
-      row('<path d="M4 20l1-4L16 5l3 3L8 19l-4 1zM14 7l3 3"/>', '<label>Nombre<input id="f-name" class="inp" placeholder="Asado en la finca" maxlength="60" autocomplete="off" value="' + esc(ed ? ed.name : '') + '"></label>') +
-      '<div class="two">' + row('<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/>', '<label>Fecha<input id="f-date" type="hidden" value="' + esc(ed ? ed.date : todayISO()) + '"><button type="button" class="inp datebtn" id="f-date-btn" data-act="cal-open"><span data-nt>' + esc(calLabel(ed ? ed.date : todayISO())) + '</span></button></label>') +
-      row('<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>', '<label>Hora<input id="f-time" type="hidden" value="' + esc(ed ? ed.time : '') + '"><button type="button" class="inp datebtn" id="f-time-btn" data-act="tm-open"><span data-nt>' + esc(tmLabel(ed ? ed.time : '')) + '</span>' + svg('<path d="M6 9l6 6 6-6"/>', 16) + '</button></label>') + '</div>' +
-      row('<path d="M12 21s7-6.2 7-11.5A7 7 0 0 0 5 9.5C5 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>', '<div class="evs-pl"><label>Lugar<input id="f-place" class="inp" placeholder="Casa de José, restaurante, parque…" maxlength="80" autocomplete="off" value="' + esc(ed ? ed.place : '') + '"></label><button type="button" class="evs-map" data-act="mp-open" aria-label="Elegir el lugar en el mapa">' + svg('<circle cx="12" cy="12" r="6.5"/><circle cx="12" cy="12" r="2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3"/>', 20) + '</button><div class="evs-geo" id="f-geo">' + mpChip() + '</div></div>') +
-      row('<rect x="5" y="3.5" width="14" height="17" rx="2.5"/><path d="M9 9h6M9 12.5h6M9 16h3"/>', '<label>Detalles (opcional)<input id="f-notes" class="inp" placeholder="Qué llevar, cómo llegar…" maxlength="140" autocomplete="off" value="' + esc(ed ? ed.notes : '') + '"></label>') +
+      '<div class="evs-h"><div><h2 data-nt>' + esc(tw.join(' ')) + (tlast ? ' <span>' + esc(tlast) + '</span>' : '') + '</h2>' + (ed ? '' : '<p class="muted">' + (mo ? 'Guarda tus fotos y compártelas con quien quieras' : 'Crea un evento y reúne a tus amigos') + '</p>') + '</div><img class="evs-art" src="icons/menu/' + (mo ? 'momentos' : 'eventos') + '.jpg" alt="" width="220" height="201"></div>' +
+      row('<path d="M4 20l1-4L16 5l3 3L8 19l-4 1zM14 7l3 3"/>', '<label>Nombre<input id="f-name" class="inp" placeholder="' + (mo ? 'Vacaciones en la playa' : 'Asado en la finca') + '" maxlength="60" autocomplete="off" value="' + esc(ed ? ed.name : '') + '"></label>') +
+      (mo ? '<input id="f-date" type="hidden" value="' + esc(ed ? ed.date : '') + '"><input id="f-time" type="hidden" value="">' : '<div class="two">' + row('<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/>', '<label>Fecha<input id="f-date" type="hidden" value="' + esc(ed ? ed.date : todayISO()) + '"><button type="button" class="inp datebtn" id="f-date-btn" data-act="cal-open"><span data-nt>' + esc(calLabel(ed ? ed.date : todayISO())) + '</span></button></label>') +
+      row('<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>', '<label>Hora<input id="f-time" type="hidden" value="' + esc(ed ? ed.time : '') + '"><button type="button" class="inp datebtn" id="f-time-btn" data-act="tm-open"><span data-nt>' + esc(tmLabel(ed ? ed.time : '')) + '</span>' + svg('<path d="M6 9l6 6 6-6"/>', 16) + '</button></label>') + '</div>') +
+      row('<path d="M12 21s7-6.2 7-11.5A7 7 0 0 0 5 9.5C5 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>', '<div class="evs-pl"><label>' + (mo ? 'Ubicación' : 'Lugar') + '<input id="f-place" class="inp" placeholder="' + (mo ? 'Ciudad, playa, casa…' : 'Casa de José, restaurante, parque…') + '" maxlength="80" autocomplete="off" value="' + esc(ed ? ed.place : '') + '"></label><button type="button" class="evs-map" data-act="mp-open" aria-label="Elegir el lugar en el mapa">' + svg('<circle cx="12" cy="12" r="6.5"/><circle cx="12" cy="12" r="2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3"/>', 20) + '</button><div class="evs-geo" id="f-geo">' + mpChip() + '</div></div>') +
+      row('<rect x="5" y="3.5" width="14" height="17" rx="2.5"/><path d="M9 9h6M9 12.5h6M9 16h3"/>', '<label>' + (mo ? 'Descripción (opcional)' : 'Detalles (opcional)') + '<input id="f-notes" class="inp" placeholder="' + (mo ? 'De qué se trata este momento' : 'Qué llevar, cómo llegar…') + '" maxlength="140" autocomplete="off" value="' + esc(ed ? ed.notes : '') + '"></label>') +
       row('<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M4 18l5-5 4 4 3-3 4 4"/>', '<div class="evs-ic"><span class="evs-lbl">Ícono</span><div class="evs-q"><div class="evs-qs" id="icon-quick">' + evQuick() + '</div>' +
         '<button type="button" class="evs-more" id="icon-pick-btn" data-act="toggle-icons" aria-expanded="false" aria-controls="icon-grid" aria-label="Ver todos los íconos">' + svg('<path d="M6 9l6 6 6-6"/>', 18) + '</button></div></div>') +
       row('<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.8 3 2.8 14 0 17M12 3.5c-2.8 3-2.8 14 0 17"/>', '<div class="evs-ic"><span class="evs-lbl">¿Quién puede verlo?</span><div class="seg evs-vis" id="f-vis" role="group" aria-label="¿Quién puede verlo?">' + visBtns() + '</div><p class="muted small evs-visx" id="f-visx">' + visText() + '</p></div>') +
       '<div class="ems" id="icon-grid" role="group" aria-label="Elige un ícono" hidden>' + ICONS.map(function(ic){ return '<button class="em' + (ic.e === ui.form.emoji ? ' on' : '') + '" data-act="pick-emoji" data-e="' + ic.e + '" aria-label="' + esc(ic.l) + '"><span class="em-ico">' + evIco(ic.e) + '</span><span class="em-lbl">' + esc(ic.l) + '</span></button>'; }).join('') + '</div>' +
-      '<button class="btn primary block evs-go" data-act="create-event">' + (ed ? 'Guardar cambios' : 'Crear evento') + '<span class="chev">' + svg('<path d="M9 5l7 7-7 7"/>', 18) + '</span></button><button class="link" data-act="close-sheet">Cancelar</button></div>';
+      '<button class="btn primary block evs-go" data-act="create-event">' + (ed ? 'Guardar cambios' : mo ? 'Crear momento' : 'Crear evento') + '<span class="chev">' + svg('<path d="M9 5l7 7-7 7"/>', 18) + '</span></button><button class="link" data-act="close-sheet">Cancelar</button></div>';
     focus = '#f-name';
   } else if (ui.sheet === 'invite') {
     el.innerHTML = inviteSheet(); wireUserSearch('i-name', 'i-found'); renderQrInto(evCode(cur()));
@@ -2926,13 +2989,13 @@ function homeArt(){
   return '<img class="ill" src="icons/inicio.jpg" alt="" width="800" height="612">';
 }
 /* íconos 3D del menú (recortes de la lámina de diseño) */
-var MENU_IMG = {'Eventos': 'eventos', 'Invitaciones': 'invitaciones', 'Chat': 'chat', 'Lugares': 'lugares', 'Fotos': 'fotos', 'Tienda': 'tienda'};
+var MENU_IMG = {'Eventos': 'eventos', 'Momentos': 'momentos', 'Amigos': 'invitaciones', 'Chat': 'chat', 'Lugares': 'lugares', 'Fotos': 'fotos', 'Tienda': 'tienda'};
 /* el mismo menú arriba de cada sección, con el marco en la sección donde estás */
 function secMenu(act){ return '<div class="hmv secm">' + homeMenu(act) + '</div>'; }
 function homeMenu(act){
   act = act || 'Eventos';
   return '<nav class="hm" aria-label="Secciones">' + CV_TILES.map(function(t){
-    return '<button class="hm-t' + (t[0] === act ? ' on' : '') + (t[2] ? ' ' + t[2] : '') + '" data-act="hm" data-k="' + t[0] + '"' + (t[0] === act ? ' aria-current="page"' : '') + '>' + (MENU_IMG[t[0]] ? '<img src="icons/menu/' + MENU_IMG[t[0]] + '.jpg" alt="" width="220" height="201">' : t[1]) + '<span>' + t[0] + '</span>' + (t[0] === 'Invitaciones' && pendingCount() ? '<b class="bd">' + pendingCount() + '</b>' : '') + (t[0] === 'Chat' && totalUnread() ? '<b class="bd">' + totalUnread() + '</b>' : '') + '</button>';
+    return '<button class="hm-t' + (t[0] === act ? ' on' : '') + (t[2] ? ' ' + t[2] : '') + '" data-act="hm" data-k="' + t[0] + '"' + (t[0] === act ? ' aria-current="page"' : '') + '>' + (MENU_IMG[t[0]] ? '<img src="icons/menu/' + MENU_IMG[t[0]] + '.jpg" alt="" width="220" height="201">' : t[1]) + '<span>' + t[0] + '</span>' + (t[0] === 'Amigos' && pendingCount() ? '<b class="bd">' + pendingCount() + '</b>' : '') + (t[0] === 'Chat' && totalUnread() ? '<b class="bd">' + totalUnread() + '</b>' : '') + '</button>';
   }).join('') + '</nav>';
 }
 function menuAct(t){
@@ -2942,8 +3005,9 @@ function menuAct(t){
   else if (k === 'Chat') { ui.view = 'chats'; render(false); window.scrollTo(0, 0); }
   else if (k === 'Fotos') { ui.view = 'fotos'; render(false); window.scrollTo(0, 0); }
   else if (k === 'Lugares') { ui.view = 'places'; render(false); window.scrollTo(0, 0); }
+  else if (k === 'Momentos') { ui.view = 'momentos'; render(false); window.scrollTo(0, 0); SB.pullFriendMoments(); }
   else if (k === 'Música') { ui.view = 'music'; ui.mu.filter = 'all'; render(false); window.scrollTo(0, 0); }
-  else if (k === 'Invitaciones') {
+  else if (k === 'Invitaciones' || k === 'Amigos') {
     ensureGroup(); ui.view = 'invites'; render(false); window.scrollTo(0, 0); wireUserSearch('g-name', 'g-found'); SB.pullInvites(); setTimeout(pushAsk, 900);
     SB.ensureGroup().then(function(){ return SB.fetchGroupCode(); }).then(function(){
       return SB.pullGroupMembers();
@@ -3035,8 +3099,8 @@ function invitesView(){
         return '<li class="lnk"><button class="rowbtn" data-act="open" data-id="' + r.ev.id + '">' + av(r.v.who, 36) + '<span class="nm">' + esc(r.v.who) + '<small>' + esc(r.ev.name) + ', por ' + VIA[r.v.via] + '</small></span></button></li>';
       }).join('') + '</ul>'
     : '';
-  return '<header class="top"><div class="wrap"><div class="bar1"><button class="ib" data-act="back" aria-label="Volver al inicio">' + I.back + '</button><div class="tt"><div class="ttl">Invitaciones</div><div class="meta"><span>Tu grupo de la party</span></div></div></div></div></header>' +
-    '<main class="wrap">' + secMenu('Invitaciones') + inboxHtml() +
+  return '<header class="top"><div class="wrap"><div class="bar1"><button class="ib" data-act="back" aria-label="Volver al inicio">' + I.back + '</button><div class="tt"><div class="ttl">Amigos</div><div class="meta"><span>Tu grupo de la party</span></div></div></div></div></header>' +
+    '<main class="wrap">' + secMenu('Amigos') + '<button class="btn block" data-act="pf-find" style="margin-bottom:14px">' + svg('<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>', 20) + ' Buscar personas</button>' + inboxHtml() +
     '<h3 class="pl-h" style="margin-top:4px">Comparte tu grupo</h3><p class="muted small">Que tu amigo escanee este código con la cámara para unirse. Al entrar, ve tus eventos y fotos.</p>' + notConnNote() +
     '<div class="qrframe"><div class="qrwrap" id="qr-target"><p class="muted small">Generando…</p></div><div class="qr-mark">' + I.crown + '</div></div>' +
     '<div class="code" style="text-align:center;margin-bottom:6px">' + esc(groupCode()) + '</div>' +
@@ -3856,7 +3920,7 @@ function foFoot(){
 function fotosBody(ev){
   SB.pullClips(ev);
   var list = sorted(ev), sel = ui.fsel, m = ev.members.length;
-  if (!list.length) return clipsRow(ev) + '<div class="empty"><p><strong>Aún no hay fotos.</strong></p><p class="muted">Sube las primeras: las verán las ' + m + (m === 1 ? ' persona' : ' personas') + ' del evento.</p></div>';
+  if (!list.length) return clipsRow(ev) + '<div class="empty"><p><strong>Aún no hay fotos.</strong></p><p class="muted">' + (isMoment(ev) ? (m === 1 && !ev.pub ? 'Sube las primeras. Si quieres que otros las vean, invítalos o hazlo público.' : 'Sube las primeras para guardarlas en este momento.') : 'Sube las primeras: las verán las ' + m + (m === 1 ? ' persona' : ' personas') + ' del evento.') + '</p></div>';
   var seen = {}; list.forEach(function(p){ seen[p.by] = 1; });
   var people = Object.keys(seen).length;
   var top = sel
@@ -3879,6 +3943,34 @@ function fotosBar(){
 }
 
 /* sección Fotos del menú: álbumes de todos los eventos */
+/* MOMENTOS: álbumes que no son de un evento (las vacaciones, el bebé, los cuates de la U) */
+function momentosView(){
+  var mine = S.events.filter(isMoment).sort(function(a, b){ return (b.created || 0) - (a.created || 0); });
+  var fr = (S.friendMoments || []).filter(function(m){ return !S.events.some(function(e){ return e.serverId === m.id; }); });
+  var mcard = function(ev){
+    var ph = ev.photos.filter(function(p){ return p.data; }).slice(-1)[0];
+    return '<button class="card mo-card" data-act="mo-open" data-id="' + ev.id + '">' + (ph ? '<img class="mo-cv" src="' + ph.data + '" alt="">' : '<span class="mo-cv mo-ic">' + evIco(ev.emoji) + '</span>') +
+      '<div class="ct"><div class="t" data-nt>' + esc(ev.name) + '</div><div class="s">' + (ev.place ? esc(ev.place) + ' · ' : '') + ev.photos.length + (ev.photos.length === 1 ? ' foto' : ' fotos') + '</div>' +
+      '<div class="chips"><span class="chip">' + (ev.pub ? 'Público' : 'Privado') + '</span>' + (ev.members.length > 1 ? '<span class="chip">' + ev.members.length + ' personas</span>' : '') + '</div></div></button>';
+  };
+  return '<header class="top"><div class="wrap"><div class="bar1"><button class="ib" data-act="back" aria-label="Volver al inicio">' + I.back + '</button><div class="tt"><div class="ttl">Momentos</div><div class="meta"><span>Tus recuerdos, fuera de los eventos</span></div></div></div></div></header>' +
+    '<main class="wrap">' + secMenu('Momentos') +
+    (mine.length ? '<div class="list">' + mine.map(mcard).join('') + '</div>' : '<div class="empty"><img class="ill" src="icons/menu/momentos.jpg" alt="" width="220" height="201" style="max-width:140px"><div class="gp"><p><strong>Todavía no tienes momentos.</strong></p><p class="muted">Crea uno para guardar fotos de un viaje, de tu familia o de lo que quieras, e invita a quien tú decidas.</p></div></div>') +
+    (fr.length ? '<h3 class="pl-h">De tus amigos</h3><div class="list">' + fr.map(function(m){
+      return '<button class="card mo-card" data-act="fm-open" data-id="' + esc(m.id) + '"><span class="mo-cv mo-ic">' + av(m.owner, 44) + '</span><div class="ct"><div class="t" data-nt>' + esc(m.title) + '</div><div class="s">' + esc(m.owner) + (m.place ? ' · ' + esc(m.place) : '') + '</div></div></button>';
+    }).join('') + '</div>' : '') +
+    '<div style="height:24px"></div></main><div class="bar hb"><div class="wrap"><button class="btn primary block" data-act="new-moment">' + I.plus + ' Nuevo momento<span class="chev">' + svg('<path d="M9 5l7 7-7 7"/>', 22) + '</span></button></div></div>';
+}
+/* el momento público de un amigo: solo para ver sus fotos */
+function friendMomentView(){
+  var m = (S.friendMoments || []).filter(function(x){ return x.id === ui.fm; })[0];
+  if (!m) { ui.view = 'momentos'; return momentosView(); }
+  var ph = (ui.fmPhotos && ui.fmPhotos[m.id]) || null;
+  return '<header class="top"><div class="wrap"><div class="bar1"><button class="ib" data-act="fm-back" aria-label="Volver a Momentos">' + I.back + '</button><div class="tt"><div class="ttl" data-nt>' + esc(m.title) + '</div><div class="meta"><span>' + esc(m.owner) + '</span>' + (m.place ? '<span>' + I.pin + esc(m.place) + '</span>' : '') + '</div></div></div></div></header>' +
+    '<main class="wrap">' + secMenu('Momentos') +
+    (ph === null ? '<p class="muted">Cargando fotos…</p>' : ph.length ? '<div class="grid fm-grid">' + ph.map(function(src){ return '<img src="' + src + '" alt="" loading="lazy">'; }).join('') + '</div>' : '<p class="muted">Este momento todavía no tiene fotos.</p>') +
+    '<div style="height:40px"></div></main>';
+}
 function fotosView(){
   var evs = S.events.slice().sort(function(a, b){ return lastPhotoAt(b) - lastPhotoAt(a) || b.created - a.created; });
   var total = 0; S.events.forEach(function(ev){ total += ev.photos.length; });
