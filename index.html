@@ -520,6 +520,14 @@ details.loc summary{cursor:pointer;font-weight:700;color:var(--accent);padding:8
 .edtools .btn{min-height:42px;min-width:42px;padding:0 12px;font-size:15px}
 .edtools .btn[disabled]{opacity:.35}
 .trayh{border-bottom:1px solid var(--line)}
+/* el editor no se sale de la pantalla: las pestañas de stickers se deslizan de lado y nada se encoge hasta desaparecer */
+#ed .edbody{overflow-x:hidden}
+#ed .edbody>*{flex-shrink:0;min-width:0;max-width:100%}
+#ed .tabs{overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+#ed .tabs::-webkit-scrollbar{display:none}
+#ed .tabs .tab{flex:none;white-space:nowrap;padding:10px 12px 9px}
+#ed .tabs .tab small{margin-left:4px}
+#ed .tray{min-height:180px}
 .tray{display:grid;grid-auto-flow:column;grid-template-rows:repeat(2,86px);grid-auto-columns:116px;gap:8px;overflow-x:auto;padding-bottom:6px}
 .stk{position:relative;display:grid;place-items:center;padding:4px;background:var(--surface);border:1px solid var(--line);border-radius:12px;min-width:0}
 .stk img{max-width:100%;max-height:100%;object-fit:contain;display:block}
@@ -5120,7 +5128,7 @@ function edDraw(){
 }
 function edFit(){
   var e = ui.ed; if (!e || !e.cv) return;
-  var boxW = Math.min(window.innerWidth - 24, 520), maxH = window.innerHeight * 0.42;
+  var boxW = Math.min(window.innerWidth - 24, 520), maxH = window.innerHeight * 0.36;
   var cssW = Math.min(boxW, maxH * e.W / e.H), cssH = cssW * e.H / e.W, dpr = Math.min(2, window.devicePixelRatio || 1);
   e.cv.style.width = cssW + 'px'; e.cv.style.height = cssH + 'px';
   e.cv.width = Math.max(1, Math.round(cssW * dpr)); e.cv.height = Math.max(1, Math.round(cssH * dpr));
