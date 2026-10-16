@@ -1910,10 +1910,7 @@ function renderLb(){
   el.className = 'on';
   el.innerHTML = '<div class="lbtop"><button class="ib light" data-act="lb-close" aria-label="Cerrar">' + I.x + '</button><button class="lbwho" data-act="us-open" data-n="' + esc(p.by) + '">' + av(p.by, 28) + '<span>' + esc(p.by === S.me ? 'Tú' : p.by) + '</span><span class="dim">' + esc(fmtTime(p.at)) + '</span></button></div>' +
     '<div class="lbimg"><button class="nav l" data-act="lb-prev" aria-label="Foto anterior"' + (i === 0 ? ' disabled' : '') + '>' + I.back + '</button><img src="' + p.data + '" alt="Foto de ' + esc(p.by) + '"><button class="nav r" data-act="lb-next" aria-label="Foto siguiente"' + (i === list.length - 1 ? ' disabled' : '') + '>' + I.next + '</button></div>' +
-    likesLine(p) + '<div class="lbact">' + likeBtn(p) + (dl ? '<button class="btn light" data-act="lb-dl">' + I.down + ' Guardar</button>' : '') +
-    '<button class="btn light" data-act="ed-open">' + I.edit + ' Editar</button><button class="btn light" data-act="lb-send">' + I.send + ' Compartir</button><button class="btn light" data-act="lb-share">' + I.chat + ' Al chat</button>' +
-    (canDelPhoto(ev, p) ? '<button class="btn light danger" data-act="lb-del">' + I.trash + ' ' + (ui.armed === 'p' + p.id ? '¿Eliminar?' : 'Eliminar') + '</button>' : '<button class="btn light" data-act="rp-open" data-n="' + esc(p.by) + '" data-k="foto">⚑ Reportar</button>') + '</div>' +
-    (dl ? '' : '<p class="dim hint">Guardar fotos no está disponible en esta vista.</p>');
+    likesLine(p) + '<div class="lbact">' + likeBtn(p) + '<button class="btn light" data-act="lb-more" aria-label="Más opciones">' + svg('<circle cx="5.5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="18.5" cy="12" r="1.6"/>', 20) + ' Más</button></div>';
 }
 
 var tt;
@@ -1956,6 +1953,25 @@ function act(a, t){
       if (md.serverId) { S.gone = S.gone || {}; S.gone[md.serverId] = 1; if (mdMine) SB.dropEvent(md.serverId); else SB.leaveEvent(md.serverId); }
       save(); render(false); toast(mdMine ? 'Momento eliminado' : 'Saliste del momento');
       break;
+    case 'pu-cancel': ui.preup = null; ui.sheet = null; renderSheet(); break;
+    case 'pu-go':
+      var pu = ui.preup, pev = pu && S.events.filter(function(x){ return x.id === pu.evId; })[0];
+      ui.preup = null; ui.sheet = null; renderSheet();
+      if (!pev) return;
+      var pnp = {id: uid(), by: S.me, at: Date.now(), data: pu.data, geo: pu.geo || null, pend: true};
+      pev.photos.push(pnp); if (pu.geo && !pev.geo) pev.geo = pu.geo;
+      SB.syncPhoto(pev, pnp); save(); render(); toast('1 foto subida');
+      break;
+    case 'pu-edit':
+      var pe = ui.preup; if (!pe) return;
+      ui.sheet = null; renderSheet();
+      var pimg = new Image();
+      pimg.onload = function(){ ui.ed = {evId: pe.evId, pid: null, newUp: pe, img: pimg, W: pimg.naturalWidth || pimg.width, H: pimg.naturalHeight || pimg.height, items: [], sel: -1, tab: 'todos', cv: null, discard: false}; renderEditor(); };
+      pimg.onerror = function(){ toast('No se pudo abrir la foto para editarla'); };
+      pimg.src = pe.data;
+      break;
+    case 'po-edit': ui.lb = ui.phOpt; ui.sheet = null; renderSheet(); openEditor(); break;
+    case 'po-chat': ev = cur(); ev.chat.push({id: uid(), by: S.me, at: Date.now(), text: '', photoId: ui.phOpt}); ui.sheet = null; renderSheet(); save(); render(); toast('Foto compartida en el chat'); break;
     case 'po-view': ui.lb = ui.phOpt; ui.sheet = null; renderSheet(); renderLb(); break;
     case 'po-dl': ev = cur(); list = ev.photos.filter(function(p){ return p.id === ui.phOpt; }); if (list[0]) downloadOne(ev, list[0]); ui.sheet = null; renderSheet(); break;
     case 'po-send': ev = cur(); list = ev.photos.filter(function(p){ return p.id === ui.phOpt; }); ui.sheet = null; renderSheet(); if (list[0]) shareFiles(ev, [list[0]]); break;
@@ -2051,6 +2067,7 @@ function act(a, t){
       save(); renderLb(); render(); toast('Foto eliminada');
       if (gp) SB.deletePhoto(ev, gp).then(function(ok){ if (!ok) toast('No se pudo borrar en el servidor. Revisa tu conexión.'); });
       break;
+    case 'lb-more': ui.phOpt = ui.lb; ui.armed = null; ui.lb = null; renderLb(); ui.sheet = 'phopts'; renderSheet(); break;
     case 'lb-send':
       ev = cur(); list = ev.photos.filter(function(p){ return p.id === ui.lb; });
       if (list[0]) shareFiles(ev, [list[0]]);
@@ -2194,6 +2211,12 @@ $('#file').addEventListener('change', function(e){
     var mineN = ev.photos.filter(function(p){ return p.by === S.me; }).length, left = FREE_PHOTOS - mineN;
     if (left <= 0) { toast('Llegaste al límite de ' + FREE_PHOTOS + ' fotos en este evento'); if (!ANDROID_APP) { ui.sheet = 'premium'; renderSheet(); } return; }
     if (files.length > left) { files = files.slice(0, left); toast('Solo se subirán ' + left + ' fotos: el plan gratis permite ' + FREE_PHOTOS + ' por evento'); }
+  }
+  if (files.length === 1 && /^image\//.test(files[0].type)) {
+    var f1 = files[0];
+    var gp1 = (f1.slice && f1.slice(0, 262144).arrayBuffer) ? f1.slice(0, 262144).arrayBuffer().then(exifGps, function(){ return null; }) : Promise.resolve(null);
+    Promise.all([readImage(f1), gp1]).then(function(r){ ui.preup = {evId: ev.id, data: r[0], geo: r[1] || null}; ui.sheet = 'preup'; renderSheet(); }, function(){ toast('No se pudo leer esa imagen'); });
+    return;
   }
   toast('Subiendo fotos…');
   var ok = 0, geoCount = 0;
@@ -2913,7 +2936,8 @@ function phOptsSheet(){
   var b = function(act, ico, txt, cls){ return '<button class="btn block' + (cls ? ' ' + cls : '') + '" data-act="' + act + '" style="margin-bottom:10px">' + ico + ' ' + txt + '</button>'; };
   return '<div class="scrim" data-act="close-sheet"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="Foto">' +
     '<img src="' + p.data + '" alt="" style="display:block;max-width:100%;max-height:34vh;margin:0 auto 16px;border-radius:16px">' +
-    b('po-view', I.image, 'Ver en grande') + (dl ? b('po-dl', I.down, 'Guardar') : '') + b('po-send', I.send, 'Compartir') +
+    b('po-view', I.image, 'Ver en grande') + b('po-edit', I.edit, 'Ponerle stickers') + (dl ? b('po-dl', I.down, 'Guardar') : '') + b('po-send', I.send, 'Compartir') + b('po-chat', I.chat, 'Mandar al chat') +
+    (p.by !== S.me ? '<button class="btn block" data-act="rp-open" data-n="' + esc(p.by) + '" data-k="foto" style="margin-bottom:10px">⚑ Reportar</button>' : '') +
     (canDelPhoto(ev, p) ? b('po-del', I.trash, ui.armed === 'po' + p.id ? 'Toca otra vez para eliminar' : 'Eliminar foto', 'danger') : '') +
     '<button class="link" data-act="close-sheet">Cancelar</button></div>';
 }
@@ -2977,6 +3001,13 @@ function renderSheet(){
     el.innerHTML = inviteSheet(); wireUserSearch('i-name', 'i-found'); renderQrInto(evCode(cur()));
     /* si el evento aún no tenía su código del servidor, se pide y se rehace el QR con él */
     (function(ev){ if (ev && !ev.inviteCode) ensureEvCode(ev).then(function(c){ if (c && ui.sheet === 'invite' && cur() === ev) { renderQrInto(c); var ce = document.getElementById('ev-code'); if (ce) ce.textContent = c; } }); })(cur());
+  } else if (ui.sheet === 'preup') {
+    var pu = ui.preup;
+    el.innerHTML = pu ? '<div class="scrim" data-act="pu-cancel"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="Subir foto"><h2>¿Subirla así?</h2>' +
+      '<img src="' + pu.data + '" alt="" style="display:block;max-width:100%;max-height:42vh;margin:0 auto 16px;border-radius:16px">' +
+      '<button class="btn primary block" data-act="pu-go" style="margin-bottom:10px">' + I.image + ' Subir foto</button>' +
+      '<button class="btn block" data-act="pu-edit" style="margin-bottom:10px">' + I.edit + ' Ponerle stickers antes</button>' +
+      '<button class="link" data-act="pu-cancel">Cancelar</button></div>' : '';
   } else if (ui.sheet === 'phopts') {
     el.innerHTML = phOptsSheet();
   } else if (ui.sheet === 'remind') {
@@ -5288,7 +5319,9 @@ function edAct(a, t){
     case 'ed-open': openEditor(); break;
     case 'ed-close':
       if (e && e.items.length && !e.discard) { e.discard = true; toast('Tienes cambios sin guardar. Toca otra vez para descartarlos.'); return; }
+      var wasNew = e && e.newUp;
       closeEditor();
+      if (wasNew) { ui.preup = wasNew; ui.sheet = 'preup'; renderSheet(); }
       break;
     case 'ed-tab': e.tab = t.dataset.tab; e.cat = 'all'; buildTray(); break;
     case 'ed-cat': e.cat = t.dataset.cat; buildTray(); break;
@@ -5308,14 +5341,15 @@ function edAct(a, t){
     case 'ed-front': if (it) { e.items.push(e.items.splice(e.sel, 1)[0]); e.sel = e.items.length - 1; edDraw(); } break;
     case 'ed-del': if (it) { e.items.splice(e.sel, 1); e.sel = -1; edDraw(); edTools(); } break;
     case 'ed-save':
-      if (!e.items.length) { toast('Agrega al menos un sticker'); return; }
+      if (!e.items.length && !e.newUp) { toast('Agrega al menos un sticker'); return; }
       ev = S.events.filter(function(x){ return x.id === e.evId; })[0];
       p = ev && ev.photos.filter(function(x){ return x.id === e.pid; })[0];
       if (!ev) return;
-      var np = {id: uid(), by: S.me, at: Date.now(), data: edCompose(), geo: (p && p.geo) || null, likes: [], edited: true};
-      ev.photos.push(np); save();
+      var np = {id: uid(), by: S.me, at: Date.now(), data: e.items.length ? edCompose() : e.newUp.data, geo: (p && p.geo) || (e.newUp && e.newUp.geo) || null, likes: [], edited: !!e.items.length, pend: true};
+      ev.photos.push(np); if (e.newUp) ui.preup = null; save();
+      SB.syncPhoto(ev, np); /* antes la foto editada se quedaba solo en este teléfono */
       closeEditor(); ui.eid = ev.id; render(); ui.lb = np.id; renderLb();
-      toast('Foto editada guardada en el álbum');
+      toast(e.newUp ? 'Foto subida' : 'Foto editada guardada en el álbum');
       break;
     case 'ed-dl':
       if (!dl) return;
