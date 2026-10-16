@@ -3941,9 +3941,9 @@ function fotosBody(ev){
   var people = Object.keys(seen).length;
   var top = sel
     ? '<div class="row"><span class="muted" id="fo-count">' + sel.length + (sel.length === 1 ? ' seleccionada' : ' seleccionadas') + '</span><button class="link small" data-act="fo-all">Elegir todas</button></div>'
-    : clipsRow(ev) + PROMO + '<div class="row"><span class="muted">' + list.length + (list.length === 1 ? ' foto' : ' fotos') + ' de ' + people + (people === 1 ? ' persona' : ' personas') + '</span><span class="rowbtns"><button class="btn small" data-act="fo-select">Seleccionar</button>' +
+    : clipsRow(ev) + (isMoment(ev) ? '' : PROMO) + '<div class="row"><span class="muted">' + list.length + (list.length === 1 ? ' foto' : ' fotos') + ' de ' + people + (people === 1 ? ' persona' : ' personas') + '</span><span class="rowbtns"><button class="btn small" data-act="fo-select">Seleccionar</button>' +
       (dl ? '<button class="btn small" data-act="dl-all">' + I.down + ' Todas</button>' : '') + '</span></div>' +
-      '<p class="muted small" style="margin:-4px 0 12px">Las ven, descargan y comparten las ' + m + (m === 1 ? ' persona' : ' personas') + ' del evento.</p>';
+      '<p class="muted small" style="margin:-4px 0 12px">' + (isMoment(ev) ? (ev.pub ? 'Las ves tú, quienes invites y tus seguidores.' : m === 1 ? 'Solo las ves tú. Invita a alguien si quieres que también las vea.' : 'Las ven, descargan y comparten las ' + m + ' personas de este momento.') : 'Las ven, descargan y comparten las ' + m + (m === 1 ? ' persona' : ' personas') + ' del evento.') + '</p>';
   return top + '<div class="grid">' + list.map(function(p){
     var on = sel && sel.indexOf(p.id) >= 0;
     return '<button class="cell' + (on ? ' sel' : '') + '" data-act="' + (sel ? 'fo-toggle' : 'photo') + '" data-id="' + p.id + '"' + (sel ? ' aria-pressed="' + on + '"' : '') + ' aria-label="Foto de ' + esc(p.by) + '"><img loading="lazy" src="' + p.data + '" alt=""><span class="by" style="background:' + colorFor(p.by) + '">' + esc((p.by[0] || '?').toUpperCase()) + '</span><span class="tick">' + svg('<path d="M5 12l5 5 9-10"/>', 16) + '</span></button>';
