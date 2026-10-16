@@ -459,7 +459,10 @@ details.loc summary{cursor:pointer;font-weight:700;color:var(--accent);padding:8
 .pf-head:has(.pmf) .pf-stats{display:grid;grid-template-columns:1fr 1fr;row-gap:14px;column-gap:6px}
 .pf-stats span{white-space:nowrap}
 .past-t{display:flex;align-items:center;justify-content:space-between;width:100%;margin:18px 0 10px;padding:12px 16px;border-radius:16px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:inherit;font-weight:700;font-size:16px}
-.mo-card{display:flex;align-items:center;gap:14px;text-align:left}
+.mo-card{display:flex;align-items:center;gap:14px;text-align:left;padding-right:56px}
+.mo-wrap{position:relative}
+.mo-del{position:absolute;right:10px;top:50%;transform:translateY(-50%);min-width:40px;height:40px;padding:0 10px;display:grid;place-items:center;border-radius:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);color:#FF8FB8;font-size:12px;font-weight:700}
+.mo-del.on{background:#E0306F;border-color:#E0306F;color:#fff;max-width:132px;line-height:1.15;white-space:normal}
 .mo-cv{width:72px;height:72px;border-radius:16px;object-fit:cover;flex:none}
 .mo-ic{display:grid;place-items:center;background:rgba(255,255,255,.08);font-size:34px}
 .mo-ic .ev3,.mo-ic img{width:56px;height:56px;border-radius:12px}
@@ -1906,6 +1909,16 @@ function act(a, t){
   switch (a) {
     case 'note-ok': S.noteSeen = true; save(); render(); break;
     case 'new-event': ui.editId = null; ui.newKind = null; ui.sheet = 'new'; renderSheet(); break;
+    case 'mo-del':
+      var md = S.events.filter(function(e){ return e.id === t.dataset.id; })[0];
+      if (!md) return;
+      if (ui.armed !== 'md' + md.id) { ui.armed = 'md' + md.id; render(false); return; }
+      ui.armed = null;
+      var mdMine = isMineEv(md);
+      S.events = S.events.filter(function(e){ return e.id !== md.id; });
+      if (md.serverId) { S.gone = S.gone || {}; S.gone[md.serverId] = 1; if (mdMine) SB.dropEvent(md.serverId); else SB.leaveEvent(md.serverId); }
+      save(); render(false); toast(mdMine ? 'Momento eliminado' : 'Saliste del momento');
+      break;
     case 'past-toggle': ui.showPast = !ui.showPast; render(false); break;
     case 'fm-back': ui.view = 'momentos'; ui.fm = null; render(false); window.scrollTo(0, 0); break;
     case 'new-moment': ui.editId = null; ui.newKind = 'momento'; ui.sheet = 'new'; renderSheet(); break;
@@ -3952,9 +3965,11 @@ function momentosView(){
   var fr = (S.friendMoments || []).filter(function(m){ return !S.events.some(function(e){ return e.serverId === m.id; }); });
   var mcard = function(ev){
     var ph = ev.photos.filter(function(p){ return p.data; }).slice(-1)[0];
-    return '<button class="card mo-card" data-act="mo-open" data-id="' + ev.id + '">' + (ph ? '<img class="mo-cv" src="' + ph.data + '" alt="">' : '<span class="mo-cv mo-ic">' + evIco(ev.emoji) + '</span>') +
+    var armed = ui.armed === 'md' + ev.id, mineM = isMineEv(ev);
+    return '<div class="mo-wrap"><button class="card mo-card" data-act="mo-open" data-id="' + ev.id + '">' + (ph ? '<img class="mo-cv" src="' + ph.data + '" alt="">' : '<span class="mo-cv mo-ic">' + evIco(ev.emoji) + '</span>') +
       '<div class="ct"><div class="t" data-nt>' + esc(ev.name) + '</div><div class="s">' + (ev.place ? esc(ev.place) + ' · ' : '') + ev.photos.length + (ev.photos.length === 1 ? ' foto' : ' fotos') + '</div>' +
-      '<div class="chips"><span class="chip">' + (ev.pub ? 'Público' : 'Privado') + '</span>' + (ev.members.length > 1 ? '<span class="chip">' + ev.members.length + ' personas</span>' : '') + '</div></div></button>';
+      '<div class="chips"><span class="chip">' + (ev.pub ? 'Público' : 'Privado') + '</span>' + (ev.members.length > 1 ? '<span class="chip">' + ev.members.length + ' personas</span>' : '') + '</div></div></button>' +
+      '<button class="mo-del' + (armed ? ' on' : '') + '" data-act="mo-del" data-id="' + ev.id + '" aria-label="' + (mineM ? 'Eliminar momento' : 'Salir del momento') + '">' + (armed ? (mineM ? 'Toca otra vez para eliminar' : 'Toca otra vez para salir') : svg('<path d="M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13"/>', 18)) + '</button></div>';
   };
   return '<header class="top"><div class="wrap"><div class="bar1"><button class="ib" data-act="back" aria-label="Volver al inicio">' + I.back + '</button><div class="tt"><div class="ttl">Momentos</div><div class="meta"><span>Tus recuerdos, fuera de los eventos</span></div></div></div></div></header>' +
     '<main class="wrap">' + secMenu('Momentos') +

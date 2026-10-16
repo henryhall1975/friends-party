@@ -205,6 +205,8 @@ var D = {
   'Editar evento': ['Edit event', '이벤트 편집'],
   'Toca otra vez para eliminar': ['Tap again to delete', '삭제하려면 한 번 더 누르세요'],
   'Eliminar evento': ['Delete event', '이벤트 삭제'],
+  "Momento eliminado": ["Moment deleted", "모먼트를 삭제했어요"],
+  "Saliste del momento": ["You left the moment", "모먼트에서 나왔어요"],
   "Sube las primeras. Si quieres que otros las vean, invítalos o hazlo público.": ["Upload the first ones. To let others see them, invite them or make it public.", "첫 사진을 올려 보세요. 다른 사람이 보게 하려면 초대하거나 공개로 바꾸세요."],
   "Sube las primeras para guardarlas en este momento.": ["Upload the first ones to keep them in this moment.", "첫 사진을 올려 이 모먼트에 담아 보세요."],
   "Que tu amigo escanee este código con la cámara. Al entrar, ve solo este momento y puede subir fotos.": ["Have your friend scan this code with their camera. They'll only see this moment and can add photos.", "친구가 카메라로 이 코드를 스캔하게 하세요. 이 모먼트만 보고 사진을 올릴 수 있어요."],
