@@ -1047,7 +1047,7 @@ function evIco(e){ for (var i = 0; i < ICONS.length; i++) if (ICONS[i].e === e) 
 function iconInfo(e){ for (var i = 0; i < ICONS.length; i++) if (ICONS[i].e === e) return ICONS[i]; return ICONS[0]; }
 var PARTY = ['🎂', '🎈', '🎉', '🍕', '📸', '🥳', '🍰', '🎁', '🍹'];
 var colorFor = function(n){ var h = 0; for (var i = 0; i < n.length; i++) h = (h * 31 + n.charCodeAt(i)) >>> 0; return PAL[h % PAL.length]; };
-var av = function(n, size){ if (S.profile && S.profile.photo && n === S.me) return '<img class="av" src="' + S.profile.photo + '" alt="" style="width:' + size + 'px;height:' + size + 'px;object-fit:cover">'; var ch = (String(n).trim()[0] || '?').toUpperCase(); return '<span class="av" style="width:' + size + 'px;height:' + size + 'px;font-size:' + Math.round(size * 0.44) + 'px;background:' + colorFor(String(n)) + '">' + esc(ch) + '</span>'; };
+var av = function(n, size){ var dd = n !== S.me && S.dir && S.dir[n]; if (dd && dd.av) return '<img class="av" src="' + esc(dd.av) + '" alt="" loading="lazy" style="width:' + size + 'px;height:' + size + 'px;object-fit:cover">'; if (S.profile && S.profile.photo && n === S.me) return '<img class="av" src="' + S.profile.photo + '" alt="" style="width:' + size + 'px;height:' + size + 'px;object-fit:cover">'; var ch = (String(n).trim()[0] || '?').toUpperCase(); return '<span class="av" style="width:' + size + 'px;height:' + size + 'px;font-size:' + Math.round(size * 0.44) + 'px;background:' + colorFor(String(n)) + '">' + esc(ch) + '</span>'; };
 var fmtDate = function(iso){ if (!iso) return ''; var p = iso.split('-').map(Number); return new Date(p[0], p[1] - 1, p[2]).toLocaleDateString(FPI.locale, {day: 'numeric', month: 'long', year: 'numeric'}); };
 var fmtTime = function(at){ return new Date(at).toLocaleString(FPI.locale, {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'}); };
 var hhmm = function(at){ return new Date(at).toLocaleTimeString(FPI.locale, {hour: '2-digit', minute: '2-digit'}); };
@@ -1282,17 +1282,17 @@ var SB = {
     term = String(term || '').trim().replace(/^@/, '');
     if (term.length < 2 || !SB.session || !SB.session.access_token) return Promise.resolve([]);
     var q = encodeURIComponent(term.replace(/[,()*]/g, ' ').trim());
-    return SB.rest('profiles', 'GET', null, '?or=(username.ilike.' + q + '*,display_name.ilike.*' + q + '*)&select=id,username,display_name&limit=8').then(function(r){
+    return SB.rest('profiles', 'GET', null, '?or=(username.ilike.' + q + '*,display_name.ilike.*' + q + '*)&select=id,username,display_name,avatar_url&limit=8').then(function(r){
       (r.data || []).forEach(SB.dirAdd);
       return (r.data || []).filter(function(p){ return p.id !== S.serverId && p.username !== (S.profile && S.profile.user); });
     }).catch(function(){ return []; });
   },
   /* directorio nombre -> cuenta del servidor, para poder seguir de verdad a quien solo conocemos por su nombre */
-  dirAdd: function(p){ if (!p || !p.id) return; S.dir = S.dir || {}; S.dir[p.display_name || p.username] = {id: p.id, user: p.username}; },
+  dirAdd: function(p){ if (!p || !p.id) return; S.dir = S.dir || {}; var k = p.display_name || p.username, old = S.dir[k] || {}; S.dir[k] = {id: p.id, user: p.username, av: p.avatar_url !== undefined ? (p.avatar_url || '') : (old.av || '')}; },
   idOf: function(n){
     if (S.dir && S.dir[n]) return Promise.resolve(S.dir[n].id);
     if (!SB.session || !SB.session.access_token) return Promise.resolve(null);
-    return SB.rest('profiles', 'GET', null, '?display_name=eq.' + encodeURIComponent(n) + '&select=id,username,display_name&limit=1').then(function(r){
+    return SB.rest('profiles', 'GET', null, '?display_name=eq.' + encodeURIComponent(n) + '&select=id,username,display_name,avatar_url&limit=1').then(function(r){
       var p = (r.data || [])[0]; if (!p) return null; SB.dirAdd(p); save(); return p.id;
     }).catch(function(){ return null; });
   },
@@ -1360,7 +1360,7 @@ var SB = {
   resolveNames: function(ids){
     ids = (ids || []).filter(function(id, i, arr){ return id && arr.indexOf(id) === i; });
     if (!ids.length) return Promise.resolve({});
-    return SB.rest('profiles', 'GET', null, '?id=in.(' + ids.join(',') + ')&select=id,username,display_name').then(function(r){
+    return SB.rest('profiles', 'GET', null, '?id=in.(' + ids.join(',') + ')&select=id,username,display_name,avatar_url').then(function(r){
       var map = {};
       (r.data || []).forEach(function(p){ map[p.id] = p.display_name || p.username; SB.dirAdd(p); });
       return map;
@@ -1383,6 +1383,21 @@ var SB = {
     }[where] || (where.indexOf('foto') === 0 ? 'No se pudo subir esta foto al servidor. Sigue guardada en tu teléfono; lo intentaremos de nuevo.' : 'No se pudo conectar con el servidor. Lo intentaremos de nuevo.');
     try { toast(friendly); } catch (e) {}
     S.lastSyncError = txt; save();
+  },
+  /* sube mi foto de perfil para que la vean los demás; solo si cambió desde la última vez */
+  syncAvatar: function(){
+    if (!SB.session || !SB.session.access_token || !S.serverId || !S.profile) return Promise.resolve();
+    var ph = S.profile.photo || '', sig = ph ? ph.length + ':' + ph.slice(-24) : 'none';
+    if (S.avatarSig === sig) return Promise.resolve();
+    var done = function(url){ return SB.rest('profiles', 'PATCH', {avatar_url: url}, '?id=eq.' + S.serverId, 'return=minimal').then(function(r){ if (r.ok) { S.avatarSig = sig; save(); } }); };
+    if (!ph) return done(null).catch(function(){});
+    return fetch(ph).then(function(r){ return r.blob(); }).then(function(blob){
+      var path = S.serverId + '/avatar.jpg';
+      return fetch(SUPABASE_URL + '/storage/v1/object/avatars/' + path, {method: 'POST', headers: {'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SB.session.access_token, 'Content-Type': blob.type || 'image/jpeg', 'x-upsert': 'true'}, body: blob}).then(function(up){
+        if (!up.ok) return;
+        return done(SUPABASE_URL + '/storage/v1/object/public/avatars/' + path + '?v=' + Date.now());
+      });
+    }).catch(function(){});
   },
   /* borra una foto del servidor (la fila y el archivo); lo puede hacer quien la subió o el dueño del evento/momento */
   deletePhoto: function(ev, photo){
@@ -4480,6 +4495,7 @@ function profileAct(a, t){
         if (name !== S.me) renameMe(S.me, name);
         S.profile = Object.assign(S.profile, {name: name, user: user, email: email, phone: phone, bio: bio, photo: ui.acctPhoto || ''});
         save(); ui.sheet = null; renderSheet(); render(); toast('Perfil actualizado');
+        SB.syncAvatar();
       }
       break;
   }
@@ -5743,7 +5759,7 @@ Promise.race([loadP, new Promise(function(r){ setTimeout(function(){ r(null); },
   if (PENDING_JOIN && APPSTORE_URL && !(window.navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches)) && ((/iphone|ipad|ipod/i.test(navigator.userAgent) && !/FriendsPartyApp/i.test(navigator.userAgent)) || ANDROID_WEB)) {
     joinGate(PENDING_JOIN);
   }
-  SB.restore().then(function(ok){ if (ok) { SB.pullFollows(); pushRefresh(); SB.pullInvites(); SB.pullChat(); SB.pullFresh(); setInterval(function(){ if (!document.hidden) SB.pullInvites(); }, 30000); SB.syncPending(); tryPendingJoin(); SB.ensureGroup().then(function(){ return SB.fetchGroupCode(); }); } }); /* recupera la sesión y reintenta lo pendiente */
+  SB.restore().then(function(ok){ if (ok) { SB.syncAvatar(); SB.pullFollows(); pushRefresh(); SB.pullInvites(); SB.pullChat(); SB.pullFresh(); setInterval(function(){ if (!document.hidden) SB.pullInvites(); }, 30000); SB.syncPending(); tryPendingJoin(); SB.ensureGroup().then(function(){ return SB.fetchGroupCode(); }); } }); /* recupera la sesión y reintenta lo pendiente */
   /* chat: se revisa al volver a la app y, mientras hay un chat abierto, cada 6 segundos; si no, cada 30 */
   /* al volver a la app después de un rato, la sesión se renueva antes de pedir nada */
   document.addEventListener('visibilitychange', function(){ if (!document.hidden) { (S.session && S.session.refresh_token && Date.now() - (SB._lastRefresh || 0) > 30 * 60 * 1000 ? SB.refreshOnce() : Promise.resolve()).then(function(){ SB.pullChat(); SB.pullFresh(); }); } });
