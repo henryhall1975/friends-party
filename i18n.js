@@ -205,6 +205,8 @@ var D = {
   'Editar evento': ['Edit event', '이벤트 편집'],
   'Toca otra vez para eliminar': ['Tap again to delete', '삭제하려면 한 번 더 누르세요'],
   'Eliminar evento': ['Delete event', '이벤트 삭제'],
+  "Descargar": ["Download", "다운로드"],
+  "Toca otra vez para borrar": ["Tap again to delete", "삭제하려면 한 번 더 누르세요"],
   "Más": ["More", "더보기"],
   "Ponerle stickers": ["Add stickers", "스티커 붙이기"],
   "Mandar al chat": ["Send to chat", "채팅으로 보내기"],

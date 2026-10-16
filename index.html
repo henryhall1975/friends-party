@@ -1910,7 +1910,7 @@ function renderLb(){
   el.className = 'on';
   el.innerHTML = '<div class="lbtop"><button class="ib light" data-act="lb-close" aria-label="Cerrar">' + I.x + '</button><button class="lbwho" data-act="us-open" data-n="' + esc(p.by) + '">' + av(p.by, 28) + '<span>' + esc(p.by === S.me ? 'Tú' : p.by) + '</span><span class="dim">' + esc(fmtTime(p.at)) + '</span></button></div>' +
     '<div class="lbimg"><button class="nav l" data-act="lb-prev" aria-label="Foto anterior"' + (i === 0 ? ' disabled' : '') + '>' + I.back + '</button><img src="' + p.data + '" alt="Foto de ' + esc(p.by) + '"><button class="nav r" data-act="lb-next" aria-label="Foto siguiente"' + (i === list.length - 1 ? ' disabled' : '') + '>' + I.next + '</button></div>' +
-    likesLine(p) + '<div class="lbact">' + likeBtn(p) + '<button class="btn light" data-act="lb-more" aria-label="Más opciones">' + svg('<circle cx="5.5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="18.5" cy="12" r="1.6"/>', 20) + ' Más</button></div>';
+    likesLine(p) + '<div class="lbact">' + likeBtn(p) + '</div>';
 }
 
 var tt;
@@ -1973,7 +1973,7 @@ function act(a, t){
     case 'po-edit': ui.lb = ui.phOpt; ui.sheet = null; renderSheet(); openEditor(); break;
     case 'po-chat': ev = cur(); ev.chat.push({id: uid(), by: S.me, at: Date.now(), text: '', photoId: ui.phOpt}); ui.sheet = null; renderSheet(); save(); render(); toast('Foto compartida en el chat'); break;
     case 'po-view': ui.lb = ui.phOpt; ui.sheet = null; renderSheet(); renderLb(); break;
-    case 'po-dl': ev = cur(); list = ev.photos.filter(function(p){ return p.id === ui.phOpt; }); if (list[0]) downloadOne(ev, list[0]); ui.sheet = null; renderSheet(); break;
+    case 'po-dl': ev = cur(); list = ev.photos.filter(function(p){ return p.id === ui.phOpt; }); ui.sheet = null; renderSheet(); if (list[0]) { if (dl) downloadOne(ev, list[0]); else shareFiles(ev, [list[0]]); } break;
     case 'po-send': ev = cur(); list = ev.photos.filter(function(p){ return p.id === ui.phOpt; }); ui.sheet = null; renderSheet(); if (list[0]) shareFiles(ev, [list[0]]); break;
     case 'po-del':
       if (ui.armed !== 'po' + ui.phOpt) { ui.armed = 'po' + ui.phOpt; renderSheet(); return; }
@@ -2149,6 +2149,7 @@ document.addEventListener('click', function(e){
   function cell(e){ return e.target && e.target.closest && e.target.closest('.grid .cell[data-act="photo"]'); }
   document.addEventListener('touchstart', function(e){
     var c = cell(e); if (!c || !e.touches || e.touches.length !== 1) return;
+    var cev = cur(); if (cev && isMoment(cev) && !isMineEv(cev)) return; /* en un momento, el menú es solo para su dueño */
     fired = false; startX = e.touches[0].clientX; startY = e.touches[0].clientY;
     clearTimeout(timer);
     timer = setTimeout(function(){
@@ -2211,12 +2212,6 @@ $('#file').addEventListener('change', function(e){
     var mineN = ev.photos.filter(function(p){ return p.by === S.me; }).length, left = FREE_PHOTOS - mineN;
     if (left <= 0) { toast('Llegaste al límite de ' + FREE_PHOTOS + ' fotos en este evento'); if (!ANDROID_APP) { ui.sheet = 'premium'; renderSheet(); } return; }
     if (files.length > left) { files = files.slice(0, left); toast('Solo se subirán ' + left + ' fotos: el plan gratis permite ' + FREE_PHOTOS + ' por evento'); }
-  }
-  if (files.length === 1 && /^image\//.test(files[0].type)) {
-    var f1 = files[0];
-    var gp1 = (f1.slice && f1.slice(0, 262144).arrayBuffer) ? f1.slice(0, 262144).arrayBuffer().then(exifGps, function(){ return null; }) : Promise.resolve(null);
-    Promise.all([readImage(f1), gp1]).then(function(r){ ui.preup = {evId: ev.id, data: r[0], geo: r[1] || null}; ui.sheet = 'preup'; renderSheet(); }, function(){ toast('No se pudo leer esa imagen'); });
-    return;
   }
   toast('Subiendo fotos…');
   var ok = 0, geoCount = 0;
@@ -2934,6 +2929,11 @@ function phOptsSheet(){
   var ev = cur(), p = ev && ev.photos.filter(function(x){ return x.id === ui.phOpt; })[0];
   if (!p) return '';
   var b = function(act, ico, txt, cls){ return '<button class="btn block' + (cls ? ' ' + cls : '') + '" data-act="' + act + '" style="margin-bottom:10px">' + ico + ' ' + txt + '</button>'; };
+  if (isMoment(ev)) return '<div class="scrim" data-act="close-sheet"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="Foto">' +
+    '<img src="' + p.data + '" alt="" style="display:block;max-width:100%;max-height:34vh;margin:0 auto 16px;border-radius:16px">' +
+    b('po-edit', I.edit, 'Editar') + b('po-send', I.send, 'Compartir') + b('po-dl', I.down, 'Descargar') +
+    b('po-del', I.trash, ui.armed === 'po' + p.id ? 'Toca otra vez para borrar' : 'Borrar', 'danger') +
+    '<button class="link" data-act="close-sheet">Cancelar</button></div>';
   return '<div class="scrim" data-act="close-sheet"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="Foto">' +
     '<img src="' + p.data + '" alt="" style="display:block;max-width:100%;max-height:34vh;margin:0 auto 16px;border-radius:16px">' +
     b('po-view', I.image, 'Ver en grande') + b('po-edit', I.edit, 'Ponerle stickers') + (dl ? b('po-dl', I.down, 'Guardar') : '') + b('po-send', I.send, 'Compartir') + b('po-chat', I.chat, 'Mandar al chat') +
