@@ -469,6 +469,7 @@ details.loc summary{cursor:pointer;font-weight:700;color:var(--accent);padding:8
 .mo-empty{padding-top:28px}
 .mo-hero{display:block;width:190px;height:190px;margin:0 auto 22px;border-radius:24%;box-shadow:0 18px 50px rgba(120,80,255,.45)}
 .mo-empty .gp{margin-top:6px;padding:22px 16px;border-radius:26px}
+.grid .cell img{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 .fm-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
 .fm-grid img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:6px}
 .pf-name{font-weight:800;font-size:18px}
@@ -1383,6 +1384,19 @@ var SB = {
     try { toast(friendly); } catch (e) {}
     S.lastSyncError = txt; save();
   },
+  /* borra una foto del servidor (la fila y el archivo); lo puede hacer quien la subió o el dueño del evento/momento */
+  deletePhoto: function(ev, photo){
+    if (!SB.session || !SB.session.access_token || !ev || !ev.serverId) return Promise.resolve(true);
+    var q = /^p_/.test(photo.id) ? '?id=eq.' + photo.id.slice(2) : photo.synced ? '?storage_path=eq.' + encodeURIComponent('event/' + ev.serverId + '/' + photo.id + '.jpg') : null;
+    if (!q) return Promise.resolve(true); /* nunca llegó al servidor */
+    return SB.rest('photos', 'DELETE', null, q, 'return=representation').then(function(r){
+      if (!r.ok) return false;
+      (r.data || []).forEach(function(row){
+        if (row.storage_path) fetch(SUPABASE_URL + '/storage/v1/object/photos/' + row.storage_path, {method: 'DELETE', headers: {'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SB.session.access_token}}).catch(function(){});
+      });
+      return true;
+    }).catch(function(){ return false; });
+  },
   /* salir de un evento al que te invitaron (no lo borra: solo dejas de ser parte) */
   leaveEvent: function(sid){
     if (!sid || !SB.session || !SB.session.access_token || !S.serverId) return Promise.resolve(false);
@@ -1875,7 +1889,7 @@ function renderLb(){
     '<div class="lbimg"><button class="nav l" data-act="lb-prev" aria-label="Foto anterior"' + (i === 0 ? ' disabled' : '') + '>' + I.back + '</button><img src="' + p.data + '" alt="Foto de ' + esc(p.by) + '"><button class="nav r" data-act="lb-next" aria-label="Foto siguiente"' + (i === list.length - 1 ? ' disabled' : '') + '>' + I.next + '</button></div>' +
     likesLine(p) + '<div class="lbact">' + likeBtn(p) + (dl ? '<button class="btn light" data-act="lb-dl">' + I.down + ' Guardar</button>' : '') +
     '<button class="btn light" data-act="ed-open">' + I.edit + ' Editar</button><button class="btn light" data-act="lb-send">' + I.send + ' Compartir</button><button class="btn light" data-act="lb-share">' + I.chat + ' Al chat</button>' +
-    (p.by === S.me ? '<button class="btn light danger" data-act="lb-del">' + I.trash + ' ' + (ui.armed === 'p' + p.id ? '¿Eliminar?' : 'Eliminar') + '</button>' : '<button class="btn light" data-act="rp-open" data-n="' + esc(p.by) + '" data-k="foto">⚑ Reportar</button>') + '</div>' +
+    (canDelPhoto(ev, p) ? '<button class="btn light danger" data-act="lb-del">' + I.trash + ' ' + (ui.armed === 'p' + p.id ? '¿Eliminar?' : 'Eliminar') + '</button>' : '<button class="btn light" data-act="rp-open" data-n="' + esc(p.by) + '" data-k="foto">⚑ Reportar</button>') + '</div>' +
     (dl ? '' : '<p class="dim hint">Guardar fotos no está disponible en esta vista.</p>');
 }
 
@@ -1918,6 +1932,17 @@ function act(a, t){
       S.events = S.events.filter(function(e){ return e.id !== md.id; });
       if (md.serverId) { S.gone = S.gone || {}; S.gone[md.serverId] = 1; if (mdMine) SB.dropEvent(md.serverId); else SB.leaveEvent(md.serverId); }
       save(); render(false); toast(mdMine ? 'Momento eliminado' : 'Saliste del momento');
+      break;
+    case 'po-view': ui.lb = ui.phOpt; ui.sheet = null; renderSheet(); renderLb(); break;
+    case 'po-dl': ev = cur(); list = ev.photos.filter(function(p){ return p.id === ui.phOpt; }); if (list[0]) downloadOne(ev, list[0]); ui.sheet = null; renderSheet(); break;
+    case 'po-send': ev = cur(); list = ev.photos.filter(function(p){ return p.id === ui.phOpt; }); ui.sheet = null; renderSheet(); if (list[0]) shareFiles(ev, [list[0]]); break;
+    case 'po-del':
+      if (ui.armed !== 'po' + ui.phOpt) { ui.armed = 'po' + ui.phOpt; renderSheet(); return; }
+      ui.armed = null; ev = cur();
+      var pd = ev.photos.filter(function(p){ return p.id === ui.phOpt; })[0];
+      ev.photos = ev.photos.filter(function(p){ return p.id !== ui.phOpt; });
+      ui.sheet = null; ui.phOpt = null; save(); renderSheet(); render(false); toast('Foto eliminada');
+      if (pd) SB.deletePhoto(ev, pd).then(function(ok){ if (!ok) toast('No se pudo borrar en el servidor. Revisa tu conexión.'); });
       break;
     case 'past-toggle': ui.showPast = !ui.showPast; render(false); break;
     case 'fm-back': ui.view = 'momentos'; ui.fm = null; render(false); window.scrollTo(0, 0); break;
@@ -1996,11 +2021,12 @@ function act(a, t){
     case 'lb-del':
       if (ui.armed !== 'p' + ui.lb) { ui.armed = 'p' + ui.lb; renderLb(); return; }
       ev = cur(); list = sorted(ev); i = -1; list.forEach(function(p, k){ if (p.id === ui.lb) i = k; });
-      var gone = ui.lb;
+      var gone = ui.lb, gp = list[i];
       ev.photos = ev.photos.filter(function(p){ return p.id !== gone; });
       ui.armed = null;
       ui.lb = (list[i + 1] || list[i - 1] || {}).id || null;
       save(); renderLb(); render(); toast('Foto eliminada');
+      if (gp) SB.deletePhoto(ev, gp).then(function(ok){ if (!ok) toast('No se pudo borrar en el servidor. Revisa tu conexión.'); });
       break;
     case 'lb-send':
       ev = cur(); list = ev.photos.filter(function(p){ return p.id === ui.lb; });
@@ -2076,6 +2102,28 @@ document.addEventListener('click', function(e){
   function scan(){ var l = document.querySelectorAll('input[type="password"]'); for (var i = 0; i < l.length; i++) add(l[i]); }
   if (window.MutationObserver) new MutationObserver(scan).observe(document.documentElement, {childList: true, subtree: true});
   scan();
+})();
+/* toque largo sobre una foto del álbum: abre nuestras opciones (con Eliminar) en vez del menú de iPhone */
+(function(){
+  var timer = null, startX = 0, startY = 0, fired = false;
+  function cell(e){ return e.target && e.target.closest && e.target.closest('.grid .cell[data-act="photo"]'); }
+  document.addEventListener('touchstart', function(e){
+    var c = cell(e); if (!c || !e.touches || e.touches.length !== 1) return;
+    fired = false; startX = e.touches[0].clientX; startY = e.touches[0].clientY;
+    clearTimeout(timer);
+    timer = setTimeout(function(){
+      fired = true; ui.phOpt = c.dataset.id; ui.armed = null; ui.sheet = 'phopts'; renderSheet();
+      if (navigator.vibrate) try { navigator.vibrate(12); } catch (er) {}
+    }, 520);
+  }, {passive: true});
+  document.addEventListener('touchmove', function(e){
+    if (!timer || !e.touches) return;
+    if (Math.abs(e.touches[0].clientX - startX) > 10 || Math.abs(e.touches[0].clientY - startY) > 10) { clearTimeout(timer); timer = null; }
+  }, {passive: true});
+  document.addEventListener('touchend', function(){ clearTimeout(timer); timer = null; }, {passive: true});
+  /* el toque largo ya abrió las opciones: que no se abra además la foto en grande */
+  document.addEventListener('click', function(e){ if (fired && cell(e)) { fired = false; e.preventDefault(); e.stopPropagation(); } }, true);
+  document.addEventListener('contextmenu', function(e){ if (cell(e)) e.preventDefault(); });
 })();
 /* sin menú de guardar/copiar sobre stickers e íconos */
 document.addEventListener('contextmenu', function(e){ if (e.target && e.target.closest && e.target.closest('.paystrip,.paygal,.stk,.pk3,.hm-t,.cv-tile,.tr-emoji,.em,.ems')) e.preventDefault(); });
@@ -2835,6 +2883,17 @@ function planBody(ev){
   return hero + routeBlock(ev) + seg + people + rm + more; /* musicBlock(ev) quitado por ahora, junto con la sección Música */
 }
 
+/* al dejar presionada una foto del álbum: lo que se puede hacer con ella (el menú de iPhone no deja agregar "Eliminar") */
+function phOptsSheet(){
+  var ev = cur(), p = ev && ev.photos.filter(function(x){ return x.id === ui.phOpt; })[0];
+  if (!p) return '';
+  var b = function(act, ico, txt, cls){ return '<button class="btn block' + (cls ? ' ' + cls : '') + '" data-act="' + act + '" style="margin-bottom:10px">' + ico + ' ' + txt + '</button>'; };
+  return '<div class="scrim" data-act="close-sheet"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="Foto">' +
+    '<img src="' + p.data + '" alt="" style="display:block;max-width:100%;max-height:34vh;margin:0 auto 16px;border-radius:16px">' +
+    b('po-view', I.image, 'Ver en grande') + (dl ? b('po-dl', I.down, 'Guardar') : '') + b('po-send', I.send, 'Compartir') +
+    (canDelPhoto(ev, p) ? b('po-del', I.trash, ui.armed === 'po' + p.id ? 'Toca otra vez para eliminar' : 'Eliminar foto', 'danger') : '') +
+    '<button class="link" data-act="close-sheet">Cancelar</button></div>';
+}
 /* hojas: invitar y ver avisos */
 /* si la cuenta no está conectada al servidor, el código que se muestra solo existe en este teléfono y no le sirve a nadie */
 function notConnNote(){
@@ -2895,6 +2954,8 @@ function renderSheet(){
     el.innerHTML = inviteSheet(); wireUserSearch('i-name', 'i-found'); renderQrInto(evCode(cur()));
     /* si el evento aún no tenía su código del servidor, se pide y se rehace el QR con él */
     (function(ev){ if (ev && !ev.inviteCode) ensureEvCode(ev).then(function(c){ if (c && ui.sheet === 'invite' && cur() === ev) { renderQrInto(c); var ce = document.getElementById('ev-code'); if (ce) ce.textContent = c; } }); })(cur());
+  } else if (ui.sheet === 'phopts') {
+    el.innerHTML = phOptsSheet();
   } else if (ui.sheet === 'remind') {
     el.innerHTML = remindSheet(cur());
   } else if (ui.sheet === 'photoloc') {
@@ -3049,6 +3110,7 @@ function groupCode(){ return S.groupCode || S.group.code; }
 /* el código de UN evento: quien entra con él ve solo ese evento, no los demás de tu grupo.
    Si el evento todavía no tiene código del servidor, se usa el del grupo para que la invitación igual funcione. */
 /* ¿el evento es mío? (los creados en este teléfono y los que traen mi id de dueño) */
+function canDelPhoto(ev, p){ return !!p && (p.by === S.me || isMineEv(ev)); }
 function isMineEv(ev){ return !ev.serverId || !ev.ownerId || ev.ownerId === S.serverId; }
 function evCode(ev){ return (ev && ev.serverId && ev.inviteCode) || groupCode(); }
 function ensureEvCode(ev){
