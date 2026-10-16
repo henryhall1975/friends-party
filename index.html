@@ -5403,6 +5403,8 @@ function clipAuthors(ev){
   return out;
 }
 function clipsRow(ev){
+  /* por ahora los momentos no llevan historias en video (decidido con Henry el 2026-10-15) */
+  if (isMoment(ev)) return '';
   var authors = clipAuthors(ev);
   var h = '<div class="clips"><button class="clip" data-act="vc-add"><span class="cring add"><span class="cin">+</span></span><span class="cn">Agregar</span></button>';
   authors.forEach(function(n){
