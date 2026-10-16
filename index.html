@@ -463,6 +463,9 @@ details.loc summary{cursor:pointer;font-weight:700;color:var(--accent);padding:8
 .mo-cv{width:72px;height:72px;border-radius:16px;object-fit:cover;flex:none}
 .mo-ic{display:grid;place-items:center;background:rgba(255,255,255,.08);font-size:34px}
 .mo-ic .ev3,.mo-ic img{width:56px;height:56px;border-radius:12px}
+.mo-empty{padding-top:28px}
+.mo-hero{display:block;width:190px;height:190px;margin:0 auto 22px;border-radius:24%;box-shadow:0 18px 50px rgba(120,80,255,.45)}
+.mo-empty .gp{margin-top:6px;padding:22px 16px;border-radius:26px}
 .fm-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
 .fm-grid img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:6px}
 .pf-name{font-weight:800;font-size:18px}
@@ -3955,7 +3958,7 @@ function momentosView(){
   };
   return '<header class="top"><div class="wrap"><div class="bar1"><button class="ib" data-act="back" aria-label="Volver al inicio">' + I.back + '</button><div class="tt"><div class="ttl">Momentos</div><div class="meta"><span>Tus recuerdos, fuera de los eventos</span></div></div></div></div></header>' +
     '<main class="wrap">' + secMenu('Momentos') +
-    (mine.length ? '<div class="list">' + mine.map(mcard).join('') + '</div>' : '<div class="empty"><img class="ill" src="icons/menu/momentos.jpg" alt="" width="220" height="201" style="max-width:140px"><div class="gp"><p><strong>Todavía no tienes momentos.</strong></p><p class="muted">Crea uno para guardar fotos de un viaje, de tu familia o de lo que quieras, e invita a quien tú decidas.</p></div></div>') +
+    (mine.length ? '<div class="list">' + mine.map(mcard).join('') + '</div>' : '<div class="empty mo-empty"><img class="mo-hero" src="icons/momentos-portada.jpg" alt="" width="480" height="480"><div class="gp"><p><strong>Todavía no tienes momentos.</strong></p><p class="muted">Crea uno para guardar fotos de un viaje, de tu familia o de lo que quieras, e invita a quien tú decidas.</p></div></div>') +
     (fr.length ? '<h3 class="pl-h">De tus amigos</h3><div class="list">' + fr.map(function(m){
       return '<button class="card mo-card" data-act="fm-open" data-id="' + esc(m.id) + '"><span class="mo-cv mo-ic">' + av(m.owner, 44) + '</span><div class="ct"><div class="t" data-nt>' + esc(m.title) + '</div><div class="s">' + esc(m.owner) + (m.place ? ' · ' + esc(m.place) : '') + '</div></div></button>';
     }).join('') + '</div>' : '') +
