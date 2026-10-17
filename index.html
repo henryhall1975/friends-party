@@ -546,6 +546,12 @@ details.loc summary{cursor:pointer;font-weight:700;color:var(--accent);padding:8
 #ed .tray .stk .lock svg{width:10px;height:10px}
 /* herramientas en una sola fila para dejarle más espacio a los stickers */
 #ed .edtools{flex-wrap:nowrap;gap:5px}
+#ed .edfullbar{display:none}
+#ed.full .edfullbar{display:flex;justify-content:center;order:5}
+#ed.full .edfullbar .btn{min-width:200px}
+#ed.full .edbody{overflow:hidden;padding-left:4px;padding-right:4px;max-width:none}
+#ed.full .edbody>p,#ed.full .trayh,#ed.full #ed-cats,#ed.full .tray,#ed.full #ed-unlock,#ed.full [data-act="ed-dl"]{display:none !important}
+#ed.full .edcv{flex:1;align-items:center}
 #ed .edtools .btn{min-height:38px;min-width:38px;padding:0 9px;font-size:14px}
 .tray{display:grid;grid-auto-flow:column;grid-template-rows:repeat(2,86px);grid-auto-columns:116px;gap:8px;overflow-x:auto;padding-bottom:6px}
 .stk{position:relative;display:grid;place-items:center;padding:4px;background:var(--surface);border:1px solid var(--line);border-radius:12px;min-width:0}
@@ -5199,7 +5205,10 @@ function edDraw(){
 }
 function edFit(){
   var e = ui.ed; if (!e || !e.cv) return;
-  var boxW = Math.min(window.innerWidth - 24, 520), maxH = window.innerHeight * 0.3;
+  /* modo "acomodar": la foto ocupa casi toda la pantalla para mover y agrandar el sticker con los dedos */
+  var full = !!e.full, top = $('#ed .edtop'), tools = $('#ed .edtools'), fb = $('#ed .edfullbar');
+  var used = (top ? top.offsetHeight : 56) + (tools ? tools.offsetHeight + 10 : 50) + (fb ? fb.offsetHeight + 10 : 60) + 40;
+  var boxW = Math.min(window.innerWidth - (full ? 8 : 24), full ? 900 : 520), maxH = full ? Math.max(200, window.innerHeight - used) : window.innerHeight * 0.3;
   var cssW = Math.min(boxW, maxH * e.W / e.H), cssH = cssW * e.H / e.W, dpr = Math.min(2, window.devicePixelRatio || 1);
   e.cv.style.width = cssW + 'px'; e.cv.style.height = cssH + 'px';
   e.cv.width = Math.max(1, Math.round(cssW * dpr)); e.cv.height = Math.max(1, Math.round(cssH * dpr));
@@ -5254,9 +5263,10 @@ function renderEditor(){
     '<button class="btn" data-act="ed-rl" data-need aria-label="Girar a la izquierda">↺</button><button class="btn" data-act="ed-rr" data-need aria-label="Girar a la derecha">↻</button>' +
     '<button class="btn" data-act="ed-front" data-need>Al frente</button><button class="btn danger" data-act="ed-del" data-need>Borrar</button></div>' +
     '<nav class="tabs trayh" role="tablist"><button class="tab on" data-act="ed-tab" data-tab="todos">Todos<small>' + n + '</small></button><button class="tab" data-act="ed-tab" data-tab="en">English<small>' + en + '</small></button><button class="tab" data-act="ed-tab" data-tab="es">Español<small>' + (n - en) + '</small></button>' + extraTabs + '</nav>' +
+    '<div class="edfullbar"><button class="btn" data-act="ed-more">' + I.plus + ' Más stickers</button></div>' +
     '<nav class="tabs" id="ed-cats" hidden></nav><div class="tray" id="ed-tray"></div><div id="ed-unlock"></div>' +
     (dl ? '<button class="btn block" data-act="ed-dl">Descargar la foto editada</button>' : '') + '</div>';
-  e.cv = $('#ed-cv');
+  e.cv = $('#ed-cv'); el.classList.toggle('full', !!e.full);
   edFit(); buildTray(); edTools(); edBind();
 }
 function edBind(){
@@ -5319,6 +5329,12 @@ function openEditor(){
   img.src = p.data;
 }
 function closeEditor(){ ui.ed = null; renderEditor(); }
+function edSetFull(on){
+  var e = ui.ed, el = $('#ed'); if (!e || !el) return;
+  e.full = !!on; el.classList.toggle('full', e.full);
+  var b = el.querySelector('.edbody'); if (b) b.scrollTop = 0;
+  edFit();
+}
 function edCompose(){
   var e = ui.ed, c = document.createElement('canvas'); c.width = e.W; c.height = e.H;
   var x = c.getContext('2d'); x.drawImage(e.img, 0, 0, e.W, e.H);
@@ -5372,8 +5388,11 @@ function edAct(a, t){
       var asp = s.w / s.h, w = e.W * 0.55;
       if (w / asp > e.H * 0.5) w = e.H * 0.5 * asp;
       e.items.push({sid: s.id, x: e.W / 2 + (Math.random() - 0.5) * e.W * 0.12, y: e.H / 2 + (Math.random() - 0.5) * e.H * 0.12, w: w, a: asp, rot: 0});
-      e.sel = e.items.length - 1; e.discard = false; edDraw(); edTools();
+      e.sel = e.items.length - 1; e.discard = false;
+      edSetFull(true); edTools();
       break;
+    case 'ed-more': edSetFull(false); break;
+    case 'ed-done': edSetFull(false); break;
     case 'ed-bg': if (it) { it.w = Math.min(e.W * 1.6, it.w * 1.12); edDraw(); } break;
     case 'ed-sm': if (it) { it.w = Math.max(e.W * 0.08, it.w / 1.12); edDraw(); } break;
     case 'ed-rl': if (it) { it.rot -= 0.15; edDraw(); } break;

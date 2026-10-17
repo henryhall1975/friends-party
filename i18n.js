@@ -205,6 +205,7 @@ var D = {
   'Editar evento': ['Edit event', '이벤트 편집'],
   'Toca otra vez para eliminar': ['Tap again to delete', '삭제하려면 한 번 더 누르세요'],
   'Eliminar evento': ['Delete event', '이벤트 삭제'],
+  "Más stickers": ["More stickers", "스티커 더 보기"],
   "Foto editada": ["Photo edited", "사진을 편집했어요"],
   "320 emoticones de Glue en 3D para decorar tus fotos": ["320 3D Glue emoticons to decorate your photos", "사진을 꾸미는 3D 글루 이모티콘 320개"],
   "Descargar": ["Download", "다운로드"],
