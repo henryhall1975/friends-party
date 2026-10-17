@@ -8,6 +8,10 @@
 //   IAP_KEY_P8      (el contenido del archivo .p8 que se descarga una sola vez)
 //   IAP_KEY_ID      (el Key ID de esa clave)
 //   IAP_ISSUER_ID   (el Issuer ID que aparece arriba de la lista de claves)
+//
+// Las compras de Android (platform: "google") se le confirman a Google Play con
+// una cuenta de servicio de Google Cloud que tenga permiso en Play Console:
+//   GOOGLE_SA_JSON  (el contenido completo del archivo .json de la clave de esa cuenta)
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const BUNDLE_ID = "com.henryhall.friendsparty";
@@ -48,6 +52,79 @@ async function iapJwt(): Promise<string> {
   return `${head}.${body}.${b64url(sig)}`;
 }
 
+const ANDROID_PACKAGE = "com.henryhall.friendsparty";
+
+async function googleToken(): Promise<string> {
+  const sa = JSON.parse(Deno.env.get("GOOGLE_SA_JSON")!);
+  const pem = String(sa.private_key).replace(/-----[A-Z ]+-----/g, "").replace(/\s+/g, "");
+  const der = Uint8Array.from(atob(pem), (c) => c.charCodeAt(0));
+  const key = await crypto.subtle.importKey("pkcs8", der, { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["sign"]);
+  const now = Math.floor(Date.now() / 1000);
+  const head = b64url(new TextEncoder().encode(JSON.stringify({ alg: "RS256", typ: "JWT" })));
+  const body = b64url(new TextEncoder().encode(JSON.stringify({
+    iss: sa.client_email, scope: "https://www.googleapis.com/auth/androidpublisher",
+    aud: "https://oauth2.googleapis.com/token", iat: now, exp: now + 300,
+  })));
+  const sig = await crypto.subtle.sign("RSASSA-PKCS1-v1_5", key, new TextEncoder().encode(`${head}.${body}`));
+  const r = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion: `${head}.${body}.${b64url(sig)}` }),
+  });
+  const j = await r.json();
+  if (!j.access_token) throw new Error("google_token: " + JSON.stringify(j).slice(0, 200));
+  return j.access_token;
+}
+
+const json = (o: unknown) => new Response(JSON.stringify(o), { status: 200, headers: { ...CORS_HEADERS, "content-type": "application/json" } });
+
+// Compra hecha en la app de Android: se le pregunta a Google Play si el purchaseToken
+// está pagado, y se "reconoce" (si no se reconoce en 3 días, Google la reembolsa sola).
+async function verifyGoogle(db: any, uid: string, productId: string, token: string): Promise<Response> {
+  const api = `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${ANDROID_PACKAGE}/purchases`;
+  const at = await googleToken();
+  const auth = { authorization: `Bearer ${at}` };
+  const t = encodeURIComponent(token);
+
+  if (productId === PREMIUM_ID) {
+    const r = await fetch(`${api}/subscriptionsv2/tokens/${t}`, { headers: auth });
+    if (!r.ok) { console.log("verify-purchase: google respondio " + r.status + ": " + (await r.text()).slice(0, 300)); return json({ ok: false, error: "google_" + r.status }); }
+    const sub = await r.json();
+    const line = (sub.lineItems || []).find((l: any) => l.productId === PREMIUM_ID);
+    if (!line) return json({ ok: false, error: "producto_desconocido" });
+    if (!["SUBSCRIPTION_STATE_ACTIVE", "SUBSCRIPTION_STATE_IN_GRACE_PERIOD", "SUBSCRIPTION_STATE_CANCELED"].includes(sub.subscriptionState)) {
+      return json({ ok: false, error: "suscripcion_" + sub.subscriptionState });
+    }
+    if (sub.acknowledgementState === "ACKNOWLEDGEMENT_STATE_PENDING") {
+      await fetch(`${api}/subscriptions/${PREMIUM_ID}/tokens/${t}:acknowledge`, { method: "POST", headers: auth });
+    }
+    const until = new Date(line.expiryTime).toISOString();
+    if (new Date(until).getTime() < Date.now()) return json({ ok: false, error: "vencida" });
+    await db.from("subscriptions").upsert({ user_id: uid, premium_until: until });
+    return json({ ok: true, kind: "premium", premiumUntil: until });
+  }
+
+  const packId = PACK_IDS[productId];
+  if (!packId) return json({ ok: false, error: "producto_desconocido" });
+  const r = await fetch(`${api}/products/${productId}/tokens/${t}`, { headers: auth });
+  if (!r.ok) { console.log("verify-purchase: google respondio " + r.status + ": " + (await r.text()).slice(0, 300)); return json({ ok: false, error: "google_" + r.status }); }
+  const p = await r.json();
+  // purchaseState: 0 pagada, 1 cancelada, 2 pendiente
+  if (p.purchaseState !== 0) return json({ ok: false, error: p.purchaseState === 2 ? "pendiente" : "cancelada" });
+  const txid = String(p.orderId || token);
+  // una misma compra no puede desbloquear el paquete en dos cuentas distintas
+  const { data: prev } = await db.from("purchases").select("user_id").eq("transaction_id", txid).maybeSingle();
+  if (prev && prev.user_id !== uid) return json({ ok: false, error: "de_otra_cuenta" });
+  if (p.acknowledgementState === 0) {
+    await fetch(`${api}/products/${productId}/tokens/${t}:acknowledge`, { method: "POST", headers: { ...auth, "content-type": "application/json" }, body: "{}" });
+  }
+  await db.from("purchases").upsert(
+    { user_id: uid, product_id: productId, amount_usd: 1.99, platform: "google", transaction_id: txid },
+    { onConflict: "transaction_id" }
+  );
+  return json({ ok: true, kind: "pack", packId });
+}
+
 async function appleGet(host: string, path: string, jwt: string) {
   return await fetch(`https://${host}${path}`, { headers: { authorization: `Bearer ${jwt}` } });
 }
@@ -74,9 +151,14 @@ Deno.serve(async (req) => {
   }
   const uid = who.user.id;
 
-  const { transactionId } = await req.json().catch(() => ({}));
+  const { transactionId, productId: askedProduct, platform } = await req.json().catch(() => ({}));
   if (!transactionId) return new Response(JSON.stringify({ ok: false, error: "sin_transactionId" }), { status: 400, headers: CORS_HEADERS });
-  console.log("verify-purchase: uid=" + uid + " transactionId=" + JSON.stringify(transactionId));
+  console.log("verify-purchase: uid=" + uid + " platform=" + (platform || "apple") + " transactionId=" + JSON.stringify(String(transactionId).slice(0, 40)));
+
+  if (platform === "google") {
+    try { return await verifyGoogle(db, uid, String(askedProduct || ""), String(transactionId)); }
+    catch (e) { console.log("verify-purchase: error con google: " + (e as Error).message); return json({ ok: false, error: "google_error" }); }
+  }
 
   const jwt = await iapJwt();
   // Las compras hechas de prueba (Xcode, Sandbox) solo existen en el servidor de pruebas de Apple.
