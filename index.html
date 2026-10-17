@@ -2169,7 +2169,7 @@ document.addEventListener('click', function(e){
 /* toque largo sobre una foto del álbum: abre nuestras opciones (con Eliminar) en vez del menú de iPhone */
 (function(){
   var timer = null, startX = 0, startY = 0, fired = false;
-  function cell(e){ return e.target && e.target.closest && e.target.closest('.grid .cell[data-act="photo"], #lb .lbimg img'); }
+  function cell(e){ return e.target && e.target.closest && e.target.closest('#lb .lbimg img'); }
   function pidOf(c){ return c.dataset && c.dataset.id ? c.dataset.id : ui.lb; }
   document.addEventListener('touchstart', function(e){
     var c = cell(e); if (!c || !e.touches || e.touches.length !== 1) return;
@@ -5385,11 +5385,14 @@ function edAct(a, t){
       ev = S.events.filter(function(x){ return x.id === e.evId; })[0];
       p = ev && ev.photos.filter(function(x){ return x.id === e.pid; })[0];
       if (!ev) return;
-      var np = {id: uid(), by: S.me, at: Date.now(), data: e.items.length ? edCompose() : e.newUp.data, geo: (p && p.geo) || (e.newUp && e.newUp.geo) || null, likes: [], edited: !!e.items.length, pend: true};
+      var replace = !!(p && canDelPhoto(ev, p));
+      var np = {id: uid(), by: S.me, at: replace ? p.at : Date.now(), data: e.items.length ? edCompose() : e.newUp.data, geo: (p && p.geo) || (e.newUp && e.newUp.geo) || null, likes: replace ? (p.likes || []) : [], edited: !!e.items.length, pend: true};
+      /* la foto editada sustituye a la original (antes quedaban las dos) */
+      if (replace) { ev.photos = ev.photos.filter(function(x){ return x.id !== p.id; }); SB.deletePhoto(ev, p); }
       ev.photos.push(np); if (e.newUp) ui.preup = null; save();
       SB.syncPhoto(ev, np); /* antes la foto editada se quedaba solo en este teléfono */
       closeEditor(); ui.eid = ev.id; render(); ui.lb = np.id; renderLb();
-      toast(e.newUp ? 'Foto subida' : 'Foto editada guardada en el álbum');
+      toast(e.newUp ? 'Foto subida' : replace ? 'Foto editada' : 'Foto editada guardada en el álbum');
       break;
     case 'ed-dl':
       if (!dl) return;
