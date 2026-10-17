@@ -364,7 +364,7 @@ main{padding:14px 0 130px}
 /* Menú de inicio */
 .hero{padding-bottom:14px;align-items:center}
 .hm{display:grid;grid-template-columns:repeat(6,1fr);gap:5px;margin:0 0 18px}
-.fp-android .hm,.fp-android .cv-tiles{grid-template-columns:repeat(5,1fr)}
+.fp-noshop .hm,.fp-noshop .cv-tiles{grid-template-columns:repeat(5,1fr)}
 .hm-t{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;min-width:0;aspect-ratio:1/1.1;border-radius:14px;background:var(--surface);border:1px solid var(--line);color:var(--ink)}
 .hm-t span{font-size:clamp(8px,2.35vw,10px);letter-spacing:-.02em;white-space:nowrap;color:var(--muted);font-weight:500}
 .hm-t.on{border-color:var(--accent)}
@@ -879,7 +879,9 @@ var T = window.T || function(s, v){
 var ANDROID_APP = /FriendsPartyAndroid/.test(navigator.userAgent);
 /* dentro de la app de iPhone el Face ID por web no funciona; solo se muestra si la app trae el nativo (1.1 en adelante) */
 var IOS_APP = /FriendsPartyApp/.test(navigator.userAgent);
-if (ANDROID_APP) document.documentElement.classList.add('fp-android');
+/* la tienda en Android solo aparece en la app que ya trae el cobro de Google Play (1.3 en adelante) */
+var NO_SHOP = ANDROID_APP && !window.FPStore;
+if (NO_SHOP) document.documentElement.classList.add('fp-noshop');
 
 /* ---------- utilidades ---------- */
 var $ = function(s){ return document.querySelector(s); };
@@ -2266,7 +2268,7 @@ $('#file').addEventListener('change', function(e){
   var ev = cur(); if (!ev) return;
   if (!isPremium()) {
     var mineN = ev.photos.filter(function(p){ return p.by === S.me; }).length, left = FREE_PHOTOS - mineN;
-    if (left <= 0) { toast('Llegaste al límite de ' + FREE_PHOTOS + ' fotos en este evento'); if (!ANDROID_APP) { ui.sheet = 'premium'; renderSheet(); } return; }
+    if (left <= 0) { toast('Llegaste al límite de ' + FREE_PHOTOS + ' fotos en este evento'); if (!NO_SHOP) { ui.sheet = 'premium'; renderSheet(); } return; }
     if (files.length > left) { files = files.slice(0, left); toast('Solo se subirán ' + left + ' fotos: el plan gratis permite ' + FREE_PHOTOS + ' por evento'); }
   }
   toast('Subiendo fotos…');
@@ -2684,7 +2686,7 @@ var CV_TILES = [
   ['Amigos', svg('<circle cx="9" cy="8" r="3.5"/><path d="M3 20c0-3.5 2.7-6 6-6s6 2.5 6 6M18 8v6M15 11h6"/>', 24), ''],
   ['Tienda', svg('<path d="M4 9l1.5-5h13L20 9M4 9v10a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V9M4 9h16M9 13a3 3 0 0 0 6 0"/>', 24), 'pk']
 ];
-if (ANDROID_APP) CV_TILES = CV_TILES.filter(function(t){ return t[0] !== 'Tienda'; });
+if (NO_SHOP) CV_TILES = CV_TILES.filter(function(t){ return t[0] !== 'Tienda'; });
 function coverConfetti(){
   var cols = ['#ff8a4c', '#ff5fd0', '#9b6bff', '#5be0ff', '#ffd166'], out = '', i;
   for (i = 0; i < 26; i++) {
@@ -3369,14 +3371,18 @@ function groupAct(a, t){
 /* ---------- notificaciones (solo dentro de la app de iPhone; el navegador no las recibe) ---------- */
 function pushNative(){ return /FriendsPartyApp/.test(navigator.userAgent) && window.webkit && webkit.messageHandlers && webkit.messageHandlers.push; }
 function storeNative(){ return /FriendsPartyApp/.test(navigator.userAgent) && window.webkit && webkit.messageHandlers && webkit.messageHandlers.store; }
+function androidStore(){ return ANDROID_APP && window.FPStore && typeof FPStore.post !== 'undefined'; }
+/* se puede comprar de verdad: con Apple en la app de iPhone o con Google Play en la de Android */
+function canBuy(){ return !!(storeNative() || androidStore()); }
+function storePost(m){ if (storeNative()) webkit.messageHandlers.store.postMessage(m); else if (androidStore()) FPStore.post(JSON.stringify(m)); }
 var IAP_ID = {premium: 'com.henryhall.friendsparty.premium.monthly', stickers: 'com.henryhall.friendsparty.pack.stickers', emoticones: 'com.henryhall.friendsparty.pack.emoticones', christmas: 'com.henryhall.friendsparty.pack.christmas', halloween: 'com.henryhall.friendsparty.pack.halloween'};
-SB.verifyPurchase = function(productId, transactionId){
+SB.verifyPurchase = function(productId, transactionId, platform){
   if ((!SB.session || !SB.session.access_token) && S.session) SB.session = S.session; /* por si SB se quedó desincronizado de lo guardado */
   if (!SB.session || !SB.session.access_token) return Promise.resolve({ok: false, error: 'sin_sesion'});
   return fetch(SUPABASE_URL + '/functions/v1/verify-purchase', {
     method: 'POST',
     headers: {'Content-Type': 'application/json', 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SB.session.access_token},
-    body: JSON.stringify({productId: productId, transactionId: transactionId})
+    body: JSON.stringify({productId: productId, transactionId: transactionId, platform: platform || 'apple'})
   }).then(function(r){ return r.json(); }).catch(function(){ return {ok: false, error: 'red'}; });
 };
 window.fpStore = function(msg){
@@ -3390,14 +3396,15 @@ window.fpStore = function(msg){
   }
   if (msg.type === 'purchase' || msg.type === 'restore') {
     if (!msg.ok) {
-      if (msg.type === 'purchase' && msg.error === 'not_loaded') toast('Este paquete todavía no se puede comprar en esta versión. Actualiza la app desde el App Store.');
+      if (msg.type === 'purchase' && msg.error === 'not_loaded') toast(ANDROID_APP ? 'Este paquete todavía no se puede comprar en esta versión. Actualiza la app desde Google Play.' : 'Este paquete todavía no se puede comprar en esta versión. Actualiza la app desde el App Store.');
+      else if (msg.type === 'purchase' && msg.error === 'pending') toast('Tu pago está pendiente. Cuando Google Play lo confirme, toca Restaurar compras.');
       else if (msg.type === 'purchase' && msg.error && msg.error !== 'cancelled') toast('No se pudo completar la compra');
       else if (msg.type === 'restore') toast('No encontramos compras para restaurar');
       return;
     }
     if (!S.session) { toast('Conecta tu cuenta para guardar la compra'); return; }
-    SB.verifyPurchase(msg.id, msg.transactionId).then(function(r){
-      if (!r || !r.ok) { toast('No pudimos confirmar la compra con Apple. Intenta de nuevo en un momento.'); return; }
+    SB.verifyPurchase(msg.id, msg.transactionId, msg.platform).then(function(r){
+      if (!r || !r.ok) { toast(msg.platform === 'google' ? 'No pudimos confirmar la compra con Google Play. Intenta de nuevo en un momento.' : 'No pudimos confirmar la compra con Apple. Intenta de nuevo en un momento.'); return; }
       if (r.kind === 'premium') S.premium = true;
       else if (r.kind === 'pack' && r.packId) { S.purchases = S.purchases || {}; S.purchases[r.packId] = {at: Date.now()}; }
       save(); closePay();
@@ -4478,7 +4485,7 @@ function profileHTML(name){
   return head + '<main class="wrap"><div class="pf-head">' + avP(name, 84) + '<div class="pf-stats">' + stat(D.photos.length, 'Fotos') + stat(D.followers.length, 'Seguidores', 'pf-followers') + stat(D.following.length, 'Siguiendo', 'pf-following') + stat(D.likes, 'Me gusta') + '</div></div>' + info + (me ? '' : pubEvBlock(name)) +
     '<nav class="tabs" style="margin-top:14px" role="tablist"><button class="tab' + (tab === 'fotos' ? ' on' : '') + '" data-act="pf-tab" data-tab="fotos">Fotos<small>' + D.photos.length + '</small></button><button class="tab' + (tab === 'eventos' ? ' on' : '') + '" data-act="pf-tab" data-tab="eventos">Eventos<small>' + D.evs.length + '</small></button></nav>' +
     '<div style="height:12px"></div>' + body +
-    (me ? (ANDROID_APP ? '' : purchasesBlock() + premiumBlock()) + securityBlock() + blockedBlock() + legalBlock() + '<button class="link" data-act="pf-intro" style="margin-top:14px">Ver la intro de la app</button><div style="height:20px"></div><button class="link danger" data-act="pf-wipe">' + (ui.armed === 'wipe' ? 'Toca otra vez para borrar todo' : 'Borrar mi cuenta y mis datos') + '</button>' : '<div style="height:20px"></div><button class="btn block" data-act="rp-open" data-n="' + esc(name) + '" data-k="usuario">⚑ Reportar a este usuario</button><button class="btn block danger" data-act="rp-block" data-n="' + esc(name) + '" style="margin-top:8px">' + (isBlocked(name) ? 'Desbloquear' : 'Bloquear') + ' a este usuario</button>') + '</main>';
+    (me ? (NO_SHOP ? '' : purchasesBlock() + premiumBlock()) + securityBlock() + blockedBlock() + legalBlock() + '<button class="link" data-act="pf-intro" style="margin-top:14px">Ver la intro de la app</button><div style="height:20px"></div><button class="link danger" data-act="pf-wipe">' + (ui.armed === 'wipe' ? 'Toca otra vez para borrar todo' : 'Borrar mi cuenta y mis datos') + '</button>' : '<div style="height:20px"></div><button class="btn block" data-act="rp-open" data-n="' + esc(name) + '" data-k="usuario">⚑ Reportar a este usuario</button><button class="btn block danger" data-act="rp-block" data-n="' + esc(name) + '" style="margin-top:8px">' + (isBlocked(name) ? 'Desbloquear' : 'Bloquear') + ' a este usuario</button>') + '</main>';
 }
 function profileView(){ return profileHTML(S.me); }
 function userView(){ return ui.user && ui.user !== S.me ? profileHTML(ui.user) : profileHTML(S.me); }
@@ -5165,12 +5172,6 @@ function payHTML(packId, step){
     ? '<div class="paystrip">' + (pack.preview || ['st-01-blob-verde-bailando-con-disco-y-confeti', 'st-11-mascota-azul-celebrando-con-botella-espu', 'st-25-mascota-montanista-en-paisaje-alpino', 'st-33-mascota-naranja-brindando-en-fiesta', 'st-42-mascota-viajera-con-camara', 'st-55-a-bright-high-resolution-3d-cartoon-cgi-']).map(stkById).filter(Boolean)
         .map(function(s){ return '<span class="wm"><img src="' + s.d + '" alt="' + esc(s.t) + '"></span>'; }).join('') + '</div>'
     : '<div class="paystrip" style="grid-template-columns:1fr;justify-items:center;padding:26px 10px"><img class="pk3 big" src="icons/tienda/' + pack.id + '.jpg" alt="" width="240" height="235"></div>';
-  if (step === 2) {
-    return '<div class="payscrim" data-act="pay-x"></div><div class="paysheet" role="dialog" aria-modal="true" aria-label="Confirmar compra"><h2>Confirmar compra</h2>' +
-      '<div class="payrow"><span>' + esc(pack.name) + '<small>pago único</small></span><b>' + price + '</b></div>' +
-      '<div class="notice">Este paso lo confirma Apple: si sigues, se hace un cobro real.</div>' +
-      '<button class="btn primary block" data-act="pay-ok" data-pack="' + pack.id + '">Confirmar compra</button><button class="link" data-act="pay-x">Cancelar</button></div>';
-  }
   return '<div class="payscrim" data-act="pay-x"></div><div class="paysheet" role="dialog" aria-modal="true" aria-label="' + esc(pack.name) + '"><h2>' + esc(pack.name) + '</h2>' +
     '<p class="muted">' + esc(pack.desc) + '.</p>' + preview +
     (pack.live ? '<button class="link" data-act="pay-gal" data-pack="' + pack.id + '" style="justify-self:start">Ver una muestra antes de comprar</button>' : '') +
@@ -5179,11 +5180,11 @@ function payHTML(packId, step){
     '<button class="btn primary block" data-act="pay-1" data-pack="' + pack.id + '">Comprar por ' + price + '</button><button class="link" data-act="pay-x">Ahora no</button></div>';
 }
 function openPay(packId, step){
-  if (ANDROID_APP) { toast('Las compras llegarán pronto a Android'); return; }
+  if (NO_SHOP) { toast('Las compras llegarán pronto a Android'); return; }
   ui.payPack = packId || 'stickers'; ui.payStep = step || 1;
   var el = $('#pay'); el.className = 'on'; el.innerHTML = payHTML(ui.payPack, ui.payStep);
   if (!STK.length) loadStickers().then(function(){ if (el.className === 'on') el.innerHTML = payHTML(ui.payPack, ui.payStep); });
-  if (storeNative() && !ui.storePrices) webkit.messageHandlers.store.postMessage({cmd: 'products'});
+  if (canBuy() && !ui.storePrices) storePost({cmd: 'products'});
 }
 function closePay(){ var el = $('#pay'); el.className = ''; el.innerHTML = ''; ui.payGallery = false; }
 /* ícono 3D de cada paquete de la tienda (icons/tienda/<id>.jpg) */
@@ -5193,7 +5194,7 @@ function paySample(all, n){ if (all.length <= n) return all; var out = [], step 
 function purchasesBlock(){
   return '<h3 class="pl-h">Compras</h3><ul class="people sec"><li>' + packIco('stickers') + '<span class="nm">Stickers Friends Party<small>60 stickers en inglés y español, ' + PRICE + ', pago único</small></span>' +
     (owned() ? '<span class="pill va">Comprado</span>' : '<button class="btn small" data-act="pay-open" data-pack="stickers">Comprar</button>') + '</li></ul>' +
-    (storeNative() ? '<button class="link" data-act="vc-restore">Restaurar compras</button>' : '') +
+    (canBuy() ? '<button class="link" data-act="vc-restore">Restaurar compras</button>' : '') +
     '<button class="link" data-act="hm" data-k="Tienda">Ver todos los paquetes en la Tienda</button>';
 }
 function tiendaView(){
@@ -5202,8 +5203,8 @@ function tiendaView(){
     return '<li>' + packIco(p.id) + '<span class="nm">' + esc(p.name) + '<small>' + esc(p.desc) + (p.live ? '' : ' · próximamente') + '</small></span>' + st + '</li>';
   }).join('');
   return '<header class="top"><div class="wrap"><div class="bar1"><button class="ib" data-act="back" aria-label="Volver al inicio">' + I.back + '</button><div class="tt"><div class="ttl">Tienda</div><div class="meta"><span>Stickers para decorar tus fotos</span></div></div></div></div></header>' +
-    '<main class="wrap">' + secMenu('Tienda') + (storeNative() ? '' : '<p class="muted small" style="margin-top:6px">Abre la app en tu iPhone para comprar. Aquí en el navegador solo puedes ver el catálogo.</p>') +
-    premiumCard() + '<h3 class="pl-h">Paquetes de stickers</h3><ul class="people sec" style="margin-top:6px">' + cards + '</ul>' + (storeNative() ? '<button class="link" data-act="vc-restore" style="margin-top:6px">Restaurar compras</button>' : '') + '</main>';
+    '<main class="wrap">' + secMenu('Tienda') + (canBuy() ? '' : '<p class="muted small" style="margin-top:6px">Abre la app Friends Party para comprar. Aquí en el navegador solo puedes ver el catálogo.</p>') +
+    premiumCard() + '<h3 class="pl-h">Paquetes de stickers</h3><ul class="people sec" style="margin-top:6px">' + cards + '</ul>' + (canBuy() ? '<button class="link" data-act="vc-restore" style="margin-top:6px">Restaurar compras</button>' : '') + '</main>';
 }
 
 /* editor */
@@ -5325,7 +5326,7 @@ function buildTray(){
     }
   }
   var un = document.getElementById('ed-unlock'), upk = extraPack || packById('stickers');
-  if (un) un.innerHTML = owned(upk.id) ? '' : ANDROID_APP ? '<div class="unlock"><div><strong>' + esc(upk.name) + '</strong><span>Las compras llegarán pronto a Android</span></div></div>' : '<div class="unlock"><div><strong>' + esc(upk.name) + '</strong><span>' + esc(upk.desc) + ' por ' + upk.price + ', pago único</span></div><button class="btn primary" data-act="pay-open" data-pack="' + upk.id + '">Desbloquear</button></div>';
+  if (un) un.innerHTML = owned(upk.id) ? '' : NO_SHOP ? '<div class="unlock"><div><strong>' + esc(upk.name) + '</strong><span>Las compras llegarán pronto a Android</span></div></div>' : '<div class="unlock"><div><strong>' + esc(upk.name) + '</strong><span>' + esc(upk.desc) + ' por ' + upk.price + ', pago único</span></div><button class="btn primary" data-act="pay-open" data-pack="' + upk.id + '">Desbloquear</button></div>';
   STK.filter(function(s){
     if (extraPack) return stkPack(s) === extraPack.id && (!e.cat || e.cat === 'all' || s.l === e.cat);
     return stkPack(s) === 'stickers' && (e.tab === 'todos' || s.l === e.tab);
@@ -5472,19 +5473,13 @@ function payAct(a, t){
     case 'pay-gal': ui.payGallery = true; openPay(packId, 1); break;
     case 'pay-gal-back': ui.payGallery = false; openPay(packId, 1); break;
     case 'pay-1':
-      if (storeNative() && pack.live && IAP_ID[packId]) {
+      if (canBuy() && pack.live && IAP_ID[packId]) {
         if (!S.session) { closePay(); toast('Conecta tu cuenta primero'); ui.sheet = 'srvconn'; renderSheet(); return; }
         closePay(); toast('Abriendo la compra…');
-        webkit.messageHandlers.store.postMessage({cmd: 'buy', id: IAP_ID[packId]});
-      } else openPay(packId, 2);
+        storePost({cmd: 'buy', id: IAP_ID[packId]});
+      } else toast('Abre la app Friends Party para comprar');
       break;
     case 'pay-x': closePay(); break;
-    case 'pay-ok':
-      S.purchases = S.purchases || {}; S.purchases[packId] = {at: Date.now(), price: pack.price};
-      save(); closePay();
-      if (ui.ed && (packId === 'stickers' || packId === 'emoticones')) { renderEditor(); if (ui.ed.pending) { var pid = ui.ed.pending; ui.ed.pending = null; edAct('ed-add', {dataset: {id: pid}}); } } else render();
-      toast(pack.live ? 'Stickers desbloqueados. ¡A decorar!' : pack.name + ' comprado. Avisamos cuando estén listos para usar.');
-      break;
     case 'pay-reset':
       if (S.purchases) { delete S.purchases[packId]; save(); render(); toast('Compra quitada'); }
       break;
@@ -5913,29 +5908,29 @@ function clipAct(a, t){
       }
       toast('Video eliminado'); renderClip(); break;
     case 'vc-report': closeClips(); reportAct('rp-open', {dataset: {n: t.dataset.n, k: 'video'}}); break;
-    case 'vc-premium': closeClips(); if (!ANDROID_APP) { ui.sheet = 'premium'; renderSheet(); } break;
+    case 'vc-premium': closeClips(); if (!NO_SHOP) { ui.sheet = 'premium'; renderSheet(); } break;
     case 'vc-premium-buy':
       if (!S.session) { toast('Conecta tu cuenta primero'); ui.sheet = 'srvconn'; renderSheet(); return; }
       toast('Abriendo la compra…');
-      webkit.messageHandlers.store.postMessage({cmd: 'buy', id: IAP_ID.premium});
+      storePost({cmd: 'buy', id: IAP_ID.premium});
       break;
     case 'vc-restore':
       toast('Buscando tus compras…');
-      webkit.messageHandlers.store.postMessage({cmd: 'restore'});
+      storePost({cmd: 'restore'});
       break;
   }
 }
 function premiumSheet(){
   var b = function(t){ return '<li>' + t + '</li>'; };
   var price = (ui.storePrices && ui.storePrices[IAP_ID.premium]) || 'US$ 1.99';
-  var buy = isPremium() ? '' : storeNative()
-    ? '<p class="muted small">' + price + ' al mes. Se renueva solo y lo cancelas cuando quieras desde los ajustes de Apple.</p><button class="btn primary block" data-act="vc-premium-buy">Hazte Premium</button>'
+  var buy = isPremium() ? '' : canBuy()
+    ? '<p class="muted small">' + price + (androidStore() ? ' al mes. Se renueva solo y lo cancelas cuando quieras desde Google Play.' : ' al mes. Se renueva solo y lo cancelas cuando quieras desde los ajustes de Apple.') + '</p><button class="btn primary block" data-act="vc-premium-buy">Hazte Premium</button>'
     : '<p class="muted small">US$ 1.99 al mes. Se renueva solo y lo cancelas cuando quieras desde los ajustes de Apple.</p><button class="btn primary block" disabled>Abre la app para suscribirte</button>';
   return '<div class="scrim" data-act="close-sheet"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="Premium"><h2>Friends Party Premium</h2>' +
     (isPremium() ? '<p class="muted">Ya eres Premium. Gracias por apoyar la app.</p>' : '<p class="muted">Sube sin límites y guarda tus recuerdos para siempre.</p>') +
     premBenefits() +
     buy + (isPremium() ? '' : '<p class="muted small"><a href="terms.html" target="_blank" rel="noopener">Términos de uso</a> · <a href="privacy.html" target="_blank" rel="noopener">Política de privacidad</a></p>') +
-    (storeNative() && !isPremium() ? '<button class="link" data-act="vc-restore">Restaurar compras</button>' : '') +
+    (canBuy() && !isPremium() ? '<button class="link" data-act="vc-restore">Restaurar compras</button>' : '') +
     '<button class="link" data-act="close-sheet">Cerrar</button></div>';
 }
 /* las ventajas de Premium, cada una con lo que trae la versión gratuita para comparar */
@@ -5967,7 +5962,7 @@ $('#vfile').addEventListener('change', function(e){
     if (p.dur > CLIP_MAX_S + 0.5) { toast('El video dura ' + Math.round(p.dur) + ' segundos. Máximo ' + CLIP_MAX_S + '.'); return; }
     var c = {id: uid(), by: S.me, at: Date.now(), thumb: p.thumb, dur: p.dur, blob: f, synced: false};
     ev.clips = ev.clips || []; ev.clips.push(c); save(); render(true);
-    toast(isPremium() ? 'Tu historia ya está en el evento' : ANDROID_APP ? 'Tu historia ya está. Se borra en 7 días.' : 'Tu historia ya está. Se borra en 7 días (con Premium se queda para siempre).');
+    toast(isPremium() ? 'Tu historia ya está en el evento' : NO_SHOP ? 'Tu historia ya está. Se borra en 7 días.' : 'Tu historia ya está. Se borra en 7 días (con Premium se queda para siempre).');
     SB.syncClip(ev, c);
   });
 });
