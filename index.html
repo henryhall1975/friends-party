@@ -3389,7 +3389,8 @@ window.fpStore = function(msg){
   if (!msg) return;
   if (msg.type === 'products') {
     ui.storePrices = ui.storePrices || {};
-    (msg.items || []).forEach(function(p){ ui.storePrices[p.id] = p.price; });
+    ui.storeTrial = ui.storeTrial || {};
+    (msg.items || []).forEach(function(p){ ui.storePrices[p.id] = p.price; if (p.trialDays) ui.storeTrial[p.id] = p.trialDays; });
     if (ui.sheet === 'premium') renderSheet();
     if ($('#pay') && $('#pay').className === 'on') openPay(ui.payPack, ui.payStep || 1);
     return;
@@ -5923,8 +5924,12 @@ function clipAct(a, t){
 function premiumSheet(){
   var b = function(t){ return '<li>' + t + '</li>'; };
   var price = (ui.storePrices && ui.storePrices[IAP_ID.premium]) || 'US$ 1.99';
+  /* prueba gratis: solo la ofrece Google Play (y solo a quien nunca tuvo Premium; Google decide) */
+  var trial = androidStore() && ui.storeTrial && ui.storeTrial[IAP_ID.premium];
   var buy = isPremium() ? '' : canBuy()
-    ? '<p class="muted small">' + price + (androidStore() ? ' al mes. Se renueva solo y lo cancelas cuando quieras desde Google Play.' : ' al mes. Se renueva solo y lo cancelas cuando quieras desde los ajustes de Apple.') + '</p><button class="btn primary block" data-act="vc-premium-buy">Hazte Premium</button>'
+    ? (trial
+      ? '<p class="muted small">' + T('{n} días gratis', {n: trial}) + '. ' + T('Luego {p} al mes. Se renueva solo y lo cancelas cuando quieras desde Google Play.', {p: price}) + '</p><button class="btn primary block" data-act="vc-premium-buy">' + T('Prueba {n} días gratis', {n: trial}) + '</button>'
+      : '<p class="muted small">' + price + (androidStore() ? ' al mes. Se renueva solo y lo cancelas cuando quieras desde Google Play.' : ' al mes. Se renueva solo y lo cancelas cuando quieras desde los ajustes de Apple.') + '</p><button class="btn primary block" data-act="vc-premium-buy">Hazte Premium</button>')
     : '<p class="muted small">US$ 1.99 al mes. Se renueva solo y lo cancelas cuando quieras desde los ajustes de Apple.</p><button class="btn primary block" disabled>Abre la app para suscribirte</button>';
   return '<div class="scrim" data-act="close-sheet"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="Premium"><h2>Friends Party Premium</h2>' +
     (isPremium() ? '<p class="muted">Ya eres Premium. Gracias por apoyar la app.</p>' : '<p class="muted">Sube sin límites y guarda tus recuerdos para siempre.</p>') +
