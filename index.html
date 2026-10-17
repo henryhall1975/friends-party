@@ -548,7 +548,8 @@ details.loc summary{cursor:pointer;font-weight:700;color:var(--accent);padding:8
 #ed .edtools{flex-wrap:nowrap;gap:5px}
 #ed .edfullbar{display:none}
 #ed.full .edfullbar{display:flex;justify-content:center;order:5}
-#ed.full .edfullbar .btn{min-width:200px}
+#ed.full .edfullbar{gap:10px}
+#ed.full .edfullbar .btn{flex:1;max-width:220px;min-height:46px;font-size:16px}
 #ed.full .edbody{overflow:hidden;padding-left:4px;padding-right:4px;max-width:none}
 #ed.full .edbody>p,#ed.full .trayh,#ed.full #ed-cats,#ed.full .tray,#ed.full #ed-unlock,#ed.full [data-act="ed-dl"]{display:none !important}
 #ed.full .edcv{flex:1;align-items:center}
@@ -5206,8 +5207,8 @@ function edDraw(){
 function edFit(){
   var e = ui.ed; if (!e || !e.cv) return;
   /* modo "acomodar": la foto ocupa casi toda la pantalla para mover y agrandar el sticker con los dedos */
-  var full = !!e.full, top = $('#ed .edtop'), tools = $('#ed .edtools'), fb = $('#ed .edfullbar');
-  var used = (top ? top.offsetHeight : 56) + (tools ? tools.offsetHeight + 10 : 50) + (fb ? fb.offsetHeight + 10 : 60) + 40;
+  var full = !!e.full, top = $('#ed .edtop'), tools = null, fb = $('#ed .edfullbar');
+  var used = (top ? top.offsetHeight : 56) + (tools ? tools.offsetHeight + 10 : 0) + (fb ? fb.offsetHeight + 10 : 60) + 40;
   var boxW = Math.min(window.innerWidth - (full ? 8 : 24), full ? 900 : 520), maxH = full ? Math.max(200, window.innerHeight - used) : window.innerHeight * 0.3;
   var cssW = Math.min(boxW, maxH * e.W / e.H), cssH = cssW * e.H / e.W, dpr = Math.min(2, window.devicePixelRatio || 1);
   e.cv.style.width = cssW + 'px'; e.cv.style.height = cssH + 'px';
@@ -5259,11 +5260,9 @@ function renderEditor(){
   el.innerHTML = '<div class="edtop"><button class="ib" data-act="ed-close" aria-label="Cerrar el editor">' + I.x + '</button><h2>Editar foto</h2><button class="btn small primary" data-act="ed-save">Guardar</button></div>' +
     '<div class="edbody"><div class="edcv"><canvas id="ed-cv" aria-label="Tu foto con los stickers"></canvas></div>' +
     '<p class="muted small" style="text-align:center;margin:0">Toca un sticker para agregarlo. Arrástralo para moverlo y usa dos dedos para cambiar su tamaño y su giro.</p>' +
-    '<div class="edtools"><button class="btn" data-act="ed-sm" data-need aria-label="Más pequeño">−</button><button class="btn" data-act="ed-bg" data-need aria-label="Más grande">+</button>' +
-    '<button class="btn" data-act="ed-rl" data-need aria-label="Girar a la izquierda">↺</button><button class="btn" data-act="ed-rr" data-need aria-label="Girar a la derecha">↻</button>' +
-    '<button class="btn" data-act="ed-front" data-need>Al frente</button><button class="btn danger" data-act="ed-del" data-need>Borrar</button></div>' +
+
     '<nav class="tabs trayh" role="tablist"><button class="tab on" data-act="ed-tab" data-tab="todos">Todos<small>' + n + '</small></button><button class="tab" data-act="ed-tab" data-tab="en">English<small>' + en + '</small></button><button class="tab" data-act="ed-tab" data-tab="es">Español<small>' + (n - en) + '</small></button>' + extraTabs + '</nav>' +
-    '<div class="edfullbar"><button class="btn" data-act="ed-more">' + I.plus + ' Más stickers</button></div>' +
+    '<div class="edfullbar edtools"><button class="btn" data-act="ed-more">' + I.plus + ' Más stickers</button><button class="btn danger" data-act="ed-del" data-need>' + I.trash + ' Borrar</button></div>' +
     '<nav class="tabs" id="ed-cats" hidden></nav><div class="tray" id="ed-tray"></div><div id="ed-unlock"></div>' +
     (dl ? '<button class="btn block" data-act="ed-dl">Descargar la foto editada</button>' : '') + '</div>';
   e.cv = $('#ed-cv'); el.classList.toggle('full', !!e.full);
