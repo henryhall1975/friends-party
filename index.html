@@ -3390,7 +3390,8 @@ window.fpStore = function(msg){
   }
   if (msg.type === 'purchase' || msg.type === 'restore') {
     if (!msg.ok) {
-      if (msg.type === 'purchase' && msg.error && msg.error !== 'cancelled' && msg.error !== 'not_loaded') toast('No se pudo completar la compra');
+      if (msg.type === 'purchase' && msg.error === 'not_loaded') toast('Este paquete todavía no se puede comprar en esta versión. Actualiza la app desde el App Store.');
+      else if (msg.type === 'purchase' && msg.error && msg.error !== 'cancelled') toast('No se pudo completar la compra');
       else if (msg.type === 'restore') toast('No encontramos compras para restaurar');
       return;
     }

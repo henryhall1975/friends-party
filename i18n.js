@@ -205,6 +205,7 @@ var D = {
   'Editar evento': ['Edit event', '이벤트 편집'],
   'Toca otra vez para eliminar': ['Tap again to delete', '삭제하려면 한 번 더 누르세요'],
   'Eliminar evento': ['Delete event', '이벤트 삭제'],
+  "Este paquete todavía no se puede comprar en esta versión. Actualiza la app desde el App Store.": ["This pack can't be bought in this version yet. Update the app from the App Store.", "이 버전에서는 아직 이 팩을 구매할 수 없어요. App Store에서 앱을 업데이트해 주세요."],
   "Stickers": ["Stickers", "스티커"],
   "Ajustes": ["Adjust", "조정"],
   "Filtros": ["Filters", "필터"],
