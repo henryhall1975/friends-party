@@ -471,7 +471,15 @@ details.loc summary{cursor:pointer;font-weight:700;color:var(--accent);padding:8
 .mo-empty .gp{margin-top:6px;padding:22px 16px;border-radius:26px}
 .grid .cell img{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 .fm-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
-.fm-grid img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:6px}
+.fm-grid img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:6px;display:block}
+.fm-cell{padding:0;border:0;background:none;display:block;width:100%}
+#fmlb{position:fixed;inset:0;z-index:60;background:rgba(10,8,28,.97);display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px)}
+#fmlb .fmtop{display:flex;align-items:center;gap:10px;padding:10px 12px;color:#fff}
+#fmlb .fmimg{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;position:relative}
+#fmlb .fmimg img{max-width:100%;max-height:100%;object-fit:contain}
+#fmlb .nav{position:absolute;top:50%;transform:translateY(-50%);width:44px;height:44px;border-radius:50%;background:rgba(0,0,0,.4);color:#fff;display:grid;place-items:center}
+#fmlb .nav.l{left:8px}#fmlb .nav.r{right:8px}#fmlb .nav[disabled]{opacity:.25}
+#fmlb .fmcount{color:rgba(255,255,255,.7);padding:12px 0 calc(16px + env(safe-area-inset-bottom,0px));text-align:center}
 .pf-name{font-weight:800;font-size:18px}
 .pf-priv{margin:6px 0 12px}
 .evi{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-size:20px;flex:none}
@@ -1987,6 +1995,10 @@ function act(a, t){
       if (pd) SB.deletePhoto(ev, pd).then(function(ok){ if (!ok) toast('No se pudo borrar en el servidor. Revisa tu conexión.'); });
       break;
     case 'past-toggle': ui.showPast = !ui.showPast; render(false); break;
+    case 'fm-photo': ui.fmI = +t.dataset.i; renderFmLb(); break;
+    case 'fm-close': ui.fmI = null; renderFmLb(); break;
+    case 'fm-prev': if (ui.fmI > 0) { ui.fmI--; renderFmLb(); } break;
+    case 'fm-next': ui.fmI++; renderFmLb(); break;
     case 'fm-back': ui.view = 'momentos'; ui.fm = null; render(false); window.scrollTo(0, 0); break;
     case 'new-moment': ui.editId = null; ui.newKind = 'momento'; ui.sheet = 'new'; renderSheet(); break;
     case 'mo-open': ui.view = 'event'; ui.eid = t.dataset.id; ui.tab = 'fotos'; ui.from = 'momentos'; render(false); window.scrollTo(0, 0); break;
@@ -4098,6 +4110,19 @@ function momentosView(){
     }).join('') + '</div>' : '') +
     '<div style="height:24px"></div></main><div class="bar hb"><div class="wrap"><button class="btn primary block" data-act="new-moment">' + I.plus + ' Nuevo momento<span class="chev">' + svg('<path d="M9 5l7 7-7 7"/>', 22) + '</span></button></div></div>';
 }
+/* foto completa del momento de un amigo: solo para ver (sin editar, descargar ni borrar) */
+function renderFmLb(){
+  var el = document.getElementById('fmlb');
+  var list = ui.fm && ui.fmPhotos && ui.fmPhotos[ui.fm];
+  if (ui.fmI == null || !list || !list[ui.fmI]) { if (el) el.remove(); document.body.style.overflow = ''; return; }
+  if (!el) { el = document.createElement('div'); el.id = 'fmlb'; document.body.appendChild(el); }
+  document.body.style.overflow = 'hidden';
+  var i = ui.fmI, n = list.length;
+  el.innerHTML = '<div class="fmtop"><button class="ib light" data-act="fm-close" aria-label="Cerrar">' + I.x + '</button></div>' +
+    '<div class="fmimg"><button class="nav l" data-act="fm-prev" aria-label="Foto anterior"' + (i === 0 ? ' disabled' : '') + '>' + I.back + '</button><img src="' + list[i] + '" alt="">' +
+    '<button class="nav r" data-act="fm-next" aria-label="Foto siguiente"' + (i === n - 1 ? ' disabled' : '') + '>' + svg('<path d="M9 5l7 7-7 7"/>', 22) + '</button></div>' +
+    '<div class="fmcount">' + (i + 1) + ' / ' + n + '</div>';
+}
 /* el momento público de un amigo: solo para ver sus fotos */
 function friendMomentView(){
   var m = (S.friendMoments || []).filter(function(x){ return x.id === ui.fm; })[0];
@@ -4105,7 +4130,7 @@ function friendMomentView(){
   var ph = (ui.fmPhotos && ui.fmPhotos[m.id]) || null;
   return '<header class="top"><div class="wrap"><div class="bar1"><button class="ib" data-act="fm-back" aria-label="Volver a Momentos">' + I.back + '</button><div class="tt"><div class="ttl" data-nt>' + esc(m.title) + '</div><div class="meta"><span>' + esc(m.owner) + '</span>' + (m.place ? '<span>' + I.pin + esc(m.place) + '</span>' : '') + '</div></div></div></div></header>' +
     '<main class="wrap">' + secMenu('Momentos') +
-    (ph === null ? '<p class="muted">Cargando fotos…</p>' : ph.length ? '<div class="grid fm-grid">' + ph.map(function(src){ return '<img src="' + src + '" alt="" loading="lazy">'; }).join('') + '</div>' : '<p class="muted">Este momento todavía no tiene fotos.</p>') +
+    (ph === null ? '<p class="muted">Cargando fotos…</p>' : ph.length ? '<div class="grid fm-grid">' + ph.map(function(src, k){ return '<button class="fm-cell" data-act="fm-photo" data-i="' + k + '" aria-label="Ver foto"><img src="' + src + '" alt="" loading="lazy"></button>'; }).join('') + '</div>' : '<p class="muted">Este momento todavía no tiene fotos.</p>') +
     '<div style="height:40px"></div></main>';
 }
 function fotosView(){
