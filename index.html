@@ -547,6 +547,28 @@ details.loc summary{cursor:pointer;font-weight:700;color:var(--accent);padding:8
 /* herramientas en una sola fila para dejarle más espacio a los stickers */
 #ed .edtools{flex-wrap:nowrap;gap:5px}
 #ed .edfullbar{display:none}
+#ed .edmodes{display:flex;gap:6px;background:rgba(255,255,255,.06);border-radius:14px;padding:4px}
+#ed .edmodes button{flex:1;padding:9px 4px;border-radius:10px;font-weight:700;font-size:14px;color:var(--muted)}
+#ed .edmodes button.on{background:rgba(255,255,255,.14);color:#fff}
+#ed.full .edmodes,#ed.full .edpanel{display:none !important}
+#ed:not([data-mode="stk"]) .trayh,#ed:not([data-mode="stk"]) #ed-cats,#ed:not([data-mode="stk"]) .tray,#ed:not([data-mode="stk"]) #ed-unlock{display:none !important}
+#ed .edpanel{display:flex;flex-direction:column;gap:10px}
+#ed .edsl{display:flex;flex-direction:column;gap:4px;font-size:14px;font-weight:600}
+#ed .edsl span{display:flex;justify-content:space-between}
+#ed .edsl b{color:var(--muted);font-weight:600}
+#ed .edsl input{width:100%;accent-color:#FF4D8D}
+#ed .edfils{display:grid;grid-auto-flow:column;grid-auto-columns:84px;gap:8px;overflow-x:auto;padding-bottom:6px}
+#ed .edfil{display:flex;flex-direction:column;align-items:center;gap:4px;padding:0;font-size:12px;font-weight:600;color:var(--muted)}
+#ed .edfil img{width:84px;height:100px;object-fit:cover;border-radius:12px;border:2px solid transparent}
+#ed .edfil.on img{border-color:#FF4D8D}
+#ed .edfil.on{color:#fff}
+#ed #ed-txt{font-size:16px;resize:none}
+#ed .edcols{display:flex;gap:10px;flex-wrap:wrap}
+#ed .edcol{width:34px;height:34px;border-radius:50%;border:2px solid rgba(255,255,255,.35);padding:0}
+#ed .edcol.on{outline:3px solid #FF4D8D;outline-offset:2px}
+#ed .edfonts{display:flex;gap:8px}
+#ed .edfonts .btn{flex:1}
+#ed .edfonts .btn.on{border-color:#FF4D8D;color:#fff}
 #ed.full .edfullbar{display:flex;justify-content:center;order:5}
 #ed.full .edfullbar{gap:10px}
 #ed.full .edfullbar .btn{flex:1;max-width:220px;min-height:46px;font-size:16px}
@@ -5184,15 +5206,80 @@ function tiendaView(){
 }
 
 /* editor */
+/* ---------- ajustes, filtros y texto del editor ---------- */
+var ED_FIL = [
+  {id: 'none', n: 'Original'}, {id: 'vivo', n: 'Vívido', sat: 40, con: 14}, {id: 'calido', n: 'Cálido', warm: 32, sat: 10},
+  {id: 'frio', n: 'Frío', warm: -32}, {id: 'bn', n: 'B/N', gray: 1, con: 12}, {id: 'sepia', n: 'Sepia', sepia: 0.85},
+  {id: 'vintage', n: 'Vintage', sepia: 0.35, fade: 0.14, con: -8}, {id: 'drama', n: 'Drama', con: 34, sat: -18, bri: -6},
+  {id: 'suave', n: 'Suave', fade: 0.12, bri: 6, sat: -8}, {id: 'noche', n: 'Noche', bri: -10, warm: -22, con: 18}
+];
+var ED_ADJ = [['bri', 'Brillo', -100, 100], ['con', 'Contraste', -100, 100], ['sat', 'Saturación', -100, 100], ['warm', 'Calidez', -100, 100], ['sh', 'Nitidez', 0, 100]];
+var ED_COL = ['#FFFFFF', '#111111', '#FF4D8D', '#FFD23F', '#3DDC97', '#4DA3FF', '#A86BFF', '#FF7A3D'];
+var ED_FONT = [['bold', 'Clásica', '900 100px -apple-system, "Helvetica Neue", Arial, sans-serif'], ['fun', 'Divertida', '700 100px "Comic Sans MS", "Chalkboard SE", "Marker Felt", cursive'], ['ele', 'Elegante', 'italic 600 100px Georgia, "Times New Roman", serif']];
+function edAdjChanged(e){ var a = e.adj || {}; return (e.fil && e.fil !== 'none') || ['bri', 'con', 'sat', 'warm', 'sh'].some(function(k){ return a[k]; }); }
+/* aplica filtro + ajustes a un ImageData (mismo resultado en la vista previa y en la foto final) */
+function edPixels(img, e){
+  var f = ED_FIL.filter(function(x){ return x.id === (e.fil || 'none'); })[0] || ED_FIL[0], a = e.adj || {};
+  var bri = (f.bri || 0) + (a.bri || 0), con = (f.con || 0) + (a.con || 0), sat = (f.sat || 0) + (a.sat || 0), warm = (f.warm || 0) + (a.warm || 0);
+  var gray = f.gray || 0, sepia = f.sepia || 0, fade = f.fade || 0;
+  var d = img.data, cf = Math.pow((100 + Math.max(-99, con)) / 100, 2), sf = 1 + sat / 100, bo = bri * 1.6, wo = warm * 0.55;
+  for (var i = 0; i < d.length; i += 4) {
+    var r = d[i], g = d[i + 1], b = d[i + 2], l;
+    r = (r - 128) * cf + 128 + bo; g = (g - 128) * cf + 128 + bo; b = (b - 128) * cf + 128 + bo;
+    l = 0.299 * r + 0.587 * g + 0.114 * b; r = l + (r - l) * sf; g = l + (g - l) * sf; b = l + (b - l) * sf;
+    if (gray) { l = 0.299 * r + 0.587 * g + 0.114 * b; r = g = b = l; }
+    if (sepia) { var sr = 0.393 * r + 0.769 * g + 0.189 * b, sg = 0.349 * r + 0.686 * g + 0.168 * b, sb = 0.272 * r + 0.534 * g + 0.131 * b; r += (sr - r) * sepia; g += (sg - g) * sepia; b += (sb - b) * sepia; }
+    if (wo) { r += wo; b -= wo; g += wo * 0.15; }
+    if (fade) { r = r * (1 - fade) + 128 * fade; g = g * (1 - fade) + 128 * fade; b = b * (1 - fade) + 128 * fade; }
+    d[i] = r; d[i + 1] = g; d[i + 2] = b;
+  }
+  var sh = a.sh || 0;
+  if (sh > 0) {
+    var k = sh / 100 * 0.9, W = img.width, H = img.height, src = new Uint8ClampedArray(d);
+    for (var y = 1; y < H - 1; y++) for (var x = 1; x < W - 1; x++) {
+      var o = (y * W + x) * 4;
+      for (var c = 0; c < 3; c++) d[o + c] = src[o + c] * (1 + 4 * k) - k * (src[o + c - 4] + src[o + c + 4] + src[o + c - W * 4] + src[o + c + W * 4]);
+    }
+  }
+  return img;
+}
+/* la foto base de la vista previa, ya ajustada (se rehace solo cuando cambian los ajustes o el tamaño) */
+function edPrep(){
+  var e = ui.ed; if (!e || !e.cv) return;
+  var c = e.adjCv || document.createElement('canvas'); c.width = e.cv.width; c.height = e.cv.height;
+  var x = c.getContext('2d'); x.drawImage(e.img, 0, 0, c.width, c.height);
+  if (edAdjChanged(e)) { try { x.putImageData(edPixels(x.getImageData(0, 0, c.width, c.height), e), 0, 0); } catch (er) {} }
+  e.adjCv = c;
+}
+var edRaf = 0;
+function edRefresh(){ if (edRaf) return; edRaf = requestAnimationFrame(function(){ edRaf = 0; edPrep(); edDraw(); }); }
+/* el texto se dibuja una vez en su propio lienzo y luego se mueve y escala como un sticker */
+function edTextCanvas(it){
+  var f = (ED_FONT.filter(function(x){ return x[0] === it.font; })[0] || ED_FONT[0])[2];
+  var c = document.createElement('canvas'), x = c.getContext('2d'); x.font = f;
+  var lines = String(it.text).split('\n'), wmax = 1;
+  lines.forEach(function(l){ wmax = Math.max(wmax, x.measureText(l).width); });
+  var pad = 28, lh = 118; c.width = Math.ceil(wmax + pad * 2); c.height = Math.ceil(lines.length * lh + pad * 2 - 18);
+  x = c.getContext('2d'); x.font = f; x.textAlign = 'center'; x.textBaseline = 'top'; x.lineJoin = 'round';
+  var dark = it.color === '#111111';
+  lines.forEach(function(l, i){
+    var y = pad + i * lh;
+    x.lineWidth = 16; x.strokeStyle = dark ? 'rgba(255,255,255,.95)' : 'rgba(0,0,0,.6)'; x.strokeText(l, c.width / 2, y);
+    x.fillStyle = it.color; x.fillText(l, c.width / 2, y);
+  });
+  it.cv = c; it.a = c.width / c.height;
+  return c;
+}
 function edItem(it, x, s){
-  var im = stkImg(stkById(it.sid)), w = it.w * s, h = w / it.a;
+  var im = it.t === 'txt' ? (it.cv || edTextCanvas(it)) : stkImg(stkById(it.sid)), w = it.w * s, h = w / it.a;
   x.save(); x.translate(it.x * s, it.y * s); x.rotate(it.rot); x.drawImage(im, -w / 2, -h / 2, w, h); x.restore();
 }
 function edDraw(){
   var e = ui.ed; if (!e || !e.cv) return;
   var cv = e.cv, x = cv.getContext('2d'), s = cv.width / e.W;
   x.clearRect(0, 0, cv.width, cv.height);
-  x.drawImage(e.img, 0, 0, cv.width, cv.height);
+  if (!e.adjCv || e.adjCv.width !== cv.width || e.adjCv.height !== cv.height) edPrep();
+  x.drawImage(e.adjCv || e.img, 0, 0, cv.width, cv.height);
   e.items.forEach(function(it){ edItem(it, x, s); });
   var it = e.items[e.sel];
   if (it) {
@@ -5212,10 +5299,10 @@ function edFit(){
   /* espacio real disponible: el cuerpo del editor menos sus márgenes (incluye la barra de inicio del iPhone) y la barra de botones */
   var bodyEl = $('#ed .edbody'), avail = window.innerHeight - used;
   if (full && bodyEl && fb) { var cs = getComputedStyle(bodyEl); avail = bodyEl.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - fb.offsetHeight - 24; }
-  var boxW = Math.min(window.innerWidth - (full ? 8 : 24), full ? 900 : 520), maxH = full ? Math.max(200, avail) : window.innerHeight * 0.3;
+  var boxW = Math.min(window.innerWidth - (full ? 8 : 24), full ? 900 : 520), maxH = full ? Math.max(200, avail) : window.innerHeight * ((e.mode || 'stk') === 'stk' ? 0.3 : 0.42);
   var cssW = Math.min(boxW, maxH * e.W / e.H), cssH = cssW * e.H / e.W, dpr = Math.min(2, window.devicePixelRatio || 1);
   e.cv.style.width = cssW + 'px'; e.cv.style.height = cssH + 'px';
-  e.cv.width = Math.max(1, Math.round(cssW * dpr)); e.cv.height = Math.max(1, Math.round(cssH * dpr));
+  e.cv.width = Math.max(1, Math.round(cssW * dpr)); e.cv.height = Math.max(1, Math.round(cssH * dpr)); e.adjCv = null;
   edDraw();
 }
 function edTools(){
@@ -5262,14 +5349,15 @@ function renderEditor(){
   }).join('');
   el.innerHTML = '<div class="edtop"><button class="ib" data-act="ed-close" aria-label="Cerrar el editor">' + I.x + '</button><h2>Editar foto</h2><button class="btn small primary" data-act="ed-save">Guardar</button></div>' +
     '<div class="edbody"><div class="edcv"><canvas id="ed-cv" aria-label="Tu foto con los stickers"></canvas></div>' +
-    '<p class="muted small" style="text-align:center;margin:0">Toca un sticker para agregarlo. Arrástralo para moverlo y usa dos dedos para cambiar su tamaño y su giro.</p>' +
+    '<nav class="edmodes" role="tablist">' + [['stk', 'Stickers'], ['aj', 'Ajustes'], ['fil', 'Filtros'], ['txt', 'Texto']].map(function(m){ return '<button class="' + ((e.mode || 'stk') === m[0] ? 'on' : '') + '" data-act="ed-mode" data-m="' + m[0] + '">' + m[1] + '</button>'; }).join('') + '</nav>' +
+    '<div class="edpanel" id="ed-panel"></div>' +
 
     '<nav class="tabs trayh" role="tablist"><button class="tab on" data-act="ed-tab" data-tab="todos">Todos<small>' + n + '</small></button><button class="tab" data-act="ed-tab" data-tab="en">English<small>' + en + '</small></button><button class="tab" data-act="ed-tab" data-tab="es">Español<small>' + (n - en) + '</small></button>' + extraTabs + '</nav>' +
-    '<div class="edfullbar edtools"><button class="btn" data-act="ed-more">' + I.plus + ' Más stickers</button><button class="btn danger" data-act="ed-del" data-need>' + I.trash + ' Borrar</button></div>' +
+    '<div class="edfullbar edtools"><button class="btn" data-act="ed-more">' + ((e.mode || 'stk') === 'txt' ? svg('<path d="M5 12l5 5 9-10"/>', 18) + ' Listo' : I.plus + ' Más stickers') + '</button><button class="btn danger" data-act="ed-del" data-need>' + I.trash + ' Borrar</button></div>' +
     '<nav class="tabs" id="ed-cats" hidden></nav><div class="tray" id="ed-tray"></div><div id="ed-unlock"></div>' +
     (dl ? '<button class="btn block" data-act="ed-dl">Descargar la foto editada</button>' : '') + '</div>';
-  e.cv = $('#ed-cv'); el.classList.toggle('full', !!e.full);
-  edFit(); buildTray(); edTools(); edBind();
+  e.cv = $('#ed-cv'); el.classList.toggle('full', !!e.full); el.dataset.mode = e.mode || 'stk';
+  edFit(); buildTray(); edPanel(); edTools(); edBind();
 }
 function edBind(){
   var e = ui.ed, cv = e.cv, ptrs = {}, drag = null, pinch = null;
@@ -5331,6 +5419,35 @@ function openEditor(){
   img.src = p.data;
 }
 function closeEditor(){ ui.ed = null; renderEditor(); }
+/* el panel de abajo según la pestaña: ajustes (deslizadores), filtros (miniaturas) o texto */
+function edPanel(){
+  var e = ui.ed, p = $('#ed-panel'); if (!e || !p) return;
+  var m = e.mode || 'stk'; e.adj = e.adj || {};
+  if (m === 'aj') {
+    p.innerHTML = ED_ADJ.map(function(r){ var v = e.adj[r[0]] || 0; return '<label class="edsl"><span>' + r[1] + '<b id="edv-' + r[0] + '">' + (v > 0 && r[2] < 0 ? '+' : '') + v + '</b></span><input type="range" min="' + r[2] + '" max="' + r[3] + '" value="' + v + '" data-adj="' + r[0] + '"></label>'; }).join('') +
+      '<button class="link" data-act="ed-adjreset">Restablecer ajustes</button>';
+  } else if (m === 'fil') {
+    var th = document.createElement('canvas'), tw = 120, ht = Math.round(tw * e.H / e.W); th.width = tw; th.height = Math.min(ht, 160);
+    p.innerHTML = '<div class="edfils">' + ED_FIL.map(function(f){
+      var tx = th.getContext('2d'); tx.drawImage(e.img, 0, 0, th.width, th.height);
+      if (f.id !== 'none') { try { tx.putImageData(edPixels(tx.getImageData(0, 0, th.width, th.height), {fil: f.id, adj: {}}), 0, 0); } catch (er) {} }
+      return '<button class="edfil' + ((e.fil || 'none') === f.id ? ' on' : '') + '" data-act="ed-fil" data-f="' + f.id + '"><img src="' + th.toDataURL('image/jpeg', 0.7) + '" alt=""><span>' + f.n + '</span></button>';
+    }).join('') + '</div>';
+  } else if (m === 'txt') {
+    e.tcol = e.tcol || '#FFFFFF'; e.tfont = e.tfont || 'bold';
+    p.innerHTML = '<textarea id="ed-txt" class="inp" rows="2" maxlength="80" placeholder="Escribe tu texto"></textarea>' +
+      '<div class="edcols">' + ED_COL.map(function(c){ return '<button class="edcol' + (e.tcol === c ? ' on' : '') + '" data-act="ed-tcol" data-c="' + c + '" style="background:' + c + '" aria-label="Color"></button>'; }).join('') + '</div>' +
+      '<div class="edfonts">' + ED_FONT.map(function(f){ return '<button class="btn small' + (e.tfont === f[0] ? ' on' : '') + '" data-act="ed-tfont" data-f="' + f[0] + '">' + f[1] + '</button>'; }).join('') + '</div>' +
+      '<button class="btn primary block" data-act="ed-taddd">' + I.plus + ' Agregar texto</button>';
+  } else p.innerHTML = '';
+  p.querySelectorAll('input[type=range]').forEach(function(r){
+    r.addEventListener('input', function(){
+      var k = r.dataset.adj, v = +r.value; e.adj[k] = v; e.discard = false;
+      var b = document.getElementById('edv-' + k); if (b) b.textContent = (v > 0 && k !== 'sh' ? '+' : '') + v;
+      edRefresh();
+    });
+  });
+}
 function edSetFull(on){
   var e = ui.ed, el = $('#ed'); if (!e || !el) return;
   e.full = !!on; el.classList.toggle('full', e.full);
@@ -5340,6 +5457,7 @@ function edSetFull(on){
 function edCompose(){
   var e = ui.ed, c = document.createElement('canvas'); c.width = e.W; c.height = e.H;
   var x = c.getContext('2d'); x.drawImage(e.img, 0, 0, e.W, e.H);
+  if (edAdjChanged(e)) { try { x.putImageData(edPixels(x.getImageData(0, 0, e.W, e.H), e), 0, 0); } catch (er) {} }
   e.items.forEach(function(it){ edItem(it, x, 1); });
   return c.toDataURL('image/jpeg', 0.9);
 }
@@ -5376,12 +5494,27 @@ function edAct(a, t){
   switch (a) {
     case 'ed-open': openEditor(); break;
     case 'ed-close':
-      if (e && e.items.length && !e.discard) { e.discard = true; toast('Tienes cambios sin guardar. Toca otra vez para descartarlos.'); return; }
+      if (e && (e.items.length || edAdjChanged(e)) && !e.discard) { e.discard = true; toast('Tienes cambios sin guardar. Toca otra vez para descartarlos.'); return; }
       var wasNew = e && e.newUp;
       closeEditor();
       if (wasNew) { ui.preup = wasNew; ui.sheet = 'preup'; renderSheet(); }
       break;
     case 'ed-tab': e.tab = t.dataset.tab; e.cat = 'all'; buildTray(); break;
+    case 'ed-mode': e.mode = t.dataset.m; e.full = false; renderEditor(); break;
+    case 'ed-fil': e.fil = t.dataset.f; e.discard = false; edPrep(); edDraw(); document.querySelectorAll('#ed .edfil').forEach(function(b){ b.classList.toggle('on', b.dataset.f === e.fil); }); break;
+    case 'ed-adjreset': e.adj = {}; edPanel(); edRefresh(); break;
+    case 'ed-tcol': e.tcol = t.dataset.c; edPanel(); break;
+    case 'ed-tfont': var keep = ($('#ed-txt') || {}).value || ''; e.tfont = t.dataset.f; edPanel(); if ($('#ed-txt')) $('#ed-txt').value = keep; break;
+    case 'ed-taddd':
+      var txt = (($('#ed-txt') || {}).value || '').trim();
+      if (!txt) { toast('Escribe un texto primero'); if ($('#ed-txt')) $('#ed-txt').focus(); return; }
+      if (e.items.length >= 40) { toast('Máximo 40 elementos por foto'); return; }
+      var ti = {t: 'txt', text: txt, color: e.tcol, font: e.tfont, x: e.W / 2, y: e.H / 2, rot: 0};
+      edTextCanvas(ti); ti.w = Math.min(e.W * 0.8, e.H * 0.18 * ti.a);
+      e.items.push(ti); e.sel = e.items.length - 1; e.discard = false;
+      if (document.activeElement) document.activeElement.blur();
+      edSetFull(true); edTools();
+      break;
     case 'ed-cat': e.cat = t.dataset.cat; buildTray(); break;
     case 'ed-add':
       var s = stkById(t.dataset.id), spk = stkPack(s);
@@ -5402,12 +5535,13 @@ function edAct(a, t){
     case 'ed-front': if (it) { e.items.push(e.items.splice(e.sel, 1)[0]); e.sel = e.items.length - 1; edDraw(); } break;
     case 'ed-del': if (it) { e.items.splice(e.sel, 1); e.sel = -1; edDraw(); edTools(); } break;
     case 'ed-save':
-      if (!e.items.length && !e.newUp) { toast('Agrega al menos un sticker'); return; }
+      var changed = e.items.length || edAdjChanged(e);
+      if (!changed && !e.newUp) { toast('No hiciste cambios todavía'); return; }
       ev = S.events.filter(function(x){ return x.id === e.evId; })[0];
       p = ev && ev.photos.filter(function(x){ return x.id === e.pid; })[0];
       if (!ev) return;
       var replace = !!(p && canDelPhoto(ev, p));
-      var np = {id: uid(), by: S.me, at: replace ? p.at : Date.now(), data: e.items.length ? edCompose() : e.newUp.data, geo: (p && p.geo) || (e.newUp && e.newUp.geo) || null, likes: replace ? (p.likes || []) : [], edited: !!e.items.length, pend: true};
+      var np = {id: uid(), by: S.me, at: replace ? p.at : Date.now(), data: changed ? edCompose() : e.newUp.data, geo: (p && p.geo) || (e.newUp && e.newUp.geo) || null, likes: replace ? (p.likes || []) : [], edited: !!changed, pend: true};
       /* la foto editada sustituye a la original (antes quedaban las dos) */
       if (replace) { ev.photos = ev.photos.filter(function(x){ return x.id !== p.id; }); SB.deletePhoto(ev, p); }
       ev.photos.push(np); if (e.newUp) ui.preup = null; save();
@@ -5418,7 +5552,7 @@ function edAct(a, t){
     case 'ed-dl':
       if (!dl) return;
       ev = S.events.filter(function(x){ return x.id === e.evId; })[0];
-      if (!e.items.length) { toast('Agrega al menos un sticker'); return; }
+      if (!e.items.length && !edAdjChanged(e)) { toast('No hiciste cambios todavía'); return; }
       dl.save({filename: slug(ev ? ev.name : 'foto') + '-editada.jpg', data: new Blob([dataToBytes(edCompose())], {type: 'image/jpeg'})}).then(function(){ toast('Foto guardada'); }).catch(saveFail);
       break;
   }
