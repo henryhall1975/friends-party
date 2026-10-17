@@ -550,7 +550,7 @@ details.loc summary{cursor:pointer;font-weight:700;color:var(--accent);padding:8
 #ed.full .edfullbar{display:flex;justify-content:center;order:5}
 #ed.full .edfullbar{gap:10px}
 #ed.full .edfullbar .btn{flex:1;max-width:220px;min-height:46px;font-size:16px}
-#ed.full .edbody{overflow:hidden;padding-left:4px;padding-right:4px;max-width:none}
+#ed.full .edbody{overflow:hidden;padding-left:4px;padding-right:4px;max-width:none;padding-bottom:calc(20px + env(safe-area-inset-bottom,0px))}
 #ed.full .edbody>p,#ed.full .trayh,#ed.full #ed-cats,#ed.full .tray,#ed.full #ed-unlock,#ed.full [data-act="ed-dl"]{display:none !important}
 #ed.full .edcv{flex:1;align-items:center}
 #ed .edtools .btn{min-height:38px;min-width:38px;padding:0 9px;font-size:14px}
@@ -5209,7 +5209,10 @@ function edFit(){
   /* modo "acomodar": la foto ocupa casi toda la pantalla para mover y agrandar el sticker con los dedos */
   var full = !!e.full, top = $('#ed .edtop'), tools = null, fb = $('#ed .edfullbar');
   var used = (top ? top.offsetHeight : 56) + (tools ? tools.offsetHeight + 10 : 0) + (fb ? fb.offsetHeight + 10 : 60) + 40;
-  var boxW = Math.min(window.innerWidth - (full ? 8 : 24), full ? 900 : 520), maxH = full ? Math.max(200, window.innerHeight - used) : window.innerHeight * 0.3;
+  /* espacio real disponible: el cuerpo del editor menos sus márgenes (incluye la barra de inicio del iPhone) y la barra de botones */
+  var bodyEl = $('#ed .edbody'), avail = window.innerHeight - used;
+  if (full && bodyEl && fb) { var cs = getComputedStyle(bodyEl); avail = bodyEl.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - fb.offsetHeight - 24; }
+  var boxW = Math.min(window.innerWidth - (full ? 8 : 24), full ? 900 : 520), maxH = full ? Math.max(200, avail) : window.innerHeight * 0.3;
   var cssW = Math.min(boxW, maxH * e.W / e.H), cssH = cssW * e.H / e.W, dpr = Math.min(2, window.devicePixelRatio || 1);
   e.cv.style.width = cssW + 'px'; e.cv.style.height = cssH + 'px';
   e.cv.width = Math.max(1, Math.round(cssW * dpr)); e.cv.height = Math.max(1, Math.round(cssH * dpr));
