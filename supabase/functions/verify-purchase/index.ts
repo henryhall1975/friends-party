@@ -53,6 +53,8 @@ async function iapJwt(): Promise<string> {
 }
 
 const ANDROID_PACKAGE = "com.henryhall.friendsparty";
+// En Google Play el ID de Premium es más corto (máximo 40 letras); la app lo manda con el ID de Apple.
+const GOOGLE_PREMIUM_ID = "com.henryhall.friendsparty.premium";
 
 async function googleToken(): Promise<string> {
   const sa = JSON.parse(Deno.env.get("GOOGLE_SA_JSON")!);
@@ -86,17 +88,17 @@ async function verifyGoogle(db: any, uid: string, productId: string, token: stri
   const auth = { authorization: `Bearer ${at}` };
   const t = encodeURIComponent(token);
 
-  if (productId === PREMIUM_ID) {
+  if (productId === PREMIUM_ID || productId === GOOGLE_PREMIUM_ID) {
     const r = await fetch(`${api}/subscriptionsv2/tokens/${t}`, { headers: auth });
     if (!r.ok) { console.log("verify-purchase: google respondio " + r.status + ": " + (await r.text()).slice(0, 300)); return json({ ok: false, error: "google_" + r.status }); }
     const sub = await r.json();
-    const line = (sub.lineItems || []).find((l: any) => l.productId === PREMIUM_ID);
+    const line = (sub.lineItems || []).find((l: any) => l.productId === GOOGLE_PREMIUM_ID);
     if (!line) return json({ ok: false, error: "producto_desconocido" });
     if (!["SUBSCRIPTION_STATE_ACTIVE", "SUBSCRIPTION_STATE_IN_GRACE_PERIOD", "SUBSCRIPTION_STATE_CANCELED"].includes(sub.subscriptionState)) {
       return json({ ok: false, error: "suscripcion_" + sub.subscriptionState });
     }
     if (sub.acknowledgementState === "ACKNOWLEDGEMENT_STATE_PENDING") {
-      await fetch(`${api}/subscriptions/${PREMIUM_ID}/tokens/${t}:acknowledge`, { method: "POST", headers: auth });
+      await fetch(`${api}/subscriptions/${GOOGLE_PREMIUM_ID}/tokens/${t}:acknowledge`, { method: "POST", headers: auth });
     }
     const until = new Date(line.expiryTime).toISOString();
     if (new Date(until).getTime() < Date.now()) return json({ ok: false, error: "vencida" });
