@@ -1475,6 +1475,11 @@ var SB = {
     if (!sid || !SB.session || !SB.session.access_token || !S.serverId) return Promise.resolve(false);
     return SB.rest('event_members', 'DELETE', null, '?event_id=eq.' + sid + '&user_id=eq.' + S.serverId, 'return=minimal').then(function(r){ return !!r.ok; }).catch(function(){ return false; });
   },
+  /* mi respuesta a un evento (va / tal vez / no va), para que los demás la vean */
+  setRsvp: function(sid, s){
+    if (!sid || !SB.session || !SB.session.access_token || !S.serverId) return Promise.resolve(false);
+    return SB.rest('event_members', 'POST', {event_id: sid, user_id: S.serverId, rsvp: s}, '?on_conflict=event_id,user_id', 'resolution=merge-duplicates,return=minimal').then(function(r){ return !!r.ok; }).catch(function(){ return false; });
+  },
   /* los grupos de OTRAS personas en los que estoy (para poder salirme) */
   pullOtherGroups: function(){
     if (!SB.session || !SB.session.access_token || !S.serverId) return Promise.resolve();
@@ -1728,8 +1733,9 @@ var SB = {
         return Promise.all([
           SB.rest('photos', 'GET', null, '?event_id=eq.' + erow.id + '&order=created_at.asc'),
           SB.rest('messages', 'GET', null, '?event_id=eq.' + erow.id + '&order=created_at.asc'),
-          SB.rest('songs', 'GET', null, '?event_id=eq.' + erow.id + '&order=created_at.asc')
-        ]).then(function(r3){ return {erow: erow, photoRows: r3[0].data || [], msgRows: r3[1].data || [], songRows: r3[2].data || []}; });
+          SB.rest('songs', 'GET', null, '?event_id=eq.' + erow.id + '&order=created_at.asc'),
+          SB.rest('event_members', 'GET', null, '?event_id=eq.' + erow.id + '&select=user_id,rsvp')
+        ]).then(function(r3){ return {erow: erow, photoRows: r3[0].data || [], msgRows: r3[1].data || [], songRows: r3[2].data || [], memRows: r3[3].ok ? (r3[3].data || []) : null}; });
       }));
     }).then(function(bundles){
       /* averigua quién es quién (author_id/added_by son ids del servidor) para no mostrar
@@ -1739,6 +1745,7 @@ var SB = {
         b.photoRows.forEach(function(p){ if (p.author_id) ids[p.author_id] = 1; });
         b.msgRows.forEach(function(m){ if (m.author_id) ids[m.author_id] = 1; });
         b.songRows.forEach(function(s){ if (s.added_by) ids[s.added_by] = 1; });
+        (b.memRows || []).forEach(function(m){ if (m.user_id) ids[m.user_id] = 1; });
       });
       return SB.resolveNames(Object.keys(ids)).then(function(names){
         names[S.serverId] = S.me;
@@ -1754,12 +1761,19 @@ var SB = {
               return {id: 'p_' + p.id, by: names[p.author_id] || 'Alguien', at: Date.parse(p.created_at) || Date.now(), data: data, synced: true};
             }).catch(function(){ return null; });
           })).then(function(photos){
+            /* quiénes van (y qué respondió cada uno), tal como está en el servidor */
+            var members = [S.me], rsvp = {};
+            if (b.memRows) {
+              members = [];
+              b.memRows.forEach(function(m){ var n = names[m.user_id]; if (n && members.indexOf(n) < 0) { members.push(n); rsvp[n] = m.rsvp || 'va'; } });
+              if (!members.length) members = [S.me];
+            }
             return {
               id: 'srv_' + erow.id, serverId: erow.id, kind: erow.kind || 'evento', ownerId: erow.owner_id || '', inviteCode: erow.invite_code || '', name: erow.title, place: erow.place_text || '',
               date: erow.starts_at ? erow.starts_at.slice(0, 10) : '', time: erow.starts_at ? erow.starts_at.slice(11, 16) : '',
-              emoji: '🎉', grad: 0, code: mkCode(), members: [S.me], created: Date.parse(erow.created_at) || Date.now(),
+              emoji: '🎉', grad: 0, code: mkCode(), members: members, memOk: !!b.memRows, created: Date.parse(erow.created_at) || Date.now(),
               geo: (typeof erow.lat === 'number' && typeof erow.lon === 'number') ? {lat: erow.lat, lon: erow.lon} : null, pub: !!erow.is_public,
-              rsvp: {}, invites: [], remind: {d3: erow.remind_d3 !== false, d1: erow.remind_d1 !== false, d0: erow.remind_d0 !== false},
+              rsvp: rsvp, invites: [], remind: {d3: erow.remind_d3 !== false, d1: erow.remind_d1 !== false, d0: erow.remind_d0 !== false},
               photos: photos.filter(Boolean),
               chat: b.msgRows.map(function(m){ return {id: 'm_' + m.id, by: names[m.author_id] || 'Alguien', at: Date.parse(m.created_at), text: m.body || ''}; }),
               songs: b.songRows.map(function(s){ return {id: 's_' + s.id, title: s.title, artist: s.artist, platform: s.platform, url: s.external_url, note: '', by: names[s.added_by] || 'Alguien', at: Date.parse(s.created_at), likes: []}; })
@@ -1770,7 +1784,7 @@ var SB = {
     }).then(function(evs){
       (evs || []).forEach(function(nev){
         var existing = S.events.filter(function(e){ return e.serverId === nev.serverId; })[0];
-        if (existing) { var keep = existing.photos.filter(function(p){ return p.pend && !p.synced; }); existing.photos = nev.photos.concat(keep); existing.chat = nev.chat; existing.songs = nev.songs; Object.assign(existing, {name: nev.name, place: nev.place, date: nev.date, time: nev.time, inviteCode: nev.inviteCode || existing.inviteCode, ownerId: nev.ownerId || existing.ownerId, kind: nev.kind || existing.kind}); if (nev.geo) { existing.geo = nev.geo; delete existing.geoDemo; } existing.pub = nev.pub; existing.remind = nev.remind; }
+        if (existing) { var keep = existing.photos.filter(function(p){ return p.pend && !p.synced; }); existing.photos = nev.photos.concat(keep); existing.chat = nev.chat; existing.songs = nev.songs; Object.assign(existing, {name: nev.name, place: nev.place, date: nev.date, time: nev.time, inviteCode: nev.inviteCode || existing.inviteCode, ownerId: nev.ownerId || existing.ownerId, kind: nev.kind || existing.kind}); if (nev.geo) { existing.geo = nev.geo; delete existing.geoDemo; } existing.pub = nev.pub; existing.remind = nev.remind; if (nev.memOk) { existing.members = nev.members; existing.rsvp = nev.rsvp; } }
         else S.events.push(nev);
       });
       save();
@@ -3121,6 +3135,7 @@ function planAct(a, t){
       ev.rsvp[S.me] = t.dataset.s;
       if (ev.members.indexOf(S.me) < 0) ev.members.push(S.me);
       save(); render();
+      if (ev.serverId) SB.setRsvp(ev.serverId, t.dataset.s);
       break;
     case 'pl-rm': ev.remind[t.dataset.k] = !ev.remind[t.dataset.k]; save(); render(); SB.pushEvent(ev); setTimeout(pushAsk, 600); break;
     case 'pl-copy': copyText(inviteText(ev), 'Mensaje copiado'); break;
