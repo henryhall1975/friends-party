@@ -38,19 +38,24 @@ Deno.serve(async (req) => {
   const since = new Date(Date.now() - 5 * 60 * 1000).toISOString();
   const { data: inv } = await db.from("user_invites").update({ notified: true })
     .eq("id", record.id).eq("notified", false).eq("status", "pending").gte("created_at", since)
-    .select("from_user,to_user").maybeSingle();
+    .select("from_user,to_user,event_id").maybeSingle();
   if (!inv) return new Response("nada que avisar", { status: 200 });
-  record.from_user = inv.from_user; record.to_user = inv.to_user;
 
-  const { data: from } = await db.from("profiles").select("display_name,username").eq("id", record.from_user).maybeSingle();
-  const { data: tokens } = await db.from("device_tokens").select("token").eq("user_id", record.to_user);
+  const { data: from } = await db.from("profiles").select("display_name,username").eq("id", inv.from_user).maybeSingle();
+  const { data: tokens } = await db.from("device_tokens").select("token").eq("user_id", inv.to_user);
   const who = from?.display_name || from?.username || "Un amigo";
-  const payload = { aps: { alert: { title: "Friends Party", body: `${who} te invitó a su grupo` }, sound: "default", badge: 1 } };
+  // invitación a un evento o momento (no al grupo): se dice a cuál
+  let body = `${who} te invitó a su grupo`;
+  if (inv.event_id) {
+    const { data: ev } = await db.from("events").select("title,kind").eq("id", inv.event_id).maybeSingle();
+    body = ev?.title ? `${who} te invitó ${ev.kind === "momento" ? "al momento" : "a"} ${ev.title}` : `${who} te invitó a un evento`;
+  }
+  const payload = { aps: { alert: { title: "Friends Party", body }, sound: "default", badge: 1 } };
 
   const jwt = await apnsJwt();
   const out: unknown[] = [];
   for (const t of tokens ?? []) {
-    // Las pruebas desde Xcode usan el servidor "sandbox"; TestFlight y App Store usan producción.
+    // Las pruebas desde Xcode usan el servidor sandbox; TestFlight y App Store usan producción.
     let r = await push("api.push.apple.com", jwt, t.token, payload);
     if (r.status !== 200) r = await push("api.sandbox.push.apple.com", jwt, t.token, payload);
     if (r.status === 410) await db.from("device_tokens").delete().eq("token", t.token);

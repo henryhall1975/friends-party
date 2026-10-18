@@ -1310,16 +1310,21 @@ var SB = {
     }).catch(function(){ toast('No se pudo registrar el teléfono: sin conexión'); });
   },
   /* invitación directa a otra cuenta real (le llega a su bandeja de "Invitaciones recibidas") */
-  sendUserInvite: function(username){
+  /* con eventId, la invitación es a ese evento o momento; sin él, a mi grupo de amigos */
+  sendUserInvite: function(username, eventId){
     username = String(username || '').replace(/^@/, '').trim().toLowerCase();
     if (!SB.session || !SB.session.access_token) return Promise.resolve({ok: false, msg: 'Inicia sesión primero'});
-    return SB.ensureGroup().then(function(gid){
-      if (!gid) return {ok: false, msg: 'No se pudo conectar con el servidor'};
+    return (eventId ? Promise.resolve(null) : SB.ensureGroup()).then(function(gid){
+      if (!gid && !eventId) return {ok: false, msg: 'No se pudo conectar con el servidor'};
       return SB.rest('profiles', 'GET', null, '?username=eq.' + encodeURIComponent(username) + '&select=id,display_name,username').then(function(pr){
+        if (pr.data && pr.data[0]) return pr;
+        /* si escribieron el nombre ("Joshua") en vez del usuario (@creppy), sirve si solo hay una cuenta con ese nombre */
+        return SB.rest('profiles', 'GET', null, '?display_name=ilike.' + encodeURIComponent(username.replace(/[,()*%]/g, '')) + '&select=id,display_name,username&limit=2').then(function(r2){ return {data: r2.data && r2.data.length === 1 ? r2.data : []}; });
+      }).then(function(pr){
         var p = pr.data && pr.data[0];
         if (!p) return {ok: false, msg: 'No encontramos a @' + username};
         if (p.id === S.serverId) return {ok: false, msg: 'Esa eres tú'};
-        return SB.rest('user_invites', 'POST', {group_id: gid, to_user: p.id}, '', 'return=minimal').then(function(r){
+        return SB.rest('user_invites', 'POST', eventId ? {event_id: eventId, to_user: p.id} : {group_id: gid, to_user: p.id}, '', 'return=minimal').then(function(r){
           if (r.ok) return {ok: true, name: p.display_name || p.username};
           if (r.status === 409) return {ok: true, name: p.display_name || p.username, dup: true};
           return {ok: false, msg: 'No se pudo enviar la invitación. Intenta de nuevo.'};
@@ -1330,10 +1335,10 @@ var SB = {
   /* trae las invitaciones que te mandaron y aún no respondes */
   pullInvites: function(){
     if (!SB.session || !SB.session.access_token || !S.serverId) return Promise.resolve();
-    return SB.rest('user_invites', 'GET', null, '?to_user=eq.' + S.serverId + '&status=eq.pending&select=id,from_user,created_at&order=created_at.desc').then(function(r){
+    return SB.rpc('my_pending_invites', {}).then(function(r){
       if (!r.ok || !Array.isArray(r.data)) return;
       return SB.resolveNames(r.data.map(function(x){ return x.from_user; })).then(function(names){
-        var list = r.data.map(function(x){ return {id: x.id, by: names[x.from_user] || 'Alguien', at: Date.parse(x.created_at) || Date.now()}; });
+        var list = r.data.map(function(x){ var o = {id: x.id, by: names[x.from_user] || 'Alguien', at: Date.parse(x.created_at) || Date.now()}; if (x.event_id) { o.ev = x.event_title || ''; o.mom = x.event_kind === 'momento'; } return o; });
         var changed = JSON.stringify(list) !== JSON.stringify(S.inbox || []);
         S.inbox = list;
         if (changed) { save(); if (ui.view === 'invites' || ui.view === 'home') render(false); }
@@ -3192,8 +3197,10 @@ function planAct(a, t){
       text = inviteText(ev);
       if (a === 'pl-wa') { openLink('https://wa.me/' + ph + '?text=' + encodeURIComponent(text)); }
       else if (a === 'pl-mail') { openLink('mailto:' + mail + '?subject=' + encodeURIComponent(T('Te invito a {x}', {x: ev.name})) + '&body=' + encodeURIComponent(text)); }
+      if (nm.charAt(0) !== '@' && a === 'pl-app') nm = '@' + nm; /* en la app se invita a cuentas: "joshua" y "@joshua" son lo mismo */
       if (nm.charAt(0) === '@') {
-        SB.sendUserInvite(nm).then(function(r){
+        if (!ev.serverId) { toast('Este evento todavía no se guarda en el servidor. Intenta en un momento.'); return; }
+        SB.sendUserInvite(nm, ev.serverId).then(function(r){
           if (!r.ok) { toast(r.msg); return; }
           ev.invites.push({id: uid(), who: r.name, via: 'app', at: Date.now()}); save(); render();
           toast(r.dup ? 'Ya habías invitado a ' + r.name : 'Invitación enviada a ' + r.name);
@@ -3318,7 +3325,7 @@ function inboxHtml(){
   var l = S.inbox || [];
   if (!l.length) return '';
   return '<div class="inbox"><h3 class="pl-h" style="margin-top:0">Invitaciones recibidas (' + l.length + ')</h3><ul class="people">' + l.map(function(x){
-    return '<li>' + av(x.by, 36) + '<span class="nm">' + esc(x.by) + '<small>Te invitó a su grupo</small></span>' +
+    return '<li>' + av(x.by, 36) + '<span class="nm">' + esc(x.by) + '<small>' + (x.ev !== undefined ? (x.ev ? T(x.mom ? 'Te invitó al momento {x}' : 'Te invitó a {x}', {x: x.ev}) : T('Te invitó a un evento')) : T('Te invitó a su grupo')) + '</small></span>' +
       '<button class="btn primary small" data-act="jn-accept" data-id="' + esc(x.id) + '">Aceptar</button><button class="link small" data-act="jn-decline" data-id="' + esc(x.id) + '">Rechazar</button></li>';
   }).join('') + '</ul></div>';
 }
@@ -3712,8 +3719,9 @@ function joinAct(a, t){
     case 'jn-accept':
       SB.rpc('accept_user_invite', {inv: t.dataset.id}).then(function(r){
         if (!r.ok) { toast('No se pudo aceptar. Intenta de nuevo.'); return; }
+        var was = (S.inbox || []).filter(function(x){ return x.id === t.dataset.id; })[0];
         S.inbox = (S.inbox || []).filter(function(x){ return x.id !== t.dataset.id; });
-        afterJoinResult({ok: true, kind: 'group', id: r.data});
+        afterJoinResult({ok: true, kind: was && was.ev !== undefined ? 'event' : 'group', id: r.data});
       });
       break;
     case 'jn-decline':
