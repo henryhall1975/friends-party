@@ -848,6 +848,7 @@ var D = {
   '{n} mensajes': ['{n} messages', '메시지 {n}개'],
   'No tienes avisos. Aquí verás invitaciones, recordatorios, fotos nuevas y mensajes de tus eventos.': ['No notifications. Here you\'ll see invitations, reminders, new photos and messages from your events.', '알림이 없어요. 초대, 리마인더, 새 사진과 이벤트 메시지가 여기에 표시돼요.'],
   'a las {x}': ['at {x}', '{x}에'],
+  'Momentos públicos': ['Public moments', '공개 모먼트'],
   'Abre la app Friends Party para comprar': ['Open the Friends Party app to buy', '구매하려면 Friends Party 앱을 여세요'],
   'Este paquete todavía no se puede comprar en esta versión. Actualiza la app desde Google Play.': ['This pack can\'t be bought in this version yet. Update the app from Google Play.', '이 버전에서는 아직 이 팩을 구매할 수 없어요. Google Play에서 앱을 업데이트해 주세요.'],
   'Tu pago está pendiente. Cuando Google Play lo confirme, toca Restaurar compras.': ['Your payment is pending. When Google Play confirms it, tap Restore purchases.', '결제가 대기 중이에요. Google Play에서 확인되면 구매 복원을 눌러 주세요.'],
