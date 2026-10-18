@@ -6,7 +6,7 @@
 // Secretos necesarios: APNS_KEY_P8 (el mismo de send-push).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const KEY_ID = "HJWQN4HQV3", TEAM_ID = "P4242HMZ49", BUNDLE_ID = "com.henryhall.friendsparty";
+const KEY_ID = "5U5JY7775X", TEAM_ID = "P4242HMZ49", BUNDLE_ID = "com.henryhall.friendsparty";
 const b64url = (buf: ArrayBuffer | Uint8Array) =>
   btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const json = (body: unknown, status = 200) =>
@@ -48,6 +48,7 @@ Deno.serve(async (req) => {
 
   const jwt = await apnsJwt();
   let enviados = 0, fallidos = 0;
+  const detalle: unknown[] = []; // qué respondió Apple con cada teléfono (para diagnosticar)
   for (const r of rows) {
     const n = Number(r.eventos) || 0;
     const cuerpo = event_id
@@ -56,10 +57,11 @@ Deno.serve(async (req) => {
     const payload = { aps: { alert: { title: "Friends Party", body: cuerpo }, sound: "default" } };
     // Las pruebas desde Xcode usan el servidor "sandbox"; TestFlight y App Store usan producción.
     let res = await push("api.push.apple.com", jwt, r.token, payload);
+    const prod = { status: res.status, apple: res.status === 200 ? "" : (await res.text()).slice(0, 120) };
     if (res.status !== 200) res = await push("api.sandbox.push.apple.com", jwt, r.token, payload);
     if (res.status === 410) await db.from("device_tokens").delete().eq("token", r.token);
     if (res.status === 200) enviados++; else fallidos++;
-    await res.text();
+    detalle.push({ tel: r.token.slice(0, 8), prod, final: res.status, apple: (await res.text()).slice(0, 120) });
   }
-  return json({ enviados, fallidos });
+  return json({ enviados, fallidos, detalle });
 });

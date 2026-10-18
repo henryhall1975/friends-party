@@ -5,7 +5,7 @@
 // Secretos necesarios: APNS_KEY_P8 (el mismo de send-push).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const KEY_ID = "HJWQN4HQV3", TEAM_ID = "P4242HMZ49", BUNDLE_ID = "com.henryhall.friendsparty";
+const KEY_ID = "5U5JY7775X", TEAM_ID = "P4242HMZ49", BUNDLE_ID = "com.henryhall.friendsparty";
 const b64url = (buf: ArrayBuffer | Uint8Array) =>
   btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const json = (body: unknown, status = 200) =>
