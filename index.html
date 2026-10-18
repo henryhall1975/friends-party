@@ -455,6 +455,20 @@ details.loc summary{cursor:pointer;font-weight:700;color:var(--accent);padding:8
 .pf-head .pmf{margin:22px 8px 12px 6px}
 .hero-r:has(.pmf){margin:14px 12px 6px 0}
 .hero-r:has(.pmf) .hfind{left:-56px;bottom:4px}
+.hero-r:has(.pmf) .hbell{left:-102px;top:auto;bottom:4px}
+/* campana de avisos en la pantalla principal */
+.hbell{position:absolute;left:-64px;bottom:-8px;z-index:2;display:grid;place-items:center;width:38px;height:38px;border-radius:50%;color:#fff;background:linear-gradient(160deg,#FF7AA8,#C2337A);border:2px solid #14103A;box-shadow:0 0 12px rgba(255,90,160,.55),inset 0 1px 0 rgba(255,255,255,.35)}
+.hbell svg{width:20px;height:20px}
+.hbell .nb{position:absolute;top:-6px;right:-6px;min-width:20px;height:20px;padding:0 5px;border-radius:10px;background:#FFD23F;color:#14103A;font-size:12px;font-weight:800;line-height:20px;text-align:center;border:2px solid #14103A}
+.ntl{list-style:none;margin:6px 0 10px;padding:0;display:grid;gap:8px;max-height:60vh;overflow-y:auto}
+.ntl li{display:flex;align-items:center;gap:10px;background:var(--bg);border-radius:14px;padding:10px 12px;position:relative}
+.ntl li.nw::after{content:"";position:absolute;top:10px;right:10px;width:8px;height:8px;border-radius:50%;background:#FF5C9A}
+.ntl .ni{flex:none;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;background:var(--surface);color:var(--accent)}
+.ntl .nt{flex:1;min-width:0;text-align:left;font-size:14px;line-height:1.35}
+.ntl .nt small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.ntl .nt em{font-style:normal;color:var(--muted)}
+.ntl button.ntr{all:unset;cursor:pointer;display:flex;align-items:center;gap:10px;flex:1;min-width:0}
+.ntl .nacts{display:flex;gap:6px;flex:none}
 .pf-head{display:flex;align-items:center;gap:20px;padding:6px 0 12px}
 .pf-stats{display:flex;flex:1;justify-content:space-around;text-align:center}
 .pf-stats b{display:block;font-size:20px;font-weight:800;line-height:1.1}
@@ -2113,6 +2127,15 @@ function act(a, t){
       render(false); window.scrollTo(0, 0);
       if (!mk) setTimeout(pushAsk, 1500); /* para que le lleguen los recordatorios de este evento */
       break;
+    case 'nt-sheet':
+      ui.sheet = 'notifs'; renderSheet();
+      S.notifSeen = Date.now(); S.remSeen = dayKey(); save(); render(false); /* al abrirlos ya quedan vistos (la campana se apaga) */
+      break;
+    case 'nt-open':
+      ui.sheet = null; renderSheet();
+      ui.from = null; ui.view = 'event'; ui.eid = t.dataset.id; ui.tab = t.dataset.tab || defTab(S.events.filter(function(e){ return e.id === t.dataset.id; })[0]);
+      if (ui.tab === 'chat') ui.stick = true;
+      render(false); window.scrollTo(0, 0); break;
     case 'open': ui.from = null; ui.view = 'event'; ui.eid = t.dataset.id; ui.tab = defTab(S.events.filter(function(e){ return e.id === t.dataset.id; })[0]); render(false); window.scrollTo(0, 0); break;
     case 'back': ui.view = ui.from || 'home'; ui.from = null; ui.eid = null; render(false); window.scrollTo(0, 0); break;
     case 'tab':
@@ -2936,6 +2959,60 @@ function remHTML(r){
   var ev = r.ev, title = r.k === 'd3' ? 'Faltan 3 días' : r.k === 'd1' ? 'Es mañana' : 'Es hoy';
   return '<button class="rem" data-act="open" data-id="' + ev.id + '"><span class="bell">' + I.bell + '</span><span><strong>' + title + '</strong><span>' + esc(ev.name) + (ev.time ? ' a las ' + esc(fmtHour(ev.time)) : '') + '</span></span></button>';
 }
+/* centro de avisos: lo que pasó en tus eventos aunque no hayas visto la notificación del teléfono.
+   Invitaciones pendientes, recordatorios de hoy, y fotos y mensajes de otros de los últimos 7 días. */
+function dayKey(){ var d = new Date(); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); }
+function notifItems(){
+  var out = [], week = Date.now() - 7 * 864e5, me = S.me;
+  (S.inbox || []).forEach(function(x){ out.push({k: 'inv', at: x.at, x: x}); });
+  dueReminders().forEach(function(r){ out.push({k: 'rem', at: Date.now(), r: r}); });
+  S.events.forEach(function(ev){
+    var ph = (ev.photos || []).filter(function(p){ return p.by && p.by !== me && p.at > week; });
+    if (ph.length) { var lp = ph.reduce(function(a, b){ return b.at > a.at ? b : a; }); out.push({k: 'ph', ev: ev, n: ph.length, at: lp.at, by: lp.by}); }
+    var ms = (ev.chat || []).filter(function(m){ return m.by && m.by !== me && m.at > week; });
+    if (ms.length) { var lm = ms.reduce(function(a, b){ return b.at > a.at ? b : a; }); out.push({k: 'ch', ev: ev, n: ms.length, at: lm.at, by: lm.by, text: lm.text}); }
+  });
+  return out.sort(function(a, b){ return b.at - a.at; });
+}
+function notifIsNew(i){ return i.k === 'inv' || (i.k === 'rem' ? S.remSeen !== dayKey() : i.at > (S.notifSeen || 0)); }
+function notifCount(){
+  if (S.notifSeen === undefined) { S.notifSeen = Date.now(); save(); } /* la primera vez no se marca como nuevo lo de antes */
+  return notifItems().filter(notifIsNew).length;
+}
+function bellBtn(){
+  var n = notifCount();
+  return '<button class="hbell" data-act="nt-sheet" aria-label="' + esc(T('Avisos')) + (n ? ' (' + n + ')' : '') + '">' + I.bell + (n ? '<span class="nb">' + (n > 9 ? '9+' : n) + '</span>' : '') + '</button>';
+}
+function agoTxt(t){
+  var m = Math.round((Date.now() - t) / 60000);
+  if (m < 1) return T('ahora');
+  if (m < 60) return T('hace {n} min', {n: m});
+  var h = Math.round(m / 60); if (h < 24) return T('hace {n} h', {n: h});
+  var d = Math.round(h / 24); return d === 1 ? T('ayer') : T('hace {n} días', {n: d});
+}
+function notifRow(i){
+  var cls = notifIsNew(i) ? ' class="nw"' : '';
+  if (i.k === 'inv') {
+    var x = i.x, what = x.ev !== undefined ? (x.ev ? T(x.mom ? 'Te invitó al momento {x}' : 'Te invitó a {x}', {x: x.ev}) : T('Te invitó a un evento')) : T('Te invitó a su grupo');
+    return '<li' + cls + '>' + av(x.by, 36) + '<span class="nt"><strong>' + esc(x.by) + '</strong> ' + esc(what) + '<small>' + esc(agoTxt(x.at)) + '</small></span>' +
+      '<span class="nacts"><button class="btn primary small" data-act="jn-accept" data-id="' + esc(x.id) + '">' + T('Aceptar') + '</button><button class="link small" data-act="jn-decline" data-id="' + esc(x.id) + '">' + T('Rechazar') + '</button></span></li>';
+  }
+  if (i.k === 'rem') {
+    var ev = i.r.ev, title = i.r.k === 'd3' ? 'Faltan 3 días' : i.r.k === 'd1' ? 'Es mañana' : 'Es hoy';
+    return '<li' + cls + '><button class="ntr" data-act="nt-open" data-id="' + ev.id + '" data-tab="plan"><span class="ni">' + I.bell + '</span><span class="nt"><strong>' + esc(T(title)) + '</strong>: ' + esc(ev.name) + (ev.time ? ' ' + esc(T('a las {x}', {x: fmtHour(ev.time)})) : '') + '</span></button></li>';
+  }
+  var txt = i.k === 'ph'
+    ? (i.n === 1 ? T('{x} subió una foto a {e}', {x: i.by, e: i.ev.name}) : T('{n} fotos nuevas en {e}', {n: i.n, e: i.ev.name}))
+    : T('{x} en {e}', {x: i.by, e: i.ev.name});
+  return '<li' + cls + '><button class="ntr" data-act="nt-open" data-id="' + i.ev.id + '" data-tab="' + (i.k === 'ph' ? 'fotos' : 'chat') + '">' + (i.k === 'ph' ? '<span class="ni">' + I.image + '</span>' : av(i.by, 36)) +
+    '<span class="nt">' + esc(txt) + (i.k === 'ch' && i.text ? '<em> · ' + esc(i.text.slice(0, 80)) + '</em>' : '') + '<small>' + esc(agoTxt(i.at)) + (i.k === 'ch' && i.n > 1 ? ' · ' + esc(T('{n} mensajes', {n: i.n})) : '') + '</small></span></button></li>';
+}
+function notifSheet(){
+  var items = notifItems();
+  return '<div class="scrim" data-act="close-sheet"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="' + esc(T('Avisos')) + '"><h2>' + T('Avisos') + '</h2>' +
+    (items.length ? '<ul class="ntl">' + items.map(notifRow).join('') + '</ul>' : '<p class="muted">' + T('No tienes avisos. Aquí verás invitaciones, recordatorios, fotos nuevas y mensajes de tus eventos.') + '</p>') +
+    '<button class="link" data-act="close-sheet">' + T('Cerrar') + '</button></div>';
+}
 /* en la pantalla principal, deslizar el dedo hacia abajo desde arriba trae lo nuevo del servidor
    (eventos, fotos, asistentes, momentos de amigos, invitaciones y chat) */
 function pullToRefresh(){
@@ -2980,7 +3057,7 @@ function home(){
     return (b.date || '').localeCompare(a.date || '') || b.created - a.created;
   });
   var rems = dueReminders();
-  return '<div class="wrap hmv"><header class="hero">' + homeFx() + '<div><h1>Friends<br><span class="h1g">Party</span></h1><div class="tagl">Eventos que te unen</div></div>' + (S.me ? '<div class="hero-r"><button class="hfind" data-act="pf-find" aria-label="Buscar personas">' + svg('<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>', 20) + '</button><button class="pfbtn" data-act="pf-open" aria-label="Mi perfil">' + avP(S.me, 68) + '</button></div>' : '') + '</header>' + homeMenu() +
+  return '<div class="wrap hmv"><header class="hero">' + homeFx() + '<div><h1>Friends<br><span class="h1g">Party</span></h1><div class="tagl">Eventos que te unen</div></div>' + (S.me ? '<div class="hero-r">' + bellBtn() + '<button class="hfind" data-act="pf-find" aria-label="Buscar personas">' + svg('<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>', 20) + '</button><button class="pfbtn" data-act="pf-open" aria-label="Mi perfil">' + avP(S.me, 68) + '</button></div>' : '') + '</header>' + homeMenu() +
     (rems.length ? '<div class="rems">' + rems.map(remHTML).join('') + '</div>' : '') +
     (evs.length ? evListHtml(evs) : '<div class="empty">' + homeArt() + '<div class="gp"><p><strong>Todavía no tienes eventos.</strong></p><p class="muted">Crea uno y comparte su código con tus amigos.</p></div></div>') +
     '</div><div class="bar hb"><div class="wrap"><button class="btn primary block" data-act="new-event">' + I.plus + ' Nuevo evento<span class="chev">' + svg('<path d="M9 5l7 7-7 7"/>', 22) + '</span></button></div></div>';
@@ -3158,6 +3235,8 @@ function renderSheet(){
     el.innerHTML = joinSheet(); focus = '#j-code';
   } else if (ui.sheet === 'qr') {
     el.innerHTML = qrSheet();
+  } else if (ui.sheet === 'notifs') {
+    el.innerHTML = notifSheet();
   } else if (ui.sheet === 'premium') {
     el.innerHTML = premiumSheet();
   } else if (ui.sheet === 'report') {
@@ -3722,11 +3801,13 @@ function joinAct(a, t){
         var was = (S.inbox || []).filter(function(x){ return x.id === t.dataset.id; })[0];
         S.inbox = (S.inbox || []).filter(function(x){ return x.id !== t.dataset.id; });
         afterJoinResult({ok: true, kind: was && was.ev !== undefined ? 'event' : 'group', id: r.data});
+        if (ui.sheet === 'notifs') renderSheet();
       });
       break;
     case 'jn-decline':
       SB.rpc('decline_user_invite', {inv: t.dataset.id}).then(function(){
         S.inbox = (S.inbox || []).filter(function(x){ return x.id !== t.dataset.id; }); save(); render(false); toast('Invitación rechazada');
+        if (ui.sheet === 'notifs') renderSheet();
       });
       break;
     case 'jn-go': doJoin(($('#j-code').value || '').trim()); break;
