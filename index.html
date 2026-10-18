@@ -1808,7 +1808,7 @@ var SB = {
     }).then(function(evs){
       (evs || []).forEach(function(nev){
         var existing = S.events.filter(function(e){ return e.serverId === nev.serverId; })[0];
-        if (existing) { var keep = existing.photos.filter(function(p){ return p.pend && !p.synced; }); existing.photos = nev.photos.concat(keep); existing.chat = nev.chat; existing.songs = nev.songs; Object.assign(existing, {name: nev.name, place: nev.place, date: nev.date, time: nev.time, inviteCode: nev.inviteCode || existing.inviteCode, ownerId: nev.ownerId || existing.ownerId, kind: nev.kind || existing.kind}); if (nev.geo) { existing.geo = nev.geo; delete existing.geoDemo; } existing.pub = nev.pub; existing.remind = nev.remind; if (nev.memOk) { existing.members = nev.members; existing.rsvp = nev.rsvp; } }
+        if (existing) { var keep = existing.photos.filter(function(p){ return p.pend && !p.synced; }); existing.photos = nev.photos.concat(keep); existing.chat = nev.chat; existing.songs = nev.songs; Object.assign(existing, {name: nev.name, place: nev.place, date: nev.date, time: nev.time, inviteCode: nev.inviteCode || existing.inviteCode, ownerId: nev.ownerId || existing.ownerId, kind: nev.kind || existing.kind}); if (nev.geo) { existing.geo = nev.geo; delete existing.geoDemo; } existing.pub = nev.pub; existing.remind = nev.remind; if (nev.memOk) { existing.members = nev.members; existing.rsvp = nev.rsvp; pruneInvites(existing); } }
         else S.events.push(nev);
       });
       save();
@@ -2869,9 +2869,20 @@ function fmtDay(iso){
   var s = new Date(p[0], p[1] - 1, p[2]).toLocaleDateString(FPI.locale, {weekday: 'long', day: 'numeric', month: 'long', year: p[0] !== new Date().getFullYear() ? 'numeric' : undefined});
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
+/* las invitaciones "sin responder" se quitan cuando esa persona ya entró al evento, y no se repiten */
+function pruneInvites(ev){
+  var inside = {}, seen = {};
+  (ev.members || []).forEach(function(m){ inside[String(m).toLowerCase()] = 1; });
+  ev.invites = (ev.invites || []).filter(function(v){
+    var k = String(v.who || '').toLowerCase();
+    if (!k || inside[k] || seen[k]) return false;
+    seen[k] = 1; return true;
+  });
+}
 function norm(ev){
   ev.time = ev.time || ''; ev.notes = ev.notes || ''; ev.songs = ev.songs || [];
   ev.rsvp = ev.rsvp || {}; ev.invites = ev.invites || [];
+  pruneInvites(ev);
   ev.remind = ev.remind || {d3: true, d1: true, d0: true};
   ev.members.forEach(function(m){ if (!ev.rsvp[m]) ev.rsvp[m] = 'va'; });
   return ev;
@@ -3103,6 +3114,7 @@ function planBody(ev){
   var mem = ev.members.slice().sort(function(a, b){ return order[ev.rsvp[a] || 'va'] - order[ev.rsvp[b] || 'va']; });
   var via = {whatsapp: 'WhatsApp', correo: 'correo', app: 'la app'};
   var go = recipients(ev).length;
+  pruneInvites(ev);
   var people = '<h3 class="pl-h">Personas</h3><p class="muted small">' + go + (go === 1 ? ' persona va o tal vez va' : ' personas van o tal vez van') + (ev.invites.length ? ', ' + ev.invites.length + (ev.invites.length === 1 ? ' invitación sin responder' : ' invitaciones sin responder') : '') + '.</p><ul class="people">' +
     mem.map(function(m){ var s = ev.rsvp[m] || 'va'; return '<li class="lnk"><button class="rowbtn" data-act="us-open" data-n="' + esc(m) + '">' + av(m, 36) + '<span class="nm">' + esc(m) + (m === S.me ? ' (tú)' : '') + '</span><span class="pill ' + cls[s] + '">' + label[s] + '</span></button></li>'; }).join('') +
     ev.invites.map(function(v){ return '<li>' + av(v.who, 36) + '<span class="nm">' + esc(v.who) + '<small>Invitado por ' + via[v.via] + '</small></span><span class="pill pend">Sin responder</span></li>'; }).join('') + '</ul>';
@@ -3281,7 +3293,7 @@ function planAct(a, t){
         if (!ev.serverId) { toast('Este evento todavía no se guarda en el servidor. Intenta en un momento.'); return; }
         SB.sendUserInvite(nm, ev.serverId).then(function(r){
           if (!r.ok) { toast(r.msg); return; }
-          ev.invites.push({id: uid(), who: r.name, via: 'app', at: Date.now()}); save(); render();
+          ev.invites.push({id: uid(), who: r.name, via: 'app', at: Date.now()}); pruneInvites(ev); save(); render();
           toast(r.dup ? 'Ya habías invitado a ' + r.name : 'Invitación enviada a ' + r.name);
         });
         { var f2 = $('#i-name'); if (f2) f2.value = ''; }
