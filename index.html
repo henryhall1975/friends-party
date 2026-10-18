@@ -212,6 +212,11 @@ main{padding:14px 0 130px}
 
 #toast{position:fixed;left:50%;bottom:calc(96px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:80;background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:99px;font-weight:500;font-size:15px;opacity:0;pointer-events:none;transition:opacity .2s;max-width:88vw;text-align:center}
 #toast.on{opacity:1}
+/* deslizar hacia abajo en la pantalla principal para actualizar */
+#ptr{position:fixed;left:50%;top:calc(6px + env(safe-area-inset-top,0px));z-index:70;width:40px;height:40px;margin-left:-20px;border-radius:50%;background:var(--surface);color:var(--accent);border:1px solid var(--line);box-shadow:0 4px 14px rgba(0,0,0,.35);display:grid;place-items:center;opacity:0;transform:translateY(-60px);pointer-events:none}
+#ptr.back{transition:transform .25s,opacity .25s}
+#ptr.spin svg{animation:ptrspin .8s linear infinite}
+@keyframes ptrspin{to{transform:rotate(360deg)}}
 /* Historias */
 .promo{display:flex;align-items:center;gap:12px;width:100%;text-align:left;border-radius:14px;padding:14px;margin-bottom:14px;background:linear-gradient(135deg,#D6336C,#7B4FD1);color:#fff}
 .promo strong{display:block;font-size:17px;line-height:1.2}
@@ -2925,6 +2930,42 @@ function card(ev){
 function remHTML(r){
   var ev = r.ev, title = r.k === 'd3' ? 'Faltan 3 días' : r.k === 'd1' ? 'Es mañana' : 'Es hoy';
   return '<button class="rem" data-act="open" data-id="' + ev.id + '"><span class="bell">' + I.bell + '</span><span><strong>' + title + '</strong><span>' + esc(ev.name) + (ev.time ? ' a las ' + esc(fmtHour(ev.time)) : '') + '</span></span></button>';
+}
+/* en la pantalla principal, deslizar el dedo hacia abajo desde arriba trae lo nuevo del servidor
+   (eventos, fotos, asistentes, momentos de amigos, invitaciones y chat) */
+function pullToRefresh(){
+  var y0 = null, x0 = 0, d = 0, busy = false, el = null, MAX = 90, GO = 64;
+  function bar(){
+    if (!el) { el = document.createElement('div'); el.id = 'ptr'; el.innerHTML = svg('<path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 4v5h-5"/>', 22); document.body.appendChild(el); }
+    return el;
+  }
+  function show(px, turn){ var b = bar(); b.classList.remove('back'); b.style.opacity = Math.min(px / GO, 1); b.style.transform = 'translateY(' + (px - 46) + 'px) rotate(' + turn + 'deg)'; }
+  function hide(){ var b = bar(); b.classList.add('back'); b.classList.remove('spin'); b.style.opacity = 0; b.style.transform = 'translateY(-60px)'; }
+  function can(){
+    var top = (window.scrollY || document.documentElement.scrollTop || 0) <= 0;
+    return top && ui.view === 'home' && !ui.sheet && ui.lb == null && !ui.ed && !coverOn && !($('#pay') && $('#pay').className === 'on');
+  }
+  document.addEventListener('touchstart', function(e){
+    if (busy || e.touches.length !== 1 || !can()) { y0 = null; return; }
+    y0 = e.touches[0].clientY; x0 = e.touches[0].clientX; d = 0;
+  }, {passive: true});
+  document.addEventListener('touchmove', function(e){
+    if (y0 === null) return;
+    var dy = e.touches[0].clientY - y0, dx = e.touches[0].clientX - x0;
+    if (dy <= 0 || Math.abs(dx) > dy) { if (d) hide(); y0 = dy <= 0 && d === 0 ? y0 : null; d = 0; return; }
+    d = Math.min(dy * 0.5, MAX); show(d, d * 4);
+  }, {passive: true});
+  document.addEventListener('touchend', function(){
+    if (y0 === null) return; y0 = null;
+    if (d < GO) { d = 0; hide(); return; }
+    d = 0;
+    if (!SB.session || !SB.session.access_token || !S.serverId) { hide(); toast('Conecta tu cuenta para actualizar'); return; }
+    busy = true; var b = bar(); b.classList.add('back', 'spin'); b.style.opacity = 1; b.style.transform = 'translateY(' + (GO - 46) + 'px)';
+    SB.freshAt = Date.now();
+    var work = Promise.all([SB.pullAll(), SB.pullInvites(), SB.pullFriendMoments(), SB.pullChat()].map(function(p){ return Promise.resolve(p).catch(function(){}); }));
+    var limit = new Promise(function(res){ setTimeout(res, 15000); });
+    Promise.race([work, limit]).then(function(){ busy = false; hide(); render(false); });
+  });
 }
 function home(){
   var evs = S.events.filter(function(e){ return !isMoment(e); }).sort(function(a, b){
@@ -6016,6 +6057,7 @@ Promise.race([loadP, new Promise(function(r){ setTimeout(function(){ r(null); },
     joinGate(PENDING_JOIN);
   }
   SB.restore().then(function(ok){ if (ok) { SB.syncAvatar(); SB.pullFollows(); pushRefresh(); SB.pullInvites(); SB.pullChat(); SB.pullFresh(); setInterval(function(){ if (!document.hidden) SB.pullInvites(); }, 30000); SB.syncPending(); tryPendingJoin(); SB.ensureGroup().then(function(){ return SB.fetchGroupCode(); }); } }); /* recupera la sesión y reintenta lo pendiente */
+  pullToRefresh();
   /* chat: se revisa al volver a la app y, mientras hay un chat abierto, cada 6 segundos; si no, cada 30 */
   /* al volver a la app después de un rato, la sesión se renueva antes de pedir nada */
   document.addEventListener('visibilitychange', function(){ if (!document.hidden) { (S.session && S.session.refresh_token && Date.now() - (SB._lastRefresh || 0) > 30 * 60 * 1000 ? SB.refreshOnce() : Promise.resolve()).then(function(){ SB.pullChat(); SB.pullFresh(); }); } });
