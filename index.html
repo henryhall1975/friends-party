@@ -1335,6 +1335,15 @@ var SB = {
       });
     }).catch(function(){});
   },
+  /* "mi gente": quienes están conmigo en algún grupo o evento, o me siguen (para meterlos en mis grupos) */
+  pullPeople: function(){
+    if (!SB.session || !SB.session.access_token || !S.serverId) return Promise.resolve();
+    return SB.rpc('my_people', {}).then(function(r){
+      if (!r.ok || !Array.isArray(r.data)) return;
+      var list = r.data.map(function(x){ return {id: x.id, n: x.nombre, de: x.de}; });
+      if (JSON.stringify(list) !== JSON.stringify(S.people || [])) { S.people = list; save(); if (ui.view === 'invites') render(false); }
+    }).catch(function(){});
+  },
   createGroup: function(name){
     if (!SB.session || !SB.session.access_token || !S.serverId) return Promise.resolve(null);
     var gid = SB.uuid();
@@ -1809,7 +1818,7 @@ var SB = {
      (para cuando alguien entra desde un teléfono nuevo) */
   pullAll: function(){
     if (!SB.session || !SB.session.access_token || !S.serverId) return Promise.resolve();
-    SB.pullPremium(); SB.pullPurchases(); SB.pullMyGroups();
+    SB.pullPremium(); SB.pullPurchases(); SB.pullMyGroups(); SB.pullPeople();
     return SB.rest('group_members', 'GET', null, '?user_id=eq.' + S.serverId + '&select=group_id').then(function(gm){
       var gids = (gm.data || []).map(function(r){ return r.group_id; });
       if (!gids.length) return [];
@@ -2073,7 +2082,7 @@ function eventView(){
 function render(keep){
   var y = window.scrollY;
   app.innerHTML = ui.view === 'home' ? home() : ui.view === 'invites' ? invitesView() : ui.view === 'music' ? musicView() : ui.view === 'tienda' ? tiendaView() : ui.view === 'places' ? placesView() : ui.view === 'place' ? placeView() : ui.view === 'fotos' ? fotosView() : ui.view === 'momentos' ? momentosView() : ui.view === 'fmoment' ? friendMomentView() : ui.view === 'chats' ? chatsView() : ui.view === 'gchat' ? gchatView() : ui.view === 'profile' ? profileView() : ui.view === 'user' ? userView() : eventView();
-  if (ui.view === 'invites') { renderQrInto(groupCode()); SB.pullOtherGroups(); if (!ui.gPulled) { ui.gPulled = true; SB.pullMyGroups(); } }
+  if (ui.view === 'invites') { renderQrInto(groupCode()); SB.pullOtherGroups(); if (!ui.gPulled) { ui.gPulled = true; SB.pullMyGroups(); SB.pullPeople(); } }
   checkLevelUp();
   if (keep !== false) window.scrollTo(0, y);
   if (ui.stick) { ui.stick = false; window.scrollTo(0, document.documentElement.scrollHeight); }
@@ -3549,6 +3558,23 @@ function selGroup(){
   var L = S.groups || [];
   return L.filter(function(g){ return g.id === ui.gsel; })[0] || L.filter(function(g){ return g.id === S.serverGroupId; })[0] || L[0] || null;
 }
+/* en un grupo, la gente de tus otros grupos que todavía no está aquí, para meterla con un toque */
+function addFromGroups(sg){
+  if (!sg) return '';
+  var here = {}, seen = {}, out = [];
+  (sg.mem || []).forEach(function(x){ here[x.id] = 1; });
+  /* la gente que conoces (grupos, eventos, seguidores) y, de respaldo, la de tus otros grupos */
+  (S.people || []).forEach(function(x){ if (!here[x.id] && !seen[x.id]) { seen[x.id] = 1; out.push({id: x.id, n: x.n, from: x.de}); } });
+  (S.groups || []).forEach(function(g){
+    if (g.id === sg.id) return;
+    (g.mem || []).forEach(function(x){ if (!here[x.id] && !seen[x.id]) { seen[x.id] = 1; out.push({id: x.id, n: x.n, from: grpName(g)}); } });
+  });
+  if (!out.length) return '';
+  out.sort(function(a, b){ return String(a.n).localeCompare(String(b.n)); });
+  return '<h3 class="pl-h">' + esc(T('Agregar a {x}', {x: grpName(sg)})) + '</h3><p class="muted small">' + T('Gente que ya conoces en la app (de tus grupos, eventos o que te sigue).') + '</p><ul class="people">' + out.map(function(x){
+    return '<li>' + av(x.n, 36) + '<span class="nm" data-nt>' + esc(x.n) + '<small>' + esc(x.from || '') + '</small></span><button class="btn small primary" style="margin-left:auto;flex:none" data-act="gr-add" data-uid="' + esc(x.id) + '" data-n="' + esc(x.n) + '">' + T('Agregar') + '</button></li>';
+  }).join('') + '</ul>';
+}
 function groupsBar(){
   var L = S.groups || [], cur = selGroup();
   if (!S.session) return '';
@@ -3586,7 +3612,7 @@ function groupSend(via, contact, text){
    aunque el evento sea de otro grupo. Le llega la invitación (notificación + bandeja) y al aceptar entra al evento. */
 function groupChips(){
   var ev = cur();
-  if (!ev || !ev.serverId || !(S.groups || []).length) return '';
+  if (!ev || !ev.serverId || !((S.groups || []).length || (S.people || []).length)) return '';
   var seen = {}, inside = {};
   (ev.members || []).forEach(function(n){ inside[String(n).toLowerCase()] = 1; });
   (ev.invites || []).forEach(function(v){ inside[String(v.who).toLowerCase()] = 1; });
@@ -3597,6 +3623,11 @@ function groupChips(){
       return '<button class="cb" data-act="pl-grp" data-uid="' + esc(x.id) + '" data-n="' + esc(x.n) + '" data-nt>' + I.plus + ' ' + esc(x.n) + '</button>';
     }).join('') + '</div>';
   }).join('');
+  /* y la demás gente que conoces (de eventos, de grupos de otros o que te sigue) */
+  var rest = (S.people || []).filter(function(x){ var k = String(x.n).toLowerCase(); if (inside[k] || seen[x.id]) return false; seen[x.id] = 1; return true; });
+  if (rest.length) blocks += '<p class="muted small" style="margin:8px 0 4px">' + T('Otras personas que conoces') + '</p><div class="mus">' + rest.map(function(x){
+    return '<button class="cb" data-act="pl-grp" data-uid="' + esc(x.id) + '" data-n="' + esc(x.n) + '" data-nt>' + I.plus + ' ' + esc(x.n) + '</button>';
+  }).join('') + '</div>';
   if (!blocks) return '';
   return '<h3 class="pl-h">' + T('Tu gente') + '</h3><p class="muted small">' + T('Toca a alguien de cualquiera de tus grupos para invitarlo a este evento.') + '</p>' + blocks;
 }
@@ -3651,7 +3682,7 @@ function invitesView(){
     '<div class="inv3"><button class="btn primary" data-act="gr-wa">WhatsApp</button><button class="btn primary" data-act="gr-mail">Correo</button><button class="btn primary" data-act="gr-app">En la app</button></div>' +
     '<p class="muted small">«En la app» le llega a tu amigo dentro de Friends Party si ya la tiene descargada. Si WhatsApp o el correo no se abren, copia el mensaje y pégalo ahí.</p></div>' +
     '<div class="joincard"><h3 class="pl-h" style="margin-top:0">¿Tienes un código?</h3><p class="muted small">Si un amigo te compartió un código o un QR, únete aquí y verás sus fotos y eventos.</p><button class="btn primary block" data-act="jn-open">Unirme con un código</button></div>' +
-    '<h3 class="pl-h">' + (sgv ? esc(grpName(sgv)) : 'Mi grupo') + ' (' + gm.length + ')</h3>' + members + otherGroupsHtml() +
+    '<h3 class="pl-h">' + (sgv ? esc(grpName(sgv)) : 'Mi grupo') + ' (' + gm.length + ')</h3>' + members + addFromGroups(sgv) + otherGroupsHtml() +
     '<h3 class="pl-h">Invitaciones enviadas (' + g.invites.length + ')</h3>' + sent + evs + '</main>';
 }
 
@@ -3659,6 +3690,16 @@ function groupAct(a, t){
   var g = S.group, nm, ph, mail, via, text;
   switch (a) {
     case 'gr-sel': ui.gsel = t.dataset.id; render(false); break;
+    case 'gr-add':
+      var ag = selGroup(); if (!ag || ui.grBusy) return;
+      ui.grBusy = true; t.disabled = true;
+      SB.setInGroup(ag.id, t.dataset.uid, true).then(function(ok){
+        ui.grBusy = false;
+        if (!ok) { t.disabled = false; toast('No se pudo cambiar. Intenta de nuevo.'); return; }
+        ag.mem = (ag.mem || []).concat([{id: t.dataset.uid, n: t.dataset.n}]); ag.members = (ag.members || []).concat([t.dataset.n]);
+        save(); render(false); toast(T('{x} ahora está en {g}', {x: t.dataset.n, g: grpName(ag)}));
+      });
+      break;
     case 'gr-mem': ui.grMem = {id: t.dataset.uid, n: t.dataset.n}; ui.sheet = 'grmem'; renderSheet(); break;
     case 'gr-tog':
       if (!ui.grMem || ui.grBusy) return;
