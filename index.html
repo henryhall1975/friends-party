@@ -3670,6 +3670,8 @@ function invitesView(){
   return '<header class="top"><div class="wrap"><div class="bar1"><button class="ib" data-act="back" aria-label="Volver al inicio">' + I.back + '</button><div class="tt"><div class="ttl">Amigos</div><div class="meta"><span>Tu grupo de la party</span></div></div></div></div></header>' +
     '<main class="wrap">' + secMenu('Amigos') + '<button class="btn block" data-act="pf-find" style="margin-bottom:14px">' + svg('<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>', 20) + ' Buscar personas</button>' + inboxHtml() +
     groupsBar() +
+    /* quiénes están en el grupo elegido y a quién puedes agregar, arriba para que se vea sin bajar */
+    (sgv ? '<h3 class="pl-h" style="margin-top:4px">' + esc(grpName(sgv)) + ' (' + gm.length + ')</h3>' + members + addFromGroups(sgv) : '') +
     '<h3 class="pl-h" style="margin-top:4px">' + (sgv ? esc(T('Comparte el grupo {x}', {x: grpName(sgv)})) : 'Comparte tu grupo') + (sgv ? '<button class="link small" data-act="gr-ren" style="margin-left:8px">' + T('Cambiar nombre') + '</button>' : '') + '</h3><p class="muted small">' + (sgv && sgv.id !== S.serverGroupId ? esc(T('Quien escanee este código entra al grupo {x} y ve solo sus eventos.', {x: grpName(sgv)})) : 'Que tu amigo escanee este código con la cámara para unirse. Al entrar, ve tus eventos y fotos.') + '</p>' + notConnNote() +
     '<div class="qrframe"><div class="qrwrap" id="qr-target"><p class="muted small">Generando…</p></div><div class="qr-mark">' + I.crown + '</div></div>' +
     '<div class="code" style="text-align:center;margin-bottom:6px">' + esc(groupCode()) + '</div>' +
@@ -3682,7 +3684,7 @@ function invitesView(){
     '<div class="inv3"><button class="btn primary" data-act="gr-wa">WhatsApp</button><button class="btn primary" data-act="gr-mail">Correo</button><button class="btn primary" data-act="gr-app">En la app</button></div>' +
     '<p class="muted small">«En la app» le llega a tu amigo dentro de Friends Party si ya la tiene descargada. Si WhatsApp o el correo no se abren, copia el mensaje y pégalo ahí.</p></div>' +
     '<div class="joincard"><h3 class="pl-h" style="margin-top:0">¿Tienes un código?</h3><p class="muted small">Si un amigo te compartió un código o un QR, únete aquí y verás sus fotos y eventos.</p><button class="btn primary block" data-act="jn-open">Unirme con un código</button></div>' +
-    '<h3 class="pl-h">' + (sgv ? esc(grpName(sgv)) : 'Mi grupo') + ' (' + gm.length + ')</h3>' + members + addFromGroups(sgv) + otherGroupsHtml() +
+    (sgv ? '' : '<h3 class="pl-h">Mi grupo (' + gm.length + ')</h3>' + members) + otherGroupsHtml() +
     '<h3 class="pl-h">Invitaciones enviadas (' + g.invites.length + ')</h3>' + sent + evs + '</main>';
 }
 
