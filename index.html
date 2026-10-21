@@ -776,6 +776,12 @@ body::after{content:"";position:fixed;left:0;right:0;top:0;height:env(safe-area-
 .evs-vis button{min-height:44px}
 .evs-vis button.on{border-color:#FF8AD0;background:linear-gradient(160deg,rgba(255,79,163,.35),rgba(123,59,240,.35));box-shadow:0 0 14px rgba(255,90,200,.4)}
 .evs-visx{margin:2px 0 0}
+/* repetir cada semana: días y duración */
+.repd{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-top:8px}
+.repd button,.repw button{min-height:38px;padding:0;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font-weight:700;font-size:14px}
+.repw{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px}
+.repw button{font-weight:600;font-size:13px}
+.repd button.on,.repw button.on{border-color:#FF8AD0;background:linear-gradient(160deg,rgba(255,79,163,.35),rgba(123,59,240,.35));box-shadow:0 0 12px rgba(255,90,200,.35)}
 .evs-r:has(.evs-vis){align-items:start}
 .evs-r:has(.evs-vis) .evs-i{margin-top:22px}
 .pubev .evi{color:#fff}
@@ -1060,6 +1066,33 @@ function mpAct(a, t){
   }
 }
 /* quién ve el evento: privado (solo tú y quienes asisten) o público (también tus seguidores, en tu perfil) */
+/* repetir cada semana: días marcados (0 = domingo) durante 4, 8 o 12 semanas desde la fecha elegida */
+var REP_D = [['L', 1], ['M', 2], ['X', 3], ['J', 4], ['V', 5], ['S', 6], ['D', 0]];
+var REP_N = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+function repStart(){ var el = document.getElementById('f-date'); return (el && el.value) || todayISO(); }
+function repDates(){
+  var f = ui.form || {}, out = [];
+  if (!f.rep || !(f.repDays || []).length) return out;
+  var p = repStart().split('-').map(Number), d0 = new Date(p[0], p[1] - 1, p[2]);
+  for (var i = 0; i < (f.repWeeks || 8) * 7 && out.length < 40; i++) {
+    var d = new Date(d0.getFullYear(), d0.getMonth(), d0.getDate() + i);
+    if (f.repDays.indexOf(d.getDay()) >= 0) out.push(d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'));
+  }
+  return out;
+}
+function repDaysText(days){
+  var n = [1, 2, 3, 4, 5, 6, 0].filter(function(x){ return days.indexOf(x) >= 0; }).map(function(x){ return REP_N[x]; });
+  return n.length > 1 ? n.slice(0, -1).join(', ') + ' y ' + n[n.length - 1] : (n[0] || '');
+}
+function repHtml(){
+  var f = ui.form || {}, on = !!f.rep;
+  var h = '<div class="evs-vis"><button type="button" class="' + (on ? '' : 'on') + '" aria-pressed="' + !on + '" data-act="rep-on" data-v="0">' + T('No se repite') + '</button><button type="button" class="' + (on ? 'on' : '') + '" aria-pressed="' + on + '" data-act="rep-on" data-v="1">' + T('Cada semana') + '</button></div>';
+  if (!on) return h;
+  h += '<div class="repd" role="group" aria-label="' + esc(T('Días')) + '">' + REP_D.map(function(d){ var o = f.repDays.indexOf(d[1]) >= 0; var nm = T(REP_N[d[1]]); return '<button type="button" class="' + (o ? 'on' : '') + '" aria-pressed="' + o + '" aria-label="' + esc(nm) + '" data-act="rep-day" data-d="' + d[1] + '" data-nt>' + esc(nm === REP_N[d[1]] ? d[0] : nm.charAt(0).toUpperCase()) + '</button>'; }).join('') + '</div>';
+  h += '<div class="repw">' + [4, 8, 12].map(function(w){ return '<button type="button" class="' + (f.repWeeks === w ? 'on' : '') + '" data-act="rep-wk" data-w="' + w + '">' + T('{n} semanas', {n: w}) + '</button>'; }).join('') + '</div>';
+  var n = repDates().length;
+  return h + '<p class="muted small evs-visx">' + esc(T('Se crearán {n} eventos: cada {x}, desde la fecha elegida.', {n: n, x: repDaysText(f.repDays)})) + '</p>';
+}
 function visBtns(){ var p = !!(ui.form && ui.form.pub); return '<button type="button" class="' + (p ? '' : 'on') + '" aria-pressed="' + !p + '" data-act="pick-vis" data-v="0">Privado</button><button type="button" class="' + (p ? 'on' : '') + '" aria-pressed="' + p + '" data-act="pick-vis" data-v="1">Público</button>'; }
 function visText(){
   if (ui.form && ui.form.kind === 'momento') return ui.form.pub ? 'Tus seguidores lo ven en Momentos, con sus fotos.' : 'Solo lo ves tú y quienes invites.';
@@ -1565,7 +1598,7 @@ var SB = {
       var starts = ev.date ? (ev.date + 'T' + (ev.time || '00:00') + ':00') : null;
       var eid = SB.uuid();
       var gg = ev.geo && !ev.geoDemo ? ev.geo : null;
-      return SB.rest('events', 'POST', {id: eid, group_id: gid, owner_id: S.serverId, title: ev.name, place_text: ev.place || '', starts_at: starts, lat: gg ? gg.lat : null, lon: gg ? gg.lon : null, is_public: !!ev.pub, kind: isMoment(ev) ? 'momento' : 'evento', remind_d3: !ev.remind || ev.remind.d3 !== false, remind_d1: !ev.remind || ev.remind.d1 !== false, remind_d0: !ev.remind || ev.remind.d0 !== false}, '', 'return=minimal').then(function(res){
+      return SB.rest('events', 'POST', {id: eid, group_id: gid, owner_id: S.serverId, title: ev.name, place_text: ev.place || '', starts_at: starts, lat: gg ? gg.lat : null, lon: gg ? gg.lon : null, is_public: !!ev.pub, kind: isMoment(ev) ? 'momento' : 'evento', series_id: ev.seriesId || null, series_days: ev.seriesDays || null, remind_d3: !ev.remind || ev.remind.d3 !== false, remind_d1: !ev.remind || ev.remind.d1 !== false, remind_d0: !ev.remind || ev.remind.d0 !== false}, '', 'return=minimal').then(function(res){
         if (res.ok) { ev.serverId = eid; save(); return eid; }
         SB.fail('evento', res); return null;
       });
@@ -1770,6 +1803,7 @@ var SB = {
         b.msgRows.forEach(function(m){ if (m.author_id) ids[m.author_id] = 1; });
         b.songRows.forEach(function(s){ if (s.added_by) ids[s.added_by] = 1; });
         (b.memRows || []).forEach(function(m){ if (m.user_id) ids[m.user_id] = 1; });
+        if (b.erow.owner_id) ids[b.erow.owner_id] = 1;
       });
       return SB.resolveNames(Object.keys(ids)).then(function(names){
         names[S.serverId] = S.me;
@@ -1795,7 +1829,7 @@ var SB = {
             return {
               id: 'srv_' + erow.id, serverId: erow.id, kind: erow.kind || 'evento', ownerId: erow.owner_id || '', inviteCode: erow.invite_code || '', name: erow.title, place: erow.place_text || '',
               date: erow.starts_at ? erow.starts_at.slice(0, 10) : '', time: erow.starts_at ? erow.starts_at.slice(11, 16) : '',
-              emoji: '🎉', grad: 0, code: mkCode(), members: members, memOk: !!b.memRows, created: Date.parse(erow.created_at) || Date.now(),
+              emoji: '🎉', grad: 0, code: mkCode(), members: members, memOk: !!b.memRows, ownerName: names[erow.owner_id] || '', seriesId: erow.series_id || '', seriesDays: erow.series_days || '', created: Date.parse(erow.created_at) || Date.now(),
               geo: (typeof erow.lat === 'number' && typeof erow.lon === 'number') ? {lat: erow.lat, lon: erow.lon} : null, pub: !!erow.is_public,
               rsvp: rsvp, invites: [], remind: {d3: erow.remind_d3 !== false, d1: erow.remind_d1 !== false, d0: erow.remind_d0 !== false},
               photos: photos.filter(Boolean),
@@ -1808,7 +1842,7 @@ var SB = {
     }).then(function(evs){
       (evs || []).forEach(function(nev){
         var existing = S.events.filter(function(e){ return e.serverId === nev.serverId; })[0];
-        if (existing) { var keep = existing.photos.filter(function(p){ return p.pend && !p.synced; }); existing.photos = nev.photos.concat(keep); existing.chat = nev.chat; existing.songs = nev.songs; Object.assign(existing, {name: nev.name, place: nev.place, date: nev.date, time: nev.time, inviteCode: nev.inviteCode || existing.inviteCode, ownerId: nev.ownerId || existing.ownerId, kind: nev.kind || existing.kind}); if (nev.geo) { existing.geo = nev.geo; delete existing.geoDemo; } existing.pub = nev.pub; existing.remind = nev.remind; if (nev.memOk) { existing.members = nev.members; existing.rsvp = nev.rsvp; pruneInvites(existing); } }
+        if (existing) { var keep = existing.photos.filter(function(p){ return p.pend && !p.synced; }); existing.photos = nev.photos.concat(keep); existing.chat = nev.chat; existing.songs = nev.songs; Object.assign(existing, {name: nev.name, place: nev.place, date: nev.date, time: nev.time, inviteCode: nev.inviteCode || existing.inviteCode, ownerId: nev.ownerId || existing.ownerId, kind: nev.kind || existing.kind, ownerName: nev.ownerName || existing.ownerName, seriesId: nev.seriesId || existing.seriesId || '', seriesDays: nev.seriesDays || existing.seriesDays || '', created: existing.created || nev.created}); if (nev.geo) { existing.geo = nev.geo; delete existing.geoDemo; } existing.pub = nev.pub; existing.remind = nev.remind; if (nev.memOk) { existing.members = nev.members; existing.rsvp = nev.rsvp; pruneInvites(existing); } }
         else S.events.push(nev);
       });
       save();
@@ -2092,6 +2126,18 @@ function act(a, t){
       if (grid) grid.hidden = true;
       if (btn) btn.setAttribute('aria-expanded', 'false');
       break;
+    case 'rep-on': case 'rep-day': case 'rep-wk':
+      var rf = ui.form;
+      if (a === 'rep-on') {
+        rf.rep = t.dataset.v === '1';
+        if (rf.rep && !(rf.repDays || []).length) { var sp = repStart().split('-').map(Number); rf.repDays = [new Date(sp[0], sp[1] - 1, sp[2]).getDay()]; }
+        rf.repWeeks = rf.repWeeks || 8;
+      } else if (a === 'rep-day') {
+        var dn = +t.dataset.d, at = rf.repDays.indexOf(dn);
+        if (at >= 0) { if (rf.repDays.length > 1) rf.repDays.splice(at, 1); } else rf.repDays.push(dn);
+      } else rf.repWeeks = +t.dataset.w;
+      var rb = document.getElementById('f-rep'); if (rb) rb.innerHTML = repHtml();
+      break;
     case 'pick-vis':
       ui.form.pub = t.dataset.v === '1';
       var vb = document.getElementById('f-vis'), vx = document.getElementById('f-visx');
@@ -2119,9 +2165,25 @@ function act(a, t){
         ui.editId = null; ui.sheet = null; renderSheet(); save(); render(); toast('Cambios guardados');
         break;
       }
-      ev = newEvent(data); ev.toSync = true; ev.pub = !!data.pub; ev.kind = data.kind; if (ui.form.geo) ev.geo = ui.form.geo;
-      S.events.push(ev); save();
-      SB.syncEvent(ev);
+      if (!mk && ui.form.rep) {
+        /* una serie: un evento por cada fecha, todos con el mismo series_id; el servidor avisa al grupo una sola vez */
+        var dates = repDates();
+        if (!dates.length) { toast('Elige al menos un día'); return; }
+        var sid = SB.uuid(), dtxt = repDaysText(ui.form.repDays);
+        var made = dates.map(function(d){
+          var e = newEvent(Object.assign({}, data, {date: d})); e.toSync = true; e.pub = false; e.kind = 'evento';
+          e.seriesId = sid; e.seriesDays = dtxt; if (ui.form.geo) e.geo = ui.form.geo;
+          S.events.push(e); return e;
+        });
+        save();
+        made.reduce(function(p, e){ return p.then(function(){ return SB.syncEvent(e); }); }, Promise.resolve()); /* de una en una: así el aviso sale una sola vez */
+        ev = made[0];
+        toast(T('Se crearon {n} eventos', {n: made.length}));
+      } else {
+        ev = newEvent(data); ev.toSync = true; ev.pub = !!data.pub; ev.kind = data.kind; if (ui.form.geo) ev.geo = ui.form.geo;
+        S.events.push(ev); save();
+        SB.syncEvent(ev);
+      }
       ui.sheet = null; ui.newKind = null; renderSheet();
       ui.view = 'event'; ui.eid = ev.id; ui.tab = mk ? 'fotos' : 'plan'; ui.from = mk ? 'momentos' : null;
       render(false); window.scrollTo(0, 0);
@@ -2963,6 +3025,7 @@ function card(ev){
     '<div class="ebody"><div class="edate">' + dt + '</div><div class="einfo"><div class="et">' + esc(ev.name) + '</div>' +
     (ev.place ? '<div class="erow">' + I.pin + '<span>' + esc(ev.place) + '</span></div>' : '') +
     (ev.time ? '<div class="erow">' + I.clock + '<span>' + esc(fmtHour(ev.time)) + '</span></div>' : '') +
+    (ev.seriesDays ? '<div class="erow">' + svg('<path d="M17 2l4 4-4 4"/><path d="M3 11V9a3 3 0 0 1 3-3h15"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a3 3 0 0 1-3 3H3"/>', 16) + '<span>' + esc(T('Cada {x}', {x: ev.seriesDays})) + '</span></div>' : '') +
     '<div class="epeople"><span class="eav">' + shown.map(function(x){ return av(x, 28); }).join('') + '</span>' + (more > 0 ? '<span class="muted">+' + more + '</span>' : '') + '<span>' + m + (m === 1 ? ' persona' : ' personas') + '</span></div>' +
     '<div class="erow">' + I.image + '<span>' + n + (n === 1 ? ' foto' : ' fotos') + '</span></div></div></div></button>';
 }
@@ -2977,6 +3040,13 @@ function notifItems(){
   var out = [], week = Date.now() - 7 * 864e5, me = S.me;
   (S.inbox || []).forEach(function(x){ out.push({k: 'inv', at: x.at, x: x}); });
   dueReminders().forEach(function(r){ out.push({k: 'rem', at: Date.now(), r: r}); });
+  var serSeen = {};
+  S.events.slice().sort(function(a, b){ return (a.date || '').localeCompare(b.date || ''); }).forEach(function(ev){
+    /* eventos nuevos que creó otra persona de tu grupo (de una serie, uno solo) */
+    if (isMoment(ev) || !ev.ownerId || ev.ownerId === S.serverId || !(ev.created > week)) return;
+    if (ev.seriesId) { if (serSeen[ev.seriesId]) return; serSeen[ev.seriesId] = 1; }
+    out.push({k: 'nev', ev: ev, at: ev.created, by: ev.ownerName || ''});
+  });
   S.events.forEach(function(ev){
     var ph = (ev.photos || []).filter(function(p){ return p.by && p.by !== me && p.at > week; });
     if (ph.length) { var lp = ph.reduce(function(a, b){ return b.at > a.at ? b : a; }); out.push({k: 'ph', ev: ev, n: ph.length, at: lp.at, by: lp.by}); }
@@ -3011,6 +3081,12 @@ function notifRow(i){
   if (i.k === 'rem') {
     var ev = i.r.ev, title = i.r.k === 'd3' ? 'Faltan 3 días' : i.r.k === 'd1' ? 'Es mañana' : 'Es hoy';
     return '<li' + cls + '><button class="ntr" data-act="nt-open" data-id="' + ev.id + '" data-tab="plan"><span class="ni">' + I.bell + '</span><span class="nt"><strong>' + esc(T(title)) + '</strong>: ' + esc(ev.name) + (ev.time ? ' ' + esc(T('a las {x}', {x: fmtHour(ev.time)})) : '') + '</span></button></li>';
+  }
+  if (i.k === 'nev') {
+    var e2 = i.ev, when = e2.seriesDays ? T('Cada {x}', {x: e2.seriesDays}) : (e2.date ? fmtDate(e2.date) : '');
+    if (e2.time) when += (when ? ', ' : '') + fmtHour(e2.time);
+    return '<li' + cls + '><button class="ntr" data-act="nt-open" data-id="' + e2.id + '" data-tab="plan">' + (i.by ? av(i.by, 36) : '<span class="ni">' + I.cal + '</span>') +
+      '<span class="nt">' + esc(i.by ? T('{x} creó {e}', {x: i.by, e: e2.name}) : T('Nuevo evento: {e}', {e: e2.name})) + (when ? '<em> · ' + esc(when) + '</em>' : '') + '<small>' + esc(agoTxt(i.at)) + ' · ' + esc(T('¿Vas?')) + '</small></span></button></li>';
   }
   var txt = i.k === 'ph'
     ? (i.n === 1 ? T('{x} subió una foto a {e}', {x: i.by, e: i.ev.name}) : T('{n} fotos nuevas en {e}', {n: i.n, e: i.ev.name}))
@@ -3077,7 +3153,9 @@ function home(){
 /* los que vienen arriba; los que ya pasaron en un apartado plegable para que no estorben */
 function evListHtml(evs){
   var past = evs.filter(function(e){ var n = daysUntil(e.date); return n !== null && n < 0; });
-  var next = evs.filter(function(e){ return past.indexOf(e) < 0; });
+  var seen = {};
+  /* de una serie semanal solo se muestra la próxima fecha (las demás aparecen cuando llegue su turno) */
+  var next = evs.filter(function(e){ if (past.indexOf(e) >= 0) return false; if (!e.seriesId) return true; if (seen[e.seriesId]) return false; seen[e.seriesId] = 1; return true; });
   return '<div class="list"' + (past.length ? ' style="padding-bottom:0"' : '') + '>' + (next.length ? next.map(card).join('') : '<div class="gp" style="padding:16px"><p class="muted" style="margin:0">No tienes eventos próximos. Crea uno nuevo abajo.</p></div>') + '</div>' +
     (past.length ? '<button class="past-t" data-act="past-toggle" aria-expanded="' + !!ui.showPast + '">' + T('Eventos pasados ({n})', {n: past.length}) + svg(ui.showPast ? '<path d="M6 15l6-6 6 6"/>' : '<path d="M6 9l6 6 6-6"/>', 20) + '</button>' +
       (ui.showPast ? '<div class="list">' + past.map(card).join('') + '</div>' : '') : '');
@@ -3196,6 +3274,8 @@ function renderSheet(){
       row('<path d="M4 20l1-4L16 5l3 3L8 19l-4 1zM14 7l3 3"/>', '<label>Nombre<input id="f-name" class="inp" placeholder="' + (mo ? 'Vacaciones en la playa' : 'Asado en la finca') + '" maxlength="60" autocomplete="off" value="' + esc(ed ? ed.name : '') + '"></label>') +
       (mo ? '<input id="f-date" type="hidden" value="' + esc(ed ? ed.date : '') + '"><input id="f-time" type="hidden" value="">' : '<div class="two">' + row('<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/>', '<label>Fecha<input id="f-date" type="hidden" value="' + esc(ed ? ed.date : todayISO()) + '"><button type="button" class="inp datebtn" id="f-date-btn" data-act="cal-open"><span data-nt>' + esc(calLabel(ed ? ed.date : todayISO())) + '</span></button></label>') +
       row('<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>', '<label>Hora<input id="f-time" type="hidden" value="' + esc(ed ? ed.time : '') + '"><button type="button" class="inp datebtn" id="f-time-btn" data-act="tm-open"><span data-nt>' + esc(tmLabel(ed ? ed.time : '')) + '</span>' + svg('<path d="M6 9l6 6 6-6"/>', 16) + '</button></label>') + '</div>') +
+      /* clases o eventos que se repiten cada semana (solo al crear): se crea uno por cada fecha */
+      (!mo && !ed ? row('<path d="M17 2l4 4-4 4"/><path d="M3 11V9a3 3 0 0 1 3-3h15"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a3 3 0 0 1-3 3H3"/>', '<div class="evs-ic"><span class="evs-lbl">' + T('Repetir') + '</span><div id="f-rep">' + repHtml() + '</div></div>') : '') +
       row('<path d="M12 21s7-6.2 7-11.5A7 7 0 0 0 5 9.5C5 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>', '<div class="evs-pl"><label>' + (mo ? 'Ubicación' : 'Lugar') + '<input id="f-place" class="inp" placeholder="' + (mo ? 'Ciudad, playa, casa…' : 'Casa de José, restaurante, parque…') + '" maxlength="80" autocomplete="off" value="' + esc(ed ? ed.place : '') + '"></label><button type="button" class="evs-map" data-act="mp-open" aria-label="Elegir el lugar en el mapa">' + svg('<circle cx="12" cy="12" r="6.5"/><circle cx="12" cy="12" r="2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3"/>', 20) + '</button><div class="evs-geo" id="f-geo">' + mpChip() + '</div></div>') +
       row('<rect x="5" y="3.5" width="14" height="17" rx="2.5"/><path d="M9 9h6M9 12.5h6M9 16h3"/>', '<label>' + (mo ? 'Descripción (opcional)' : 'Detalles (opcional)') + '<input id="f-notes" class="inp" placeholder="' + (mo ? 'De qué se trata este momento' : 'Qué llevar, cómo llegar…') + '" maxlength="140" autocomplete="off" value="' + esc(ed ? ed.notes : '') + '"></label>') +
       row('<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M4 18l5-5 4 4 3-3 4 4"/>', '<div class="evs-ic"><span class="evs-lbl">Ícono</span><div class="evs-q"><div class="evs-qs" id="icon-quick">' + evQuick() + '</div>' +
