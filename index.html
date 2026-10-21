@@ -3303,6 +3303,7 @@ function inviteSheet(){
     '<div class="qrframe"><div class="qrwrap" id="qr-target"><p class="muted small">Generando…</p></div><div class="qr-mark">' + I.crown + '</div></div>' +
     '<div class="code" id="ev-code" style="text-align:center;margin-bottom:6px">' + esc(evCode(cur())) + '</div>' +
     (navigator.share ? '<button class="btn block" data-act="inv-share" data-k="ev" style="margin-bottom:12px">Compartir invitación</button>' : '') +
+    groupChips() +
     '<h3 class="pl-h">Invitar por usuario</h3>' +
     '<label>Usuario de Friends Party<input id="i-name" class="inp" placeholder="@usuario" maxlength="40" autocomplete="off" autocapitalize="none"></label><div id="i-found"></div>' +
     '<button class="btn primary block" data-act="pl-app">Invitar</button>' +
@@ -3440,9 +3441,14 @@ function planAct(a, t){
     case 'pl-rm': ev.remind[t.dataset.k] = !ev.remind[t.dataset.k]; save(); render(); SB.pushEvent(ev); setTimeout(pushAsk, 600); break;
     case 'pl-copy': copyText(inviteText(ev), 'Mensaje copiado'); break;
     case 'pl-grp':
-      ev.invites.push({id: uid(), who: t.dataset.n, via: 'app', at: Date.now()});
-      if (ev.serverId) SB.syncInvite('event', ev.serverId, 'app', null);
-      save(); render(); renderSheet(); toast(t.dataset.n + ' quedó invitado al evento');
+      if (!ev.serverId || !t.dataset.uid) { toast('Este evento todavía no se guarda en el servidor. Intenta en un momento.'); return; }
+      t.disabled = true;
+      SB.rest('user_invites', 'POST', {event_id: ev.serverId, to_user: t.dataset.uid}, '', 'return=minimal').then(function(r){
+        if (!r.ok && r.status !== 409) { t.disabled = false; toast('No se pudo enviar la invitación. Intenta de nuevo.'); return; }
+        ev.invites.push({id: uid(), who: t.dataset.n, via: 'app', at: Date.now()}); pruneInvites(ev);
+        save(); render(); renderSheet();
+        toast(r.status === 409 ? 'Ya habías invitado a ' + t.dataset.n : 'Invitación enviada a ' + t.dataset.n);
+      }).catch(function(){ t.disabled = false; toast('No se pudo conectar con el servidor'); });
       break;
     case 'pl-wa': case 'pl-mail': case 'pl-app':
       nm = ($('#i-name').value || '').trim();
@@ -3576,16 +3582,23 @@ function groupSend(via, contact, text){
   if (via === 'whatsapp') openLink('https://wa.me/' + String(contact || '').replace(/\D/g, '') + '?text=' + encodeURIComponent(text));
   else if (via === 'correo') openLink('mailto:' + (contact || '') + '?subject=' + encodeURIComponent(T('Te invito a mi grupo en Friends Party')) + '&body=' + encodeURIComponent(text));
 }
+/* "Tu gente": las personas de todos tus grupos (Familia, Zumba…), para invitar a ESTE evento a quien sea,
+   aunque el evento sea de otro grupo. Le llega la invitación (notificación + bandeja) y al aceptar entra al evento. */
 function groupChips(){
   var ev = cur();
-  if (!ev || !S.group) return '';
-  var cand = S.group.members.filter(function(n){
-    return ev.members.indexOf(n) < 0 && !ev.invites.some(function(v){ return v.who === n; });
-  });
-  if (!cand.length) return '';
-  return '<p class="muted small">De tu grupo (toca para invitar)</p><div class="mus">' + cand.map(function(n){
-    return '<button class="cb" data-act="pl-grp" data-n="' + esc(n) + '">' + esc(n) + '</button>';
-  }).join('') + '</div>';
+  if (!ev || !ev.serverId || !(S.groups || []).length) return '';
+  var seen = {}, inside = {};
+  (ev.members || []).forEach(function(n){ inside[String(n).toLowerCase()] = 1; });
+  (ev.invites || []).forEach(function(v){ inside[String(v.who).toLowerCase()] = 1; });
+  var blocks = (S.groups || []).map(function(g){
+    var cand = (g.mem || []).filter(function(x){ var k = String(x.n).toLowerCase(); if (inside[k] || seen[x.id]) return false; seen[x.id] = 1; return true; });
+    if (!cand.length) return '';
+    return '<p class="muted small" style="margin:8px 0 4px" data-nt>' + esc(grpName(g)) + '</p><div class="mus">' + cand.map(function(x){
+      return '<button class="cb" data-act="pl-grp" data-uid="' + esc(x.id) + '" data-n="' + esc(x.n) + '" data-nt>' + I.plus + ' ' + esc(x.n) + '</button>';
+    }).join('') + '</div>';
+  }).join('');
+  if (!blocks) return '';
+  return '<h3 class="pl-h">' + T('Tu gente') + '</h3><p class="muted small">' + T('Toca a alguien de cualquiera de tus grupos para invitarlo a este evento.') + '</p>' + blocks;
 }
 
 /* invitaciones que te mandaron otras cuentas, para aceptar o rechazar */

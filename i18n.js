@@ -894,6 +894,8 @@ var D = {
   'Grupos de {x}': ['{x}\'s groups', '{x}님의 그룹'],
   'Toca un grupo para meterlo o sacarlo. En cada grupo ve solo los eventos de ese grupo.': ['Tap a group to add or remove them. In each group they only see that group\'s events.', '그룹을 눌러 넣거나 빼세요. 각 그룹에서는 그 그룹의 이벤트만 봐요.'],
   'Está': ['In', '있음'],
+  'Tu gente': ['Your people', '내 사람들'],
+  'Toca a alguien de cualquiera de tus grupos para invitarlo a este evento.': ['Tap anyone from any of your groups to invite them to this event.', '내 그룹의 누구든 눌러 이 이벤트에 초대하세요.'],
   'Abre la app Friends Party para comprar': ['Open the Friends Party app to buy', '구매하려면 Friends Party 앱을 여세요'],
   'Este paquete todavía no se puede comprar en esta versión. Actualiza la app desde Google Play.': ['This pack can\'t be bought in this version yet. Update the app from Google Play.', '이 버전에서는 아직 이 팩을 구매할 수 없어요. Google Play에서 앱을 업데이트해 주세요.'],
   'Tu pago está pendiente. Cuando Google Play lo confirme, toca Restaurar compras.': ['Your payment is pending. When Google Play confirms it, tap Restore purchases.', '결제가 대기 중이에요. Google Play에서 확인되면 구매 복원을 눌러 주세요.'],
