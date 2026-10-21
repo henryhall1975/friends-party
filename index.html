@@ -1326,7 +1326,8 @@ var SB = {
         var rows = (m.ok && m.data) || [];
         return SB.resolveNames(rows.map(function(x){ return x.user_id; })).then(function(names){
           var list = r.data.map(function(g){
-            return {id: g.id, name: g.name, code: g.invite_code, members: rows.filter(function(x){ return x.group_id === g.id && x.user_id !== S.serverId; }).map(function(x){ return names[x.user_id]; }).filter(Boolean)};
+            var mine = rows.filter(function(x){ return x.group_id === g.id && x.user_id !== S.serverId && names[x.user_id]; });
+            return {id: g.id, name: g.name, code: g.invite_code, members: mine.map(function(x){ return names[x.user_id]; }), mem: mine.map(function(x){ return {id: x.user_id, n: names[x.user_id]}; })};
           });
           if (!S.serverGroupId) S.serverGroupId = list[0].id;
           if (JSON.stringify(list) !== JSON.stringify(S.groups || [])) { S.groups = list; save(); if (ui.view === 'invites') render(false); }
@@ -1341,6 +1342,13 @@ var SB = {
       if (!res.ok) { SB.fail('grupo', res); return null; }
       return SB.pullMyGroups().then(function(){ return gid; });
     });
+  },
+  /* meter a alguien (que ya está en otro de mis grupos) en este grupo, o sacarlo */
+  setInGroup: function(gid, uid, on){
+    if (!SB.session || !SB.session.access_token) return Promise.resolve(false);
+    var p = on ? SB.rpc('add_to_my_group', {gid: gid, uid: uid})
+               : SB.rest('group_members', 'DELETE', null, '?group_id=eq.' + gid + '&user_id=eq.' + uid, 'return=minimal');
+    return p.then(function(r){ return !!r.ok; }).catch(function(){ return false; });
   },
   renameGroup: function(gid, name){
     if (!SB.session || !SB.session.access_token) return Promise.resolve(false);
@@ -3387,6 +3395,13 @@ function renderSheet(){
     el.innerHTML = joinSheet(); focus = '#j-code';
   } else if (ui.sheet === 'qr') {
     el.innerHTML = qrSheet();
+  } else if (ui.sheet === 'grmem') {
+    var wm = ui.grMem || {};
+    el.innerHTML = '<div class="scrim" data-act="close-sheet"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="' + esc(T('Grupos de {x}', {x: wm.n})) + '"><h2 data-nt>' + esc(T('Grupos de {x}', {x: wm.n})) + '</h2>' +
+      '<p class="muted small">' + T('Toca un grupo para meterlo o sacarlo. En cada grupo ve solo los eventos de ese grupo.') + '</p><ul class="people">' +
+      (S.groups || []).map(function(gq){ var on = (gq.mem || []).some(function(x){ return x.id === wm.id; });
+        return '<li><span class="nm" data-nt>' + esc(grpName(gq)) + '<small>' + T(gq.members.length === 1 ? '{n} persona' : '{n} personas', {n: gq.members.length}) + '</small></span><button class="btn small' + (on ? '' : ' primary') + '" style="margin-left:auto" data-act="gr-tog" data-gid="' + esc(gq.id) + '">' + (on ? '✓ ' + T('Está') : T('Agregar')) + '</button></li>'; }).join('') +
+      '</ul><button class="btn block" data-act="close-sheet">' + T('Listo') + '</button></div>';
   } else if (ui.sheet === 'grname') {
     var gEd = ui.grEdit ? (S.groups || []).filter(function(x){ return x.id === ui.grEdit; })[0] : null;
     el.innerHTML = '<div class="scrim" data-act="close-sheet"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="' + esc(T(gEd ? 'Cambiar nombre' : 'Nuevo grupo')) + '"><h2>' + T(gEd ? 'Cambiar nombre' : 'Nuevo grupo') + '</h2>' +
@@ -3594,8 +3609,9 @@ function invitesView(){
   /* en un grupo que no es el de siempre, la lista es la de ese grupo */
   var gm = sgv ? sgv.members : g.members;
   S.events.forEach(function(ev){ (ev.invites || []).forEach(function(v){ evInv.push({ev: ev, v: v}); }); });
+  var memId = {}; ((sgv && sgv.mem) || []).forEach(function(x){ memId[x.n] = x.id; });
   var members = gm.length
-    ? '<ul class="people">' + gm.map(function(m){ return '<li class="lnk"><button class="rowbtn" data-act="us-open" data-n="' + esc(m) + '">' + av(m, 36) + '<span class="nm">' + esc(m) + '</span><span class="pill va">En el grupo</span></button></li>'; }).join('') + '</ul>'
+    ? '<ul class="people">' + gm.map(function(m){ return '<li class="lnk"><button class="rowbtn" data-act="us-open" data-n="' + esc(m) + '">' + av(m, 36) + '<span class="nm">' + esc(m) + '</span></button>' + (memId[m] && (S.groups || []).length > 1 ? '<button class="btn small" style="margin-left:auto;flex:none" data-act="gr-mem" data-uid="' + esc(memId[m]) + '" data-n="' + esc(m) + '">' + T('Grupos') + '</button>' : '<span class="pill va">' + T('En el grupo') + '</span>') + '</li>'; }).join('') + '</ul>'
     : '<p class="muted">Aún no tienes a nadie en tu grupo.</p>';
   var sent = g.invites.length
     ? '<ul class="people">' + g.invites.map(function(v){
@@ -3630,6 +3646,24 @@ function groupAct(a, t){
   var g = S.group, nm, ph, mail, via, text;
   switch (a) {
     case 'gr-sel': ui.gsel = t.dataset.id; render(false); break;
+    case 'gr-mem': ui.grMem = {id: t.dataset.uid, n: t.dataset.n}; ui.sheet = 'grmem'; renderSheet(); break;
+    case 'gr-tog':
+      if (!ui.grMem || ui.grBusy) return;
+      var tg = (S.groups || []).filter(function(x){ return x.id === t.dataset.gid; })[0], who = ui.grMem;
+      if (!tg) return;
+      var inNow = (tg.mem || []).some(function(x){ return x.id === who.id; });
+      var inCount = (S.groups || []).filter(function(x){ return (x.mem || []).some(function(y){ return y.id === who.id; }); }).length;
+      if (inNow && inCount <= 1) { toast(T('{x} tiene que quedar en al menos uno de tus grupos.', {x: who.n})); return; }
+      ui.grBusy = true;
+      SB.setInGroup(tg.id, who.id, !inNow).then(function(ok){
+        ui.grBusy = false;
+        if (!ok) { toast('No se pudo cambiar. Intenta de nuevo.'); return; }
+        if (inNow) { tg.mem = tg.mem.filter(function(x){ return x.id !== who.id; }); tg.members = tg.members.filter(function(n){ return n !== who.n; }); }
+        else { tg.mem = (tg.mem || []).concat([{id: who.id, n: who.n}]); tg.members = (tg.members || []).concat([who.n]); }
+        save(); renderSheet(); render(false);
+        toast(inNow ? T('{x} salió del grupo {g}', {x: who.n, g: grpName(tg)}) : T('{x} ahora está en {g}', {x: who.n, g: grpName(tg)}));
+      });
+      break;
     case 'gr-new': ui.grEdit = null; ui.sheet = 'grname'; renderSheet(); break;
     case 'gr-ren': ui.grEdit = (selGroup() || {}).id || null; ui.sheet = 'grname'; renderSheet(); break;
     case 'gr-sug': var gi = document.getElementById('gr-name'); if (gi) { gi.value = t.dataset.v; gi.focus(); } break;
