@@ -779,6 +779,18 @@ body::after{content:"";position:fixed;left:0;right:0;top:0;height:env(safe-area-
 .prem li b{display:block;font-weight:700}
 .prem li small{display:block;color:var(--muted);font-size:13px;margin-top:1px}
 .plan-x{margin:-6px 0 14px}
+/* pantalla Plan con letra un poco más chica (pedido de Henry) */
+.plan-sm{font-size:14px}
+.plan-sm .pl-hero.cmp ul{font-size:13px}
+.plan-sm .pl-h{font-size:16px;margin:18px 0 6px}
+.plan-sm .muted.small,.plan-sm .route p{font-size:12.5px}
+.plan-sm .route-b .btn{font-size:12.5px;min-height:54px}
+.plan-sm .seg button{min-height:40px;font-size:14px}
+.plan-sm .people li{padding:8px 2px}
+.plan-sm .people li .nm{font-size:14.5px}
+.plan-sm .people li .nm small{font-size:12px}
+.plan-sm .pill{font-size:11px}
+.plan-sm .btn{font-size:14px}
 .tr-end{display:grid;gap:10px;margin-top:12px}
 .tr-end .tr-cta{margin-top:0}
 .tr-cta.ghost{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.22);box-shadow:inset 0 1px 0 rgba(255,255,255,.12)}
@@ -3292,7 +3304,7 @@ function planBody(ev){
   var more = '<div class="ev-acts"><button class="btn" data-act="pl-remind">' + svg('<path d="M6 9a6 6 0 0 1 12 0c0 6 2.5 7 2.5 7h-17S6 15 6 9M10 20a2 2 0 0 0 4 0"/>', 18) + ' Ver cómo llegan los avisos</button>' +
     '<button class="btn" data-act="pl-edit">' + svg('<path d="M4 20l1-4L16 5l3 3L8 19l-4 1zM14 7l3 3"/>', 18) + ' Editar evento</button>' +
     '<button class="btn danger" data-act="ev-del">' + svg('<path d="M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13"/>', 18) + ' ' + (isMineEv(ev) ? (ui.armed === 'e' + ev.id ? 'Toca otra vez para eliminar' : 'Eliminar evento') : (ui.armed === 'e' + ev.id ? 'Toca otra vez para salir' : 'Salir del evento')) + '</button></div>';
-  return hero + routeBlock(ev) + seg + people + rm + more; /* musicBlock(ev) quitado por ahora, junto con la sección Música */
+  return '<div class="plan-sm">' + hero + routeBlock(ev) + seg + people + rm + more + '</div>'; /* musicBlock(ev) quitado por ahora, junto con la sección Música */
 }
 
 /* al dejar presionada una foto del álbum: lo que se puede hacer con ella (el menú de iPhone no deja agregar "Eliminar") */
