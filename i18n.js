@@ -901,6 +901,7 @@ var D = {
   'Agregar a {x}': ['Add to {x}', '{x}에 추가'],
   'Gente que ya conoces en la app (de tus grupos, eventos o que te sigue).': ['People you already know in the app (from your groups, events or who follow you).', '앱에서 이미 아는 사람들 (그룹, 이벤트, 나를 팔로우하는 사람).'],
   'Otras personas que conoces': ['Other people you know', '아는 다른 사람들'],
+  'Abrir en el mapa': ['Open in maps', '지도에서 열기'],
   'Abre la app Friends Party para comprar': ['Open the Friends Party app to buy', '구매하려면 Friends Party 앱을 여세요'],
   'Este paquete todavía no se puede comprar en esta versión. Actualiza la app desde Google Play.': ['This pack can\'t be bought in this version yet. Update the app from Google Play.', '이 버전에서는 아직 이 팩을 구매할 수 없어요. Google Play에서 앱을 업데이트해 주세요.'],
   'Tu pago está pendiente. Cuando Google Play lo confirme, toca Restaurar compras.': ['Your payment is pending. When Google Play confirms it, tap Restore purchases.', '결제가 대기 중이에요. Google Play에서 확인되면 구매 복원을 눌러 주세요.'],

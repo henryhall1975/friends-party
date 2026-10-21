@@ -343,11 +343,22 @@ main{padding:14px 0 130px}
 .rem strong{display:block}
 .rem > span:last-child{display:block;color:var(--muted);font-size:14px}
 .rem .bell{color:var(--accent);display:grid;place-items:center}
-.pl-hero{border-radius:16px;padding:18px;color:#fff;margin-bottom:6px}
+.pl-hero{border-radius:16px;padding:14px 16px;color:#fff;margin-bottom:6px}
 .pl-hero .k{font-size:15px;opacity:.92}
 .pl-hero .big{font-size:44px;font-weight:800;letter-spacing:-.03em;line-height:1.05}
 .pl-hero ul{list-style:none;margin:14px 0 0;padding:0;display:grid;gap:6px}
 .pl-hero li{display:flex;gap:8px;align-items:center;font-weight:500}
+/* franja del evento más compacta: "Faltan 3 días" en una línea y los datos en dos columnas */
+.pl-hero.cmp .big{font-size:30px;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.pl-hero.cmp .big .k{font-size:16px;font-weight:600;letter-spacing:0;opacity:.9}
+.pl-hero.cmp ul{margin-top:10px;grid-template-columns:1fr 1fr;gap:6px 12px;font-size:14px}
+.pl-hero.cmp li{min-width:0}.pl-hero.cmp li span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pl-hero.cmp li svg{flex:none;width:16px;height:16px}
+/* mapa pequeño del lugar del evento (Apple Maps); al tocarlo abre el mapa completo */
+.evmap{position:relative;height:150px;border-radius:16px;overflow:hidden;border:1px solid var(--line);background:var(--surface);margin:2px 0 10px}
+.evmap .mk{position:absolute;inset:0}
+.evmap a.ov{position:absolute;inset:0;z-index:2}
+.evmap .wait{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);font-size:13px}
 .pl-hero .notes{margin:12px 0 0;opacity:.95}
 .pl-h{margin:22px 0 6px;font-size:18px;font-weight:800;letter-spacing:-.01em}
 .pl-h + .muted{margin:0 0 10px}
@@ -2082,6 +2093,7 @@ function eventView(){
 function render(keep){
   var y = window.scrollY;
   app.innerHTML = ui.view === 'home' ? home() : ui.view === 'invites' ? invitesView() : ui.view === 'music' ? musicView() : ui.view === 'tienda' ? tiendaView() : ui.view === 'places' ? placesView() : ui.view === 'place' ? placeView() : ui.view === 'fotos' ? fotosView() : ui.view === 'momentos' ? momentosView() : ui.view === 'fmoment' ? friendMomentView() : ui.view === 'chats' ? chatsView() : ui.view === 'gchat' ? gchatView() : ui.view === 'profile' ? profileView() : ui.view === 'user' ? userView() : eventView();
+  if (ui.view === 'event' && ui.tab === 'plan') evMapInit(cur());
   if (ui.view === 'invites') { renderQrInto(groupCode()); SB.pullOtherGroups(); if (!ui.gPulled) { ui.gPulled = true; SB.pullMyGroups(); SB.pullPeople(); } }
   checkLevelUp();
   if (keep !== false) window.scrollTo(0, y);
@@ -3253,9 +3265,9 @@ function planBody(ev){
   if (n === null) big = 'Sin fecha';
   else if (n > 1) { kicker = 'Faltan'; big = n + ' días'; }
   else big = countdown(ev);
-  var hero = '<section class="pl-hero" style="background:linear-gradient(rgba(20,12,60,.4),rgba(20,12,60,.4)),linear-gradient(135deg,' + g[0] + ',' + g[1] + ')">' +
-    (kicker ? '<div class="k">' + kicker + '</div>' : '') + '<div class="big">' + esc(big) + '</div><ul>' +
-    (ev.date ? '<li>' + I.cal + esc(fmtDay(ev.date)) + '</li>' : '') + (ev.time ? '<li>' + I.clock + esc(fmtHour(ev.time)) + '</li>' : '') + (ev.place ? '<li>' + I.pin + esc(ev.place) + '</li>' : '') + '<li>' + (ev.pub ? svg('<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.8 3 2.8 14 0 17M12 3.5c-2.8 3-2.8 14 0 17"/>', 16) + '<span>Evento público</span>' : svg('<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>', 16) + '<span>Evento privado</span>') + '</li>' +
+  var hero = '<section class="pl-hero cmp" style="background:linear-gradient(rgba(20,12,60,.4),rgba(20,12,60,.4)),linear-gradient(135deg,' + g[0] + ',' + g[1] + ')">' +
+    '<div class="big">' + (kicker ? '<span class="k">' + kicker + '</span>' : '') + '<span>' + esc(big) + '</span></div><ul>' +
+    (ev.date ? '<li>' + I.cal + '<span>' + esc(fmtDay(ev.date)) + '</span></li>' : '') + (ev.time ? '<li>' + I.clock + '<span>' + esc(fmtHour(ev.time)) + '</span></li>' : '') + (ev.place ? '<li>' + I.pin + '<span data-nt>' + esc(ev.place) + '</span></li>' : '') + '<li>' + (ev.pub ? svg('<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.8 3 2.8 14 0 17M12 3.5c-2.8 3-2.8 14 0 17"/>', 16) + '<span>Evento público</span>' : svg('<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>', 16) + '<span>Evento privado</span>') + '</li>' +
     '</ul>' + (ev.notes ? '<p class="notes">' + esc(ev.notes) + '</p>' : '') + '</section>';
 
   var seg = '<h3 class="pl-h">¿Vas a ir?</h3><div class="seg" role="group" aria-label="Tu respuesta">' + [['va', 'Voy'], ['tal vez', 'Tal vez'], ['no va', 'No voy']].map(function(o){
@@ -4349,8 +4361,40 @@ function routeBlock(ev){
   var apps = [['apple', 'Apple Maps', '#5BA8FF'], ['google', 'Google Maps', '#34D399'], ['waze', 'Waze', '#5BD7FF']];
   if (!/iphone|ipad|ipod|macintosh/i.test(navigator.userAgent)) apps.push(apps.shift());
   if ((document.documentElement.lang || '').slice(0, 2) === 'ko') apps = [['naver', 'Naver Map', '#03C75A'], ['kakao', 'KakaoMap', '#FEE500'], apps[0]];
-  return '<h3 class="pl-h">Cómo llegar</h3><div class="route"><p class="muted small">' + I.pin + ' <span data-nt>' + esc(q || fmtCoord(g)) + '</span>' + (g ? '' : ' · <span>ubicación aproximada, por el nombre del lugar</span>') + '</p><div class="route-b">' +
+  var tap = mapUrl(/iphone|ipad|ipod|macintosh/i.test(navigator.userAgent) ? 'apple' : 'google', g, q);
+  return '<h3 class="pl-h">Cómo llegar</h3><div class="evmap" id="evmap" data-k="' + esc(ev.id + '|' + (g ? fmtCoord(g) : q)) + '"><div class="wait">' + T('Cargando el mapa…') + '</div><a class="ov" href="' + tap + '"' + tg + ' aria-label="' + esc(T('Abrir en el mapa')) + '"></a></div><div class="route"><p class="muted small">' + I.pin + ' <span data-nt>' + esc(q || fmtCoord(g)) + '</span>' + (g ? '' : ' · <span>ubicación aproximada, por el nombre del lugar</span>') + '</p><div class="route-b">' +
     apps.map(function(a){ return '<a class="btn" href="' + routeUrl(a[0], g, q) + '"' + tg + ' data-nt><i style="background:' + a[2] + '"></i>' + a[1] + '</a>'; }).join('') + '</div></div>';
+}
+/* mapa pequeño del evento: se crea una vez por evento y lugar, y se reutiliza al redibujar la pantalla.
+   Sin coordenadas exactas, se busca el lugar por su nombre (ubicación aproximada). */
+var evMap = {k: '', node: null, map: null}, evGuess = {};
+function evMapInit(ev){
+  var ph = document.getElementById('evmap'); if (!ph || !ev) return;
+  var k = ph.dataset.k;
+  if (evMap.k === k && evMap.node) { var mk0 = ph.querySelector('.mk'); if (mk0) mk0.replaceWith(evMap.node); else ph.insertBefore(evMap.node, ph.firstChild); var w0 = ph.querySelector('.wait'); if (w0) w0.remove(); return; }
+  if (evMap.map) { try { evMap.map.destroy(); } catch (e) {} }
+  evMap = {k: k, node: null, map: null};
+  var g = ev.geo && !ev.geoDemo ? ev.geo : null, q = (ev.place || '').trim();
+  mpLoad().then(function(){
+    var host = document.getElementById('evmap'); if (!host || host.dataset.k !== k) return;
+    var node = document.createElement('div'); node.className = 'mk'; host.insertBefore(node, host.firstChild);
+    function show(lat, lon){
+      var m = new mapkit.Map(node, {colorScheme: mapkit.Map.ColorSchemes.Dark, showsCompass: mapkit.FeatureVisibility.Hidden, showsZoomControl: false, showsMapTypeControl: false, showsUserLocationControl: false, isRotationEnabled: false, isScrollEnabled: false, isZoomEnabled: false});
+      var c = new mapkit.Coordinate(lat, lon);
+      m.region = new mapkit.CoordinateRegion(c, new mapkit.CoordinateSpan(g ? 0.006 : 0.02, g ? 0.006 : 0.02));
+      m.addAnnotation(new mapkit.MarkerAnnotation(c, {color: '#FF4FA3', glyphText: '🎉'}));
+      evMap = {k: k, node: node, map: m};
+      var w = host.querySelector('.wait'); if (w) w.remove();
+    }
+    if (g) return show(g.lat, g.lon);
+    if (evGuess[q]) return show(evGuess[q].lat, evGuess[q].lon);
+    new mapkit.Search({language: FPI.lang || 'es'}).search(q, function(err, data){
+      var pl = !err && data && data.places && data.places[0];
+      if (!pl || !pl.coordinate) { host.style.display = 'none'; return; }
+      evGuess[q] = {lat: pl.coordinate.latitude, lon: pl.coordinate.longitude};
+      if (document.getElementById('evmap') === host) show(evGuess[q].lat, evGuess[q].lon);
+    });
+  }).catch(function(){ var h = document.getElementById('evmap'); if (h) h.style.display = 'none'; });
 }
 function fmtCoord(g){ return g.lat.toFixed(5) + ', ' + g.lon.toFixed(5); }
 function mapUrl(kind, g, q){
