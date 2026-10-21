@@ -1,33 +1,7 @@
-// Manda una notificación push (APNs de Apple) cuando alguien recibe una invitación.
-// Secreto necesario (Edge Functions > Secrets): APNS_KEY_P8
+// Manda una notificación push (APNs de Apple en iPhone, FCM de Firebase en Android) cuando alguien recibe una invitación.
+// Secretos necesarios: APNS_KEY_P8 y GOOGLE_SA_JSON (ver _shared/push.ts).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const KEY_ID = "5U5JY7775X", TEAM_ID = "P4242HMZ49", BUNDLE_ID = "com.henryhall.friendsparty";
-const b64url = (buf: ArrayBuffer | Uint8Array) =>
-  btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-
-async function apnsJwt(): Promise<string> {
-  const pem = Deno.env.get("APNS_KEY_P8")!.replace(/-----[A-Z ]+-----/g, "").replace(/\s+/g, "");
-  const der = Uint8Array.from(atob(pem), (c) => c.charCodeAt(0));
-  const key = await crypto.subtle.importKey("pkcs8", der, { name: "ECDSA", namedCurve: "P-256" }, false, ["sign"]);
-  const head = b64url(new TextEncoder().encode(JSON.stringify({ alg: "ES256", kid: KEY_ID })));
-  const body = b64url(new TextEncoder().encode(JSON.stringify({ iss: TEAM_ID, iat: Math.floor(Date.now() / 1000) })));
-  const sig = await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, key, new TextEncoder().encode(`${head}.${body}`));
-  return `${head}.${body}.${b64url(sig)}`;
-}
-
-async function push(host: string, jwt: string, token: string, payload: unknown) {
-  return await fetch(`https://${host}/3/device/${token}`, {
-    method: "POST",
-    headers: {
-      authorization: `bearer ${jwt}`,
-      "apns-topic": BUNDLE_ID,
-      "apns-push-type": "alert",
-      "apns-priority": "10",
-    },
-    body: JSON.stringify(payload),
-  });
-}
+import { enviarATodos } from "../_shared/push.ts";
 
 Deno.serve(async (req) => {
   // No se confía en lo que llega: solo se avisa de invitaciones reales, recientes y aún no avisadas.
@@ -49,16 +23,6 @@ Deno.serve(async (req) => {
     const { data: ev } = await db.from("events").select("title,kind").eq("id", inv.event_id).maybeSingle();
     body = ev?.title ? `${who} te invitó ${ev.kind === "momento" ? "al momento" : "a"} ${ev.title}` : `${who} te invitó a un evento`;
   }
-  const payload = { aps: { alert: { title: "Friends Party", body }, sound: "default", badge: 1 } };
-
-  const jwt = await apnsJwt();
-  const out: unknown[] = [];
-  for (const t of tokens ?? []) {
-    // Las pruebas desde Xcode usan el servidor sandbox; TestFlight y App Store usan producción.
-    let r = await push("api.push.apple.com", jwt, t.token, payload);
-    if (r.status !== 200) r = await push("api.sandbox.push.apple.com", jwt, t.token, payload);
-    if (r.status === 410) await db.from("device_tokens").delete().eq("token", t.token);
-    out.push({ status: r.status, apple: (await r.text()).slice(0, 200) });
-  }
-  return new Response(JSON.stringify(out), { headers: { "content-type": "application/json" } });
+  const r = await enviarATodos(db, (tokens ?? []).map((t: { token: string }) => t.token), { title: "Friends Party", body, badge: 1 });
+  return new Response(JSON.stringify(r), { headers: { "content-type": "application/json" } });
 });
