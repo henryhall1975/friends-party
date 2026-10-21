@@ -1349,10 +1349,10 @@ var SB = {
     }).catch(function(){ return []; });
   },
   /* guarda el identificador de este teléfono para poder mandarle notificaciones */
-  registerDevice: function(token){
+  registerDevice: function(token, plat){
     if (!token) return Promise.resolve();
     if (!SB.session || !SB.session.access_token) { ui.sheet = 'srvconn'; renderSheet(); return Promise.resolve(); }
-    return SB.rpc('register_device', {tok: token}).then(function(r){
+    return SB.rpc('register_device', plat ? {tok: token, plat: plat} : {tok: token}).then(function(r){
       toast(r.ok ? 'Teléfono registrado para avisos ✅' : 'No se pudo registrar el teléfono (' + r.status + ')');
     }).catch(function(){ toast('No se pudo registrar el teléfono: sin conexión'); });
   },
@@ -3605,6 +3605,10 @@ function groupAct(a, t){
 
 /* ---------- notificaciones (solo dentro de la app de iPhone; el navegador no las recibe) ---------- */
 function pushNative(){ return /FriendsPartyApp/.test(navigator.userAgent) && window.webkit && webkit.messageHandlers && webkit.messageHandlers.push; }
+/* avisos en la app de Android (1.4 en adelante, con Firebase): FPAndroid.pushRequest / pushStatus */
+function pushAndroid(){ return ANDROID_APP && window.FPAndroid && typeof FPAndroid.pushRequest !== 'undefined'; }
+function pushCan(){ return !!(pushNative() || pushAndroid()); }
+function pushPost(cmd){ if (pushNative()) webkit.messageHandlers.push.postMessage(cmd); else if (pushAndroid()) { if (cmd === 'request') FPAndroid.pushRequest(); else FPAndroid.pushStatus(); } }
 function storeNative(){ return /FriendsPartyApp/.test(navigator.userAgent) && window.webkit && webkit.messageHandlers && webkit.messageHandlers.store; }
 function androidStore(){ return ANDROID_APP && window.FPStore && typeof FPStore.post !== 'undefined'; }
 /* se puede comprar de verdad: con Apple en la app de iPhone o con Google Play en la de Android */
@@ -3651,16 +3655,16 @@ window.fpStore = function(msg){
     });
   }
 };
-window.fpPushToken = function(t){ clearTimeout(window.__pushT); SB.registerDevice(t); };
+window.fpPushToken = function(t, plat){ clearTimeout(window.__pushT); SB.registerDevice(t, plat); };
 window.fpPushAnswer = function(granted){
   S.pushAsked = true; S.pushOn = !!granted; save();
-  if (!granted) { toast('Los avisos están apagados. Actívalos en Ajustes del iPhone → Friends Party → Notificaciones'); return; }
+  if (!granted) { toast(ANDROID_APP ? 'Los avisos están apagados. Actívalos en Ajustes → Apps → Friends Party → Notificaciones' : 'Los avisos están apagados. Actívalos en Ajustes del iPhone → Friends Party → Notificaciones'); return; }
   toast('Permiso concedido, registrando tu teléfono…');
   clearTimeout(window.__pushT);
-  window.__pushT = setTimeout(function(){ toast('El teléfono no recibió su identificador de Apple. Revisa que tenga internet y vuelve a intentar'); }, 9000);
+  window.__pushT = setTimeout(function(){ toast('El teléfono no recibió su identificador para avisos. Revisa que tenga internet y vuelve a intentar'); }, 9000);
 };
-function pushRefresh(){ if (pushNative() && S.pushOn) webkit.messageHandlers.push.postMessage('status'); }
-function pushAsk(){ if (pushNative() && !S.pushAsked && S.me && !ui.sheet) { ui.sheet = 'pushask'; renderSheet(); } }
+function pushRefresh(){ if (pushCan() && S.pushOn) pushPost('status'); }
+function pushAsk(){ if (pushCan() && !S.pushAsked && S.me && !ui.sheet) { ui.sheet = 'pushask'; renderSheet(); } }
 function srvConnSheet(){
   var e = esc((S.profile && S.profile.email) || '');
   return '<div class="scrim" data-act="close-sheet"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="Conectar tu cuenta"><h2>Conecta tu cuenta</h2>' +
@@ -3867,7 +3871,7 @@ function joinAct(a, t){
   switch (a) {
     case 'jn-open': ui.sheet = 'join'; renderSheet(); break;
     case 'jn-srvconn': ui.sheet = 'srvconn'; renderSheet(); break;
-    case 'jn-pushon': ui.sheet = null; renderSheet(); if (pushNative()) webkit.messageHandlers.push.postMessage('request'); break;
+    case 'jn-pushon': ui.sheet = null; renderSheet(); if (pushCan()) pushPost('request'); break;
     case 'jn-srvgo':
       var em = ($('#sc-mail').value || '').trim(), pw = $('#sc-pw').value || '';
       if (!em || !pw) { toast('Escribe tu correo y tu contraseña'); return; }
@@ -3883,7 +3887,7 @@ function joinAct(a, t){
         return chain.then(function(){
           ui.sheet = null; renderSheet(); toast('Cuenta conectada ✅');
           SB.pullInvites(); SB.pullAll();
-          if (pushNative()) webkit.messageHandlers.push.postMessage('request');
+          if (pushCan()) pushPost('request');
         });
       }).catch(function(){ toast('No se pudo conectar con el servidor'); });
       break;
@@ -4714,7 +4718,7 @@ function profileHTML(name){
       (pr.provider ? '<div class="muted small pf-tag">Conectada con ' + (pr.provider === 'apple' ? 'Apple' : 'Google') + '</div>' : '') +
       (pr.email || pr.phone ? '<div class="pf-priv muted small">' + (pr.email ? esc(pr.email) : '') + (pr.email && pr.phone ? ' y ' : '') + (pr.phone ? esc(pr.phone) : '') + '. Solo tú ves estos datos.</div>' : '<div class="pf-priv muted small">Agrega tu correo para completar tu perfil.</div>') +
       (S.me && !S.session ? '<button class="link" data-act="jn-srvconn" style="margin:0 0 10px">🔗 Conectar mi cuenta al servidor</button><br>' : '') +
-      (pushNative() ? '<button class="link" data-act="jn-pushon" style="margin:0 0 10px">🔔 ' + (S.pushOn ? 'Avisos activados (toca para revisar)' : 'Activar avisos de invitaciones') + '</button><br>' : '') +
+      (pushCan() ? '<button class="link" data-act="jn-pushon" style="margin:0 0 10px">🔔 ' + (S.pushOn ? 'Avisos activados (toca para revisar)' : 'Activar avisos de invitaciones') + '</button><br>' : '') +
       '<div class="pf-acts"><button class="btn" data-act="pf-edit">Editar perfil</button><button class="btn primary" data-act="pf-find">' + svg('<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>', 18) + ' Buscar personas</button></div>';
   } else {
     var fol = isFollowing(name), back = S.social.followers.indexOf(name) >= 0;
@@ -4900,7 +4904,7 @@ function appleEnter(){
   renderSheet(); renderCover(); render(false); toTop();
   tryPendingJoin(); SB.ensureGroup().then(function(){ return SB.fetchGroupCode(); });
   SB.pullInvites(); SB.pullAll(); SB.pullFollows();
-  if (pushNative()) webkit.messageHandlers.push.postMessage('status');
+  if (pushCan()) pushPost('status');
 }
 window.fpApple = function(res){
   ui.appleBusy = false;
