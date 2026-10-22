@@ -153,6 +153,15 @@ main{padding:14px 0 130px}
 .mph{display:block;margin:-2px -6px 6px;border-radius:10px;overflow:hidden}
 .mph img{display:block;width:200px;max-width:100%;height:auto}
 .comp{display:flex;gap:8px}
+.comp .inp{min-width:0}
+.bub.stkb,.msg.me .bub.stkb{background:none;border:0;padding:0;box-shadow:none}
+.bub.stkb img{display:block;width:130px;height:auto}
+.bub.stkb .stkph{display:grid;place-items:center;width:130px;height:130px;font-size:40px;opacity:.5}
+.stksheet .stktabs{display:flex;gap:6px;overflow-x:auto;margin:0 0 10px;padding-bottom:2px}
+.stksheet .stktabs .tab{white-space:nowrap;flex:none}
+.stkgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;max-height:52vh;overflow-y:auto;margin-bottom:8px}
+.stkgrid .stk{aspect-ratio:1;border:0;background:var(--surface);border-radius:12px;padding:6px}
+.stkgrid .stk img{width:100%;height:100%;object-fit:contain}
 .inp{width:100%;min-height:46px;padding:0 14px;border-radius:12px;border:1px solid var(--line);background:var(--surface)}
 
 /* Personas */
@@ -2094,7 +2103,7 @@ function eventView(){
   var body = ui.tab === 'fotos' ? fotosBody(ev) : ui.tab === 'chat' ? chatBody(ev) : mo ? momentBody(ev) : planBody(ev);
   var bar = '';
   if (ui.tab === 'fotos') bar = fotosBar();
-  if (ui.tab === 'chat') bar = '<div class="bar"><div class="wrap comp"><button class="btn sq" data-act="ch-attach" data-k="ev" aria-label="Enviar una foto">' + I.image + '</button><input id="chatin" class="inp" placeholder="Escribe un mensaje" aria-label="Mensaje" autocomplete="off" value="' + esc(ui.draft) + '"><button class="btn primary sq" data-act="send" aria-label="Enviar">' + I.send + '</button></div></div>';
+  if (ui.tab === 'chat') bar = '<div class="bar"><div class="wrap comp"><button class="btn sq" data-act="ch-attach" data-k="ev" aria-label="Enviar una foto">' + I.image + '</button><button class="btn sq" data-act="ch-stkopen" data-k="ev" aria-label="Stickers">😀</button><input id="chatin" class="inp" placeholder="Escribe un mensaje" aria-label="Mensaje" autocomplete="off" value="' + esc(ui.draft) + '"><button class="btn primary sq" data-act="send" aria-label="Enviar">' + I.send + '</button></div></div>';
   if (ui.tab === 'plan') bar = '<div class="bar"><div class="wrap"><button class="btn primary block" data-act="pl-invite">' + I.plus + ' Invitar amigos</button></div></div>';
   if (isMoment(ev) && ui.tab === 'plan' && !isMineEv(ev)) bar = '';
   return '<header class="top"><div class="wrap"><div class="bar1"><button class="ib" data-act="back" aria-label="Volver a eventos">' + I.back + '</button><div class="tt"><div class="ttl" data-nt>' + evIco(ev.emoji) + ' ' + esc(ev.name) + '</div><div class="meta">' +
@@ -2335,9 +2344,7 @@ function act(a, t){
     case 'dl-all': downloadAll(cur()); break;
     case 'send':
       var txt = (ui.draft || '').trim(); if (!txt) return;
-      ev = cur(); var mid = SB.uuid();
-      ev.chat.push({id: ev.serverId && S.session ? 'm_' + mid : uid(), by: S.me, at: Date.now(), text: txt});
-      if (ev.serverId) SB.syncMessage({id: mid, text: txt, eventId: ev.serverId});
+      sendEvMsg(cur(), txt);
       ui.draft = ''; ui.stick = true; save(); render(false);
       var ci = $('#chatin'); if (ci) ci.focus();
       break;
@@ -3190,7 +3197,7 @@ function notifRow(i){
     ? (i.n === 1 ? T('{x} subió una foto a {e}', {x: i.by, e: i.ev.name}) : T('{n} fotos nuevas en {e}', {n: i.n, e: i.ev.name}))
     : T('{x} en {e}', {x: i.by, e: i.ev.name});
   return '<li' + cls + '><button class="ntr" data-act="nt-open" data-id="' + i.ev.id + '" data-tab="' + (i.k === 'ph' ? 'fotos' : 'chat') + '">' + (i.k === 'ph' ? '<span class="ni">' + I.image + '</span>' : av(i.by, 36)) +
-    '<span class="nt">' + esc(txt) + (i.k === 'ch' && i.text ? '<em> · ' + esc(i.text.slice(0, 80)) + '</em>' : '') + '<small>' + esc(agoTxt(i.at)) + (i.k === 'ch' && i.n > 1 ? ' · ' + esc(T('{n} mensajes', {n: i.n})) : '') + '</small></span></button></li>';
+    '<span class="nt">' + esc(txt) + (i.k === 'ch' && i.text ? '<em> · ' + esc(msgPrev(i.text).slice(0, 80)) + '</em>' : '') + '<small>' + esc(agoTxt(i.at)) + (i.k === 'ch' && i.n > 1 ? ' · ' + esc(T('{n} mensajes', {n: i.n})) : '') + '</small></span></button></li>';
 }
 function notifSheet(){
   var items = notifItems();
@@ -3421,6 +3428,8 @@ function renderSheet(){
     el.innerHTML = pwdSheet(); focus = '#p-old' ;
   } else if (ui.sheet === 'chatpick') {
     el.innerHTML = pickSheet();
+  } else if (ui.sheet === 'chatstk') {
+    el.innerHTML = stkSheet();
   } else if (ui.sheet === 'srvconn') {
     el.innerHTML = srvConnSheet();
   } else if (ui.sheet === 'pushask') {
@@ -6090,12 +6099,19 @@ function bubbles(msgs, def){
       else if (ph.id) pic = '<button class="mph" data-act="ch-photo" data-e="' + ph.evId + '" data-id="' + ph.id + '" aria-label="Abrir foto"><img src="' + ph.data + '" alt="Foto compartida"></button>';
       else pic = '<div class="mph"><img src="' + ph.data + '" alt="Foto enviada"></div>';
     }
-    return '<div class="msg' + (mine ? ' me' : '') + '">' + (mine ? '' : '<div class="who">' + esc(m.by) + ' <button class="flag" data-act="rp-open" data-n="' + esc(m.by) + '" data-k="mensaje" aria-label="Reportar mensaje">⚑</button></div>') + '<div class="bub">' + pic + (m.text ? '<div>' + esc(m.text) + '</div>' : '') + '<time>' + hhmm(m.at) + '</time></div></div>';
+    var who = mine ? '' : '<div class="who">' + esc(m.by) + ' <button class="flag" data-act="rp-open" data-n="' + esc(m.by) + '" data-k="mensaje" aria-label="Reportar mensaje">⚑</button></div>';
+    var sk = stkMsg(m.text);
+    if (sk) {
+      var so = stkById(sk);
+      if (!STK.length) loadStickers().then(function(){ if (STK.length) render(false); });
+      return '<div class="msg' + (mine ? ' me' : '') + '">' + who + '<div class="bub stkb">' + (so ? '<img src="' + so.d + '" alt="' + esc(so.t) + '">' : '<span class="stkph">🎉</span>') + '<time>' + hhmm(m.at) + '</time></div></div>';
+    }
+    return '<div class="msg' + (mine ? ' me' : '') + '">' + who + '<div class="bub">' + pic + (m.text ? '<div>' + esc(m.text) + '</div>' : '') + '<time>' + hhmm(m.at) + '</time></div></div>';
   }).join('') + '</div>';
 }
 function chatBody(ev){ markRead(ev.id); return bubbles(ev.chat, ev); }
 function composer(id, draft, sendAct, k){
-  return '<div class="bar"><div class="wrap comp"><button class="btn sq" data-act="ch-attach" data-k="' + k + '" aria-label="Enviar una foto">' + I.image + '</button><input id="' + id + '" class="inp" placeholder="Escribe un mensaje" aria-label="Mensaje" autocomplete="off" value="' + esc(draft) + '"><button class="btn primary sq" data-act="' + sendAct + '" aria-label="Enviar">' + I.send + '</button></div></div>';
+  return '<div class="bar"><div class="wrap comp"><button class="btn sq" data-act="ch-attach" data-k="' + k + '" aria-label="Enviar una foto">' + I.image + '</button><button class="btn sq" data-act="ch-stkopen" data-k="' + k + '" aria-label="Stickers">😀</button><input id="' + id + '" class="inp" placeholder="Escribe un mensaje" aria-label="Mensaje" autocomplete="off" value="' + esc(draft) + '"><button class="btn primary sq" data-act="' + sendAct + '" aria-label="Enviar">' + I.send + '</button></div></div>';
 }
 
 /* bandeja de conversaciones */
@@ -6103,7 +6119,7 @@ function chatsView(){
   var cs = convs().sort(function(a, b){ return lastAt(b) - lastAt(a); });
   var rows = cs.map(function(c){
     var m = c.msgs[c.msgs.length - 1], u = unreadOf(c);
-    var prev = m ? (m.by === S.me ? 'Tú: ' : m.by + ': ') + (m.text || '📷 Foto') : 'Sin mensajes todavía';
+    var prev = m ? (m.by === S.me ? 'Tú: ' : m.by + ': ') + (msgPrev(m.text) || '📷 Foto') : 'Sin mensajes todavía';
     var g = c.kind === 'group' ? ['#D6336C', '#7B4FD1'] : GR[c.ev.grad % GR.length];
     return '<li class="lnk"><button class="rowbtn" data-act="ch-open" data-k="' + c.id + '"><span class="evi" style="background:linear-gradient(135deg,' + g[0] + ',' + g[1] + ')">' + (c.kind === 'group' ? '👥' : evIco(c.ev.emoji)) + '</span>' +
       '<span class="nm">' + esc(c.name) + '<small>' + esc(prev) + '</small></span><span class="cmeta">' + esc(whenLbl(m ? m.at : 0)) + (u ? '<b class="ub">' + u + '</b>' : '') + '</span></button></li>';
@@ -6138,6 +6154,40 @@ function pickSheet(){
     '<button class="link" data-act="close-sheet">Cancelar</button></div>';
 }
 
+function sendEvMsg(ev, txt){
+  var mid = SB.uuid();
+  ev.chat.push({id: ev.serverId && S.session ? 'm_' + mid : uid(), by: S.me, at: Date.now(), text: txt});
+  if (ev.serverId) SB.syncMessage({id: mid, text: txt, eventId: ev.serverId});
+}
+function sendGrpMsg(txt){
+  var gmid = SB.uuid();
+  S.group.chat.push({id: S.session ? 'm_' + gmid : uid(), by: S.me, at: Date.now(), text: txt});
+  /* se manda a cada grupo al que pertenezco, para que lo vean tanto quienes se unieron al mío como aquellos a cuyo grupo me uní */
+  SB.ensureGroup().then(function(gid){
+    if (!gid) return;
+    var all = (S.myGroups || []).slice(); if (all.indexOf(gid) < 0) all.unshift(gid);
+    all.forEach(function(g, k){ SB.syncMessage({id: g === gid ? gmid : SB.uuid(), text: txt, groupId: g}); });
+  });
+}
+
+/* stickers en el chat: el mensaje lleva "[[stk:ID]]" y cada teléfono dibuja el sticker con ese ID.
+   Solo puede mandarlos quien compró el paquete; verlos lo puede todo el chat. */
+function stkMsg(txt){ var m = /^\[\[stk:([\w-]+)\]\]$/.exec(txt || ''); return m ? m[1] : null; }
+function msgPrev(txt){ return stkMsg(txt) ? '🎉 Sticker' : txt; }
+function stkSheet(){
+  if (!STK.length) { loadStickers().then(function(){ if (ui.sheet === 'chatstk') renderSheet(); }); }
+  var mine = PACKS.filter(function(p){ return p.live && owned(p.id); });
+  var tab = ui.stkTab && owned(ui.stkTab) ? ui.stkTab : (mine[0] && mine[0].id);
+  var head = '<div class="scrim" data-act="close-sheet"></div><div class="sheet stksheet" role="dialog" aria-modal="true" aria-label="Stickers"><h2>Stickers</h2>';
+  if (!mine.length) return head + '<p class="muted">' + T('Compra un paquete de stickers en la Tienda para mandarlos en el chat.') + '</p>' +
+    (NO_SHOP ? '' : PACKS.filter(function(p){ return p.live; }).map(function(p){ return '<button class="btn block" data-act="ch-stkbuy" data-pack="' + p.id + '" style="margin-bottom:8px">' + p.emoji + ' ' + esc(p.name) + ' · ' + p.price + '</button>'; }).join('')) +
+    '<button class="link" data-act="close-sheet">Cancelar</button></div>';
+  var tabs = mine.length > 1 ? '<div class="stktabs">' + mine.map(function(p){ return '<button class="tab' + (p.id === tab ? ' on' : '') + '" data-act="ch-stktab" data-pack="' + p.id + '">' + p.emoji + ' ' + esc(p.name) + '</button>'; }).join('') + '</div>' : '';
+  var list = STK.filter(function(x){ return stkPack(x) === tab; });
+  return head + tabs + (STK.length ? '<div class="stkgrid">' + list.map(function(x){ return '<button class="stk" data-act="ch-stk" data-id="' + x.id + '" aria-label="' + esc(x.t) + '"><img loading="lazy" src="' + x.d + '" alt=""></button>'; }).join('') + '</div>' : '<p class="muted small">' + T('Cargando stickers…') + '</p>') +
+    '<button class="link" data-act="close-sheet">Cancelar</button></div>';
+}
+
 function chatAct(a, t){
   var target, m;
   switch (a) {
@@ -6148,19 +6198,22 @@ function chatAct(a, t){
     case 'ch-back': ui.view = 'chats'; render(false); window.scrollTo(0, 0); break;
     case 'ch-send':
       var txt = (ui.gdraft || '').trim(); if (!txt) return;
-      var gmid = SB.uuid();
-      S.group.chat.push({id: S.session ? 'm_' + gmid : uid(), by: S.me, at: Date.now(), text: txt});
-      /* se manda a cada grupo al que pertenezco, para que lo vean tanto quienes se unieron al mío como aquellos a cuyo grupo me uní */
-      SB.ensureGroup().then(function(gid){
-        if (!gid) return;
-        var all = (S.myGroups || []).slice(); if (all.indexOf(gid) < 0) all.unshift(gid);
-        all.forEach(function(g, k){ SB.syncMessage({id: g === gid ? gmid : SB.uuid(), text: txt, groupId: g}); });
-      });
+      sendGrpMsg(txt);
       ui.gdraft = ''; ui.stick = true; save(); render(false);
       var ci = $('#gchatin'); if (ci) ci.focus();
       break;
     case 'ch-attach': ui.pick = {k: t.dataset.k, evId: t.dataset.k === 'ev' ? ui.eid : null}; ui.sheet = 'chatpick'; renderSheet(); break;
     case 'ch-gallery': $('#cfile').click(); break;
+    case 'ch-stkopen': ui.pick = {k: t.dataset.k, evId: t.dataset.k === 'ev' ? ui.eid : null}; ui.sheet = 'chatstk'; renderSheet(); break;
+    case 'ch-stktab': ui.stkTab = t.dataset.pack; renderSheet(); break;
+    case 'ch-stkbuy': ui.sheet = null; renderSheet(); ui.payGallery = false; openPay(t.dataset.pack, 1); break;
+    case 'ch-stk':
+      var sx = stkById(t.dataset.id); if (!sx || !owned(stkPack(sx))) return;
+      var tok = '[[stk:' + sx.id + ']]';
+      if (ui.pick && ui.pick.k === 'g') sendGrpMsg(tok);
+      else { var sev = S.events.filter(function(e){ return e.id === (ui.pick && ui.pick.evId); })[0]; if (!sev) return; sendEvMsg(sev, tok); }
+      ui.sheet = null; ui.pick = null; ui.stick = true; renderSheet(); save(); render(false);
+      break;
     case 'ch-pick':
       target = pickTarget(); if (!target) return;
       target.push({id: uid(), by: S.me, at: Date.now(), text: '', photoId: t.dataset.id, evId: t.dataset.e});

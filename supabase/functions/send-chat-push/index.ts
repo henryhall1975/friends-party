@@ -26,7 +26,9 @@ Deno.serve(async (req) => {
   const plat = await plataformas(db, rows.map((r) => r.token));
   let enviados = 0, fallidos = 0;
   for (const r of rows) {
-    const texto = r.cuerpo ? (r.cuerpo.length > 140 ? r.cuerpo.slice(0, 137) + "…" : r.cuerpo) : "Te mandó una foto";
+    // los stickers viajan como "[[stk:ID]]" (ver stkMsg en index.html)
+    const texto = !r.cuerpo ? "Te mandó una foto" : /^\[\[stk:[\w-]+\]\]$/.test(r.cuerpo) ? "Te mandó un sticker 🎉"
+      : r.cuerpo.length > 140 ? r.cuerpo.slice(0, 137) + "…" : r.cuerpo;
     const res = await enviar(db, r.token, plat[r.token], { title: r.titulo, body: `${r.autor}: ${texto}` });
     if (res.status === 200) enviados++; else fallidos++;
   }
