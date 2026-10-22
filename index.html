@@ -1546,12 +1546,13 @@ var SB = {
       save(); if (ui.view === 'profile' || ui.view === 'user') render();
     });
   },
-  /* momentos públicos de otra persona: el servidor solo los entrega si la sigues (los eventos nunca se muestran a seguidores) */
+  /* eventos y momentos públicos de otra persona: el servidor solo los entrega si la sigues.
+     De un evento público el seguidor ve nombre, fecha y lugar; sus fotos siguen siendo solo para quienes asisten. */
   pullUserEvents: function(n){
     if (!SB.session || !SB.session.access_token) return Promise.resolve();
     return SB.idOf(n).then(function(id){
       if (!id) return;
-      return SB.rest('events', 'GET', null, '?owner_id=eq.' + id + '&is_public=eq.true&kind=eq.momento&select=id,title,place_text,starts_at&order=starts_at.desc.nullslast&limit=30').then(function(r){
+      return SB.rest('events', 'GET', null, '?owner_id=eq.' + id + '&is_public=eq.true&select=id,title,place_text,starts_at&order=starts_at.desc.nullslast&limit=30').then(function(r){
         if (!r.ok) return;
         ensureSocial(); S.social.pubEv = S.social.pubEv || {};
         S.social.pubEv[n] = (r.data || []).map(function(e){ return {id: e.id, name: e.title, place: e.place_text || '', date: e.starts_at ? e.starts_at.slice(0, 10) : '', time: e.starts_at ? e.starts_at.slice(11, 16) : ''}; });
@@ -2262,7 +2263,7 @@ function act(a, t){
       var name = ($('#f-name').value || '').trim();
       var mk = ui.form.kind === 'momento';
       if (!name) { toast(mk ? 'Ponle un nombre al momento' : 'Ponle un nombre al evento'); $('#f-name').focus(); return; }
-      var data = {name: name, place: ($('#f-place').value || '').trim(), date: $('#f-date').value, time: $('#f-time').value, notes: ($('#f-notes').value || '').trim(), emoji: ui.form.emoji || '🎂', pub: !!ui.form.pub && ui.form.kind === 'momento', kind: mk ? 'momento' : 'evento'};
+      var data = {name: name, place: ($('#f-place').value || '').trim(), date: $('#f-date').value, time: $('#f-time').value, notes: ($('#f-notes').value || '').trim(), emoji: ui.form.emoji || '🎂', pub: !!ui.form.pub, kind: mk ? 'momento' : 'evento'};
       if (ui.editId) {
         ev = S.events.filter(function(e){ return e.id === ui.editId; })[0];
         if (ev) { Object.assign(ev, data); if (ui.form.geo !== undefined) { ev.geo = ui.form.geo; delete ev.geoDemo; } SB.pushEvent(ev); }
@@ -3388,8 +3389,8 @@ function renderSheet(){
       row('<rect x="5" y="3.5" width="14" height="17" rx="2.5"/><path d="M9 9h6M9 12.5h6M9 16h3"/>', '<label>' + (mo ? 'Descripción (opcional)' : 'Detalles (opcional)') + '<input id="f-notes" class="inp" placeholder="' + (mo ? 'De qué se trata este momento' : 'Qué llevar, cómo llegar…') + '" maxlength="140" autocomplete="off" value="' + esc(ed ? ed.notes : '') + '"></label>') +
       row('<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M4 18l5-5 4 4 3-3 4 4"/>', '<div class="evs-ic"><span class="evs-lbl">Ícono</span><div class="evs-q"><div class="evs-qs" id="icon-quick">' + evQuick() + '</div>' +
         '<button type="button" class="evs-more" id="icon-pick-btn" data-act="toggle-icons" aria-expanded="false" aria-controls="icon-grid" aria-label="Ver todos los íconos">' + svg('<path d="M6 9l6 6 6-6"/>', 18) + '</button></div></div>') +
-      /* eventos: siempre solo para invitados; solo los momentos pueden ser públicos para tus seguidores */
-      (mo ? row('<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.8 3 2.8 14 0 17M12 3.5c-2.8 3-2.8 14 0 17"/>', '<div class="evs-ic"><span class="evs-lbl">¿Quién puede verlo?</span><div class="seg evs-vis" id="f-vis" role="group" aria-label="¿Quién puede verlo?">' + visBtns() + '</div><p class="muted small evs-visx" id="f-visx">' + visText() + '</p></div>') : '') +
+      /* eventos y momentos: Público (lo ven tus seguidores) o Privado (solo invitados) */
+      row('<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.8 3 2.8 14 0 17M12 3.5c-2.8 3-2.8 14 0 17"/>', '<div class="evs-ic"><span class="evs-lbl">¿Quién puede verlo?</span><div class="seg evs-vis" id="f-vis" role="group" aria-label="¿Quién puede verlo?">' + visBtns() + '</div><p class="muted small evs-visx" id="f-visx">' + visText() + '</p></div>') +
       '<div class="ems" id="icon-grid" role="group" aria-label="Elige un ícono" hidden>' + ICONS.map(function(ic){ return '<button class="em' + (ic.e === ui.form.emoji ? ' on' : '') + '" data-act="pick-emoji" data-e="' + ic.e + '" aria-label="' + esc(ic.l) + '"><span class="em-ico">' + evIco(ic.e) + '</span><span class="em-lbl">' + esc(ic.l) + '</span></button>'; }).join('') + '</div>' +
       '<button class="btn primary block evs-go" data-act="create-event">' + (ed ? 'Guardar cambios' : mo ? 'Crear momento' : 'Crear evento') + '<span class="chev">' + svg('<path d="M9 5l7 7-7 7"/>', 18) + '</span></button><button class="link" data-act="close-sheet">Cancelar</button></div>';
     focus = '#f-name';
@@ -5135,7 +5136,7 @@ function openUser(n){
 function pubEvBlock(n){
   var L = (S.social && S.social.pubEv && S.social.pubEv[n]) || [];
   if (!isFollowing(n) || !L.length) return '';
-  return '<h3 class="pl-h">' + T('Momentos públicos') + '</h3><ul class="people pubev">' + L.map(function(e){
+  return '<h3 class="pl-h">' + T('Eventos y momentos públicos') + '</h3><ul class="people pubev">' + L.map(function(e){
     var when = (e.date ? fmtDate(e.date) : '') + (e.time && e.time !== '00:00' ? ', ' + fmtHour(e.time) : '');
     return '<li><span class="evi" style="background:linear-gradient(135deg,#8A5BFF,#FF6FB1)">' + svg('<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/>', 20) + '</span><span class="nm" data-nt>' + esc(e.name) + '<small>' + esc([when, e.place].filter(Boolean).join(' · ') || T('Sin fecha')) + '</small></span></li>';
   }).join('') + '</ul>';

@@ -903,6 +903,7 @@ var D = {
   'Otras personas que conoces': ['Other people you know', '아는 다른 사람들'],
   'Abrir en el mapa': ['Open in maps', '지도에서 열기'],
   'Compra un paquete de stickers en la Tienda para mandarlos en el chat.': ['Buy a sticker pack in the Shop to send them in the chat.', '채팅에서 보내려면 상점에서 스티커 팩을 구매하세요.'],
+  'Eventos y momentos públicos': ['Public events and moments', '공개 이벤트와 모먼트'],
   'Abre la app Friends Party para comprar': ['Open the Friends Party app to buy', '구매하려면 Friends Party 앱을 여세요'],
   'Este paquete todavía no se puede comprar en esta versión. Actualiza la app desde Google Play.': ['This pack can\'t be bought in this version yet. Update the app from Google Play.', '이 버전에서는 아직 이 팩을 구매할 수 없어요. Google Play에서 앱을 업데이트해 주세요.'],
   'Tu pago está pendiente. Cuando Google Play lo confirme, toca Restaurar compras.': ['Your payment is pending. When Google Play confirms it, tap Restore purchases.', '결제가 대기 중이에요. Google Play에서 확인되면 구매 복원을 눌러 주세요.'],
