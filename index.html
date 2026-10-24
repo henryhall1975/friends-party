@@ -1628,6 +1628,11 @@ var SB = {
     }).catch(function(){ return false; });
   },
   /* salir de un evento al que te invitaron (no lo borra: solo dejas de ser parte) */
+  /* borra en el servidor todas las fechas de una clase semanal mía, también las que este teléfono aún no tiene */
+  dropSeries: function(series){
+    if (!series || !SB.session || !SB.session.access_token || !S.serverId) return Promise.resolve(false);
+    return SB.rest('events', 'DELETE', null, '?series_id=eq.' + series + '&owner_id=eq.' + S.serverId, 'return=minimal').then(function(r){ return !!r.ok; }).catch(function(){ return false; });
+  },
   leaveEvent: function(sid){
     if (!sid || !SB.session || !SB.session.access_token || !S.serverId) return Promise.resolve(false);
     return SB.rest('event_members', 'DELETE', null, '?event_id=eq.' + sid + '&user_id=eq.' + S.serverId, 'return=minimal').then(function(r){ return !!r.ok; }).catch(function(){ return false; });
@@ -2368,11 +2373,17 @@ function act(a, t){
       break;
     case 'ev-del':
       ev = cur();
-      if (ui.armed !== 'e' + ev.id) { ui.armed = 'e' + ev.id; render(); return; }
+      /* de una clase semanal se puede borrar solo esta fecha o todas (si no, al borrar una aparecía la siguiente) */
+      var all = t.dataset.all === '1' && ev.seriesId, arm = (all ? 's' : 'e') + ev.id;
+      if (ui.armed !== arm) { ui.armed = arm; render(); return; }
       var mine = isMineEv(ev);
-      S.events = S.events.filter(function(e){ return e.id !== ev.id; });
-      if (ev.serverId) { S.gone = S.gone || {}; S.gone[ev.serverId] = 1; if (mine) SB.dropEvent(ev.serverId); else SB.leaveEvent(ev.serverId); }
-      ui.armed = null; ui.view = 'home'; ui.eid = null; save(); render(false); window.scrollTo(0, 0); toast(mine ? 'Evento eliminado' : 'Saliste del evento');
+      var drop = all ? S.events.filter(function(e){ return e.seriesId === ev.seriesId; }) : [ev];
+      S.events = S.events.filter(function(e){ return drop.indexOf(e) < 0; });
+      S.gone = S.gone || {};
+      drop.forEach(function(e){ if (e.serverId) { S.gone[e.serverId] = 1; if (mine) SB.dropEvent(e.serverId); else SB.leaveEvent(e.serverId); } });
+      if (all && mine) SB.dropSeries(ev.seriesId);
+      ui.armed = null; ui.view = 'home'; ui.eid = null; save(); render(false); window.scrollTo(0, 0);
+      toast(all ? (mine ? T('Se eliminaron todas las clases') : T('Saliste de todas las clases')) : (mine ? 'Evento eliminado' : 'Saliste del evento'));
       break;
   }
 }
@@ -3279,6 +3290,7 @@ function momentBody(ev){
   return hero + people + more;
 }
 /* pestaña Plan */
+I.trash = svg('<path d="M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13"/>', 18);
 function planBody(ev){
   var n = daysUntil(ev.date), g = GR[ev.grad % GR.length], mine = ev.rsvp[S.me] || '';
   var kicker = '', big;
@@ -3311,7 +3323,8 @@ function planBody(ev){
   /* acciones del evento como botones: el texto suelto no se leía sobre las ondas del fondo */
   var more = '<div class="ev-acts"><button class="btn" data-act="pl-remind">' + svg('<path d="M6 9a6 6 0 0 1 12 0c0 6 2.5 7 2.5 7h-17S6 15 6 9M10 20a2 2 0 0 0 4 0"/>', 18) + ' Ver cómo llegan los avisos</button>' +
     '<button class="btn" data-act="pl-edit">' + svg('<path d="M4 20l1-4L16 5l3 3L8 19l-4 1zM14 7l3 3"/>', 18) + ' Editar evento</button>' +
-    '<button class="btn danger" data-act="ev-del">' + svg('<path d="M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13"/>', 18) + ' ' + (isMineEv(ev) ? (ui.armed === 'e' + ev.id ? 'Toca otra vez para eliminar' : 'Eliminar evento') : (ui.armed === 'e' + ev.id ? 'Toca otra vez para salir' : 'Salir del evento')) + '</button></div>';
+    '<button class="btn danger" data-act="ev-del">' + I.trash + ' ' + (isMineEv(ev) ? (ui.armed === 'e' + ev.id ? 'Toca otra vez para eliminar' : (ev.seriesId ? T('Eliminar solo esta clase') : 'Eliminar evento')) : (ui.armed === 'e' + ev.id ? 'Toca otra vez para salir' : (ev.seriesId ? T('Salir solo de esta clase') : 'Salir del evento'))) + '</button>' +
+    (ev.seriesId ? '<button class="btn danger" data-act="ev-del" data-all="1">' + I.trash + ' ' + (isMineEv(ev) ? (ui.armed === 's' + ev.id ? 'Toca otra vez para eliminar' : T('Eliminar todas las clases')) : (ui.armed === 's' + ev.id ? 'Toca otra vez para salir' : T('Salir de todas las clases'))) + '</button>' : '') + '</div>';
   return '<div class="plan-sm">' + hero + routeBlock(ev) + seg + people + rm + more + '</div>'; /* musicBlock(ev) quitado por ahora, junto con la sección Música */
 }
 
