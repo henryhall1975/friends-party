@@ -465,6 +465,7 @@ details.loc summary{cursor:pointer;font-weight:700;color:var(--accent);padding:8
 .abar{display:flex;gap:8px}
 .fsbar{display:flex;gap:8px}
 .fsbar .btn{flex:1;padding:0 8px;font-size:15px}
+.fsbar #fo-del{flex:none;min-width:48px}
 /* Perfil */
 .pfbtn{border-radius:50%;padding:0;display:grid;place-items:center}
 .pw-eye{position:absolute;width:36px;height:36px;display:grid;place-items:center;border-radius:10px;color:rgba(255,255,255,.75);background:transparent;padding:0;z-index:1}
@@ -2138,7 +2139,8 @@ function renderLb(){
   el.className = 'on';
   el.innerHTML = '<div class="lbtop"><button class="ib light" data-act="lb-close" aria-label="Cerrar">' + I.x + '</button><button class="lbwho" data-act="us-open" data-n="' + esc(p.by) + '">' + av(p.by, 28) + '<span>' + esc(p.by === S.me ? 'Tú' : p.by) + '</span><span class="dim">' + esc(fmtTime(p.at)) + '</span></button></div>' +
     '<div class="lbimg"><button class="nav l" data-act="lb-prev" aria-label="Foto anterior"' + (i === 0 ? ' disabled' : '') + '>' + I.back + '</button><img src="' + p.data + '" alt="Foto de ' + esc(p.by) + '"><button class="nav r" data-act="lb-next" aria-label="Foto siguiente"' + (i === list.length - 1 ? ' disabled' : '') + '>' + I.next + '</button></div>' +
-    likesLine(p) + '<div class="lbact">' + likeBtn(p) + '</div>';
+    likesLine(p) + '<div class="lbact">' + likeBtn(p) +
+    (canDelPhoto(ev, p) ? '<button class="btn light lbdel" data-act="lb-del" aria-label="' + esc(T('Eliminar foto')) + '">' + I.trash + ' ' + (ui.armed === 'p' + p.id ? T('Toca otra vez para eliminar') : T('Eliminar')) + '</button>' : '') + '</div>';
 }
 
 var tt;
@@ -4630,6 +4632,7 @@ function foFoot(){
   var c = $('#fo-count'); if (c) c.textContent = n + (n === 1 ? ' seleccionada' : ' seleccionadas');
   var d = $('#fo-dl'); if (d) { d.textContent = 'Descargar (' + n + ')'; d.disabled = !n; }
   var s = $('#fo-sh'); if (s) { s.textContent = 'Compartir (' + n + ')'; s.disabled = !n; }
+  var x = $('#fo-del'); if (x) { x.disabled = !n; if (ui.armed === 'fsel') { ui.armed = null; x.innerHTML = I.trash; } }
 }
 
 /* pestaña Fotos de un evento */
@@ -4653,7 +4656,9 @@ function fotosBar(){
   if (ui.fsel) {
     var n = ui.fsel.length;
     return '<div class="bar"><div class="wrap fsbar">' + (dl ? '<button class="btn primary" id="fo-dl" data-act="fo-dlsel"' + (n ? '' : ' disabled') + '>Descargar (' + n + ')</button>' : '') +
-      '<button class="btn" id="fo-sh" data-act="fo-sharesel"' + (n ? '' : ' disabled') + '>Compartir (' + n + ')</button><button class="btn" data-act="fo-cancel">Cancelar</button></div></div>';
+      '<button class="btn" id="fo-sh" data-act="fo-sharesel"' + (n ? '' : ' disabled') + '>Compartir (' + n + ')</button>' +
+      '<button class="btn danger" id="fo-del" data-act="fo-delsel"' + (n ? '' : ' disabled') + ' aria-label="' + esc(T('Eliminar')) + '">' + I.trash + (ui.armed === 'fsel' ? ' ' + T('¿Seguro?') : '') + '</button>' +
+      '<button class="btn" data-act="fo-cancel">Cancelar</button></div></div>';
   }
   return '<div class="bar"><div class="wrap"><button class="btn primary block" data-act="upload">' + I.image + ' Subir fotos</button></div></div>';
 }
@@ -4735,6 +4740,18 @@ function fotosAct(a, t){
       break;
     case 'fo-dlsel': if (ev) downloadMany(ev, selPhotos(ev)); break;
     case 'fo-sharesel': if (ev) { list = selPhotos(ev); if (list.length) shareFiles(ev, list); } break;
+    /* borrar varias: solo las que puedo borrar (mías, o todas si el evento es mío); hay que tocar dos veces */
+    case 'fo-delsel':
+      if (!ev) return;
+      list = selPhotos(ev).filter(function(p){ return canDelPhoto(ev, p); });
+      if (!list.length) { toast(T('Solo puedes eliminar tus propias fotos')); return; }
+      if (ui.armed !== 'fsel') { ui.armed = 'fsel'; render(false); return; }
+      var skip = selPhotos(ev).length - list.length, ids = list.map(function(p){ return p.id; });
+      ev.photos = ev.photos.filter(function(p){ return ids.indexOf(p.id) < 0; });
+      ui.armed = null; ui.fsel = null; save(); render(false);
+      toast(T('{n} fotos eliminadas', {n: list.length}) + (skip ? ' · ' + T('{n} no eran tuyas', {n: skip}) : ''));
+      list.forEach(function(p){ SB.deletePhoto(ev, p); });
+      break;
   }
 }
 
