@@ -3912,6 +3912,16 @@ window.fpPushAnswer = function(granted){
 };
 function pushRefresh(){ if (pushCan() && S.pushOn) pushPost('status'); }
 function pushAsk(){ if (pushCan() && !S.pushAsked && S.me && !ui.sheet) { ui.sheet = 'pushask'; renderSheet(); } }
+/* el permiso de avisos se pide solo, sin tener que buscarlo en el perfil (casi nadie lo encontraba):
+   apenas hay sesión y la pantalla está libre (sin portada, hojas ni tour). El sistema solo muestra su ventana
+   la primera vez; si la persona ya había dicho que no, fpPushAnswer le explica cómo activarlos en Ajustes. */
+var pushAutoDone = false;
+setInterval(function(){
+  if (pushAutoDone || S.pushAsked || !pushCan() || !S.serverId || !SB.session || !ui.authed) return;
+  if (ui.sheet || coverOn || tourOn || ui.lb || ui.ed || document.hidden) return;
+  pushAutoDone = true;
+  pushPost('request');
+}, 3000);
 function srvConnSheet(){
   var e = esc((S.profile && S.profile.email) || '');
   return '<div class="scrim" data-act="close-sheet"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="Conectar tu cuenta"><h2>Conecta tu cuenta</h2>' +
