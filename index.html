@@ -2115,7 +2115,7 @@ function eventView(){
   if (isMoment(ev) && ui.tab === 'plan' && !isMineEv(ev)) bar = '';
   return '<header class="top"><div class="wrap"><div class="bar1"><button class="ib" data-act="back" aria-label="Volver a eventos">' + I.back + '</button><div class="tt"><div class="ttl" data-nt>' + evIco(ev.emoji) + ' ' + esc(ev.name) + '</div><div class="meta">' +
     (ev.place ? '<span>' + I.pin + esc(ev.place) + '</span>' : '') + (ev.date ? '<span>' + I.cal + esc(fmtDate(ev.date) + (ev.time ? ', ' + fmtHour(ev.time) : '')) + '</span>' : '') +
-    '</div></div></div><nav class="tabs" role="tablist">' + (mo ? tab('fotos', 'Fotos', ev.photos.length) + tab('chat', 'Chat', ev.chat.length || '') + tab('plan', 'Info', '') : tab('plan', 'Plan', '') + tab('fotos', 'Fotos', ev.photos.length) + tab('chat', 'Chat', ev.chat.length || '')) + '</nav></div></header>' +
+    '</div></div></div><nav class="tabs" role="tablist">' + (mo ? tab('fotos', 'Fotos', ev.photos.length) + tab('chat', 'Chat', chatMsgs(ev).length || '') + tab('plan', 'Info', '') : tab('plan', 'Plan', '') + tab('fotos', 'Fotos', ev.photos.length) + tab('chat', 'Chat', chatMsgs(ev).length || '')) + '</nav></div></header>' +
     '<main class="wrap">' + secMenu(mo ? 'Momentos' : 'Eventos') + body + '</main>' + bar;
 }
 function render(keep){
@@ -6108,12 +6108,38 @@ ui.gdraft = ''; ui.pick = null;
 var PHRASES = ['¡Qué buena estuvo!', 'Mándenme las fotos, por favor', '¿Quién lleva el pastel?', 'Ya llegué', 'Jajaja, buenísima esa foto', '¿A qué hora nos vemos?', 'Cuenten conmigo', 'Gracias por invitarme'].map(function(p){ return T(p); });
 
 function markRead(id){ S.reads = S.reads || {}; S.reads[id] = Date.now(); }
+/* las clases semanales comparten un solo chat: todas las fechas de las clases del mismo grupo (o de la misma serie) */
+function chatKey(ev){ return !ev.seriesId ? ev.id : ev.groupId ? 'cg:' + ev.groupId : 'cs:' + ev.seriesId; }
+function chatEvs(ev){ var k = chatKey(ev); return k === ev.id ? [ev] : S.events.filter(function(e){ return chatKey(e) === k; }); }
+function chatMsgs(ev){
+  var es = chatEvs(ev); if (es.length < 2) return ev.chat;
+  var out = [];
+  es.forEach(function(e){ (e.chat || []).forEach(function(m){ out.push(m.photoId && !m.evId ? Object.assign({}, m, {evId: e.id}) : m); }); });
+  return out.sort(function(a, b){ return a.at - b.at; });
+}
+/* la fecha a la que van los mensajes nuevos: la próxima clase (o la última si ya pasaron todas) */
+function chatEv(ev){
+  var es = chatEvs(ev); if (es.length < 2) return ev;
+  var up = es.filter(function(e){ var n = daysUntil(e.date); return n === null || n >= 0; }).sort(function(a, b){ return (a.date || '').localeCompare(b.date || ''); });
+  return up[0] || es.slice().sort(function(a, b){ return (b.date || '').localeCompare(a.date || ''); })[0];
+}
+function chatName(ev){
+  if (chatKey(ev) === ev.id) return ev.name;
+  var g = ev.groupId && (S.groups || []).filter(function(x){ return x.id === ev.groupId; })[0];
+  if (g && g.name && g.name !== 'Mi grupo') return g.name;
+  var ns = []; chatEvs(ev).forEach(function(e){ if (ns.indexOf(e.name) < 0) ns.push(e.name); });
+  return ns.join(' · ');
+}
 function convs(){
-  var out = [{id: 'g', kind: 'group', name: 'Mi grupo', msgs: (S.group && S.group.chat) || []}];
-  S.events.forEach(function(ev){ out.push({id: ev.id, kind: 'event', name: ev.name, ev: ev, msgs: ev.chat}); });
+  var out = [{id: 'g', kind: 'group', name: 'Mi grupo', msgs: (S.group && S.group.chat) || []}], seen = {};
+  S.events.forEach(function(ev){
+    var k = chatKey(ev); if (seen[k]) return; seen[k] = 1;
+    var e = chatEv(ev);
+    out.push({id: k, kind: 'event', name: chatName(e), ev: e, msgs: chatMsgs(e)});
+  });
   return out;
 }
-function unreadOf(c){ var t = (S.reads || {})[c.id] || 0; return c.msgs.filter(function(m){ return m.by !== S.me && m.at > t; }).length; }
+function unreadOf(c){ var r = S.reads || {}, t = r[c.id] || 0; if (!t && c.ev && c.id !== c.ev.id) chatEvs(c.ev).forEach(function(e){ t = Math.max(t, r[e.id] || 0); }); return c.msgs.filter(function(m){ return m.by !== S.me && m.at > t; }).length; }
 function totalUnread(){ return convs().reduce(function(n, c){ return n + unreadOf(c); }, 0); }
 function lastAt(c){ var m = c.msgs[c.msgs.length - 1]; return m ? m.at : 0; }
 function whenLbl(at){
@@ -6150,7 +6176,7 @@ function bubbles(msgs, def){
     return '<div class="msg' + (mine ? ' me' : '') + '">' + who + '<div class="bub">' + pic + (m.text ? '<div>' + esc(m.text) + '</div>' : '') + '<time>' + hhmm(m.at) + '</time></div></div>';
   }).join('') + '</div>';
 }
-function chatBody(ev){ markRead(ev.id); return bubbles(ev.chat, ev); }
+function chatBody(ev){ markRead(chatKey(ev)); return bubbles(chatMsgs(ev), ev); }
 function composer(id, draft, sendAct, k){
   return '<div class="bar"><div class="wrap comp"><button class="btn sq" data-act="ch-attach" data-k="' + k + '" aria-label="Enviar una foto">' + I.image + '</button><button class="btn sq" data-act="ch-stkopen" data-k="' + k + '" aria-label="Stickers">😀</button><input id="' + id + '" class="inp" placeholder="Escribe un mensaje" aria-label="Mensaje" autocomplete="off" value="' + esc(draft) + '"><button class="btn primary sq" data-act="' + sendAct + '" aria-label="Enviar">' + I.send + '</button></div></div>';
 }
@@ -6162,7 +6188,7 @@ function chatsView(){
     var m = c.msgs[c.msgs.length - 1], u = unreadOf(c);
     var prev = m ? (m.by === S.me ? 'Tú: ' : m.by + ': ') + (msgPrev(m.text) || '📷 Foto') : 'Sin mensajes todavía';
     var g = c.kind === 'group' ? ['#D6336C', '#7B4FD1'] : GR[c.ev.grad % GR.length];
-    return '<li class="lnk"><button class="rowbtn" data-act="ch-open" data-k="' + c.id + '"><span class="evi" style="background:linear-gradient(135deg,' + g[0] + ',' + g[1] + ')">' + (c.kind === 'group' ? '👥' : evIco(c.ev.emoji)) + '</span>' +
+    return '<li class="lnk"><button class="rowbtn" data-act="ch-open" data-k="' + (c.ev ? c.ev.id : c.id) + '"><span class="evi" style="background:linear-gradient(135deg,' + g[0] + ',' + g[1] + ')">' + (c.kind === 'group' ? '👥' : evIco(c.ev.emoji)) + '</span>' +
       '<span class="nm">' + esc(c.name) + '<small>' + esc(prev) + '</small></span><span class="cmeta">' + esc(whenLbl(m ? m.at : 0)) + (u ? '<b class="ub">' + u + '</b>' : '') + '</span></button></li>';
   }).join('');
   return '<header class="top"><div class="wrap"><div class="bar1"><button class="ib" data-act="back" aria-label="Volver al inicio">' + I.back + '</button><div class="tt"><div class="ttl">Chat</div><div class="meta"><span>Tu grupo y cada evento</span></div></div></div></div></header>' +
@@ -6196,6 +6222,7 @@ function pickSheet(){
 }
 
 function sendEvMsg(ev, txt){
+  ev = chatEv(ev);
   var mid = SB.uuid();
   ev.chat.push({id: ev.serverId && S.session ? 'm_' + mid : uid(), by: S.me, at: Date.now(), text: txt});
   if (ev.serverId) SB.syncMessage({id: mid, text: txt, eventId: ev.serverId});
