@@ -548,6 +548,7 @@ details.loc summary{cursor:pointer;font-weight:700;color:var(--accent);padding:8
 .pf-badge.off .pf-badge-ic img{filter:grayscale(1) brightness(.7);opacity:.45}
 .people li .rowbtn{flex:1;width:auto}
 .heartb[aria-pressed="true"]{color:#ff8ab0}
+.lbviews{pointer-events:none}
 .heartb[aria-pressed="true"] svg{fill:currentColor}
 .lkline{text-align:center;margin:0 12px 4px}
 .cell .lk{position:absolute;left:5px;bottom:5px;font-size:12px;font-weight:700;color:#fff;background:rgba(0,0,0,.55);border-radius:99px;padding:1px 8px}
@@ -1218,6 +1219,7 @@ var slug = function(s){ return String(s).normalize('NFD').replace(/[\u0300-\u036
 function svg(d, size){ size = size || 20; return '<svg viewBox="0 0 24 24" width="' + size + '" height="' + size + '" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + '</svg>'; }
 var I = {
   back: svg('<path d="M15 5l-7 7 7 7"/>', 22),
+  eye: svg('<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/>', 18),
   next: svg('<path d="M9 5l7 7-7 7"/>', 22),
   pin: svg('<path d="M12 21s7-6.2 7-11.5A7 7 0 0 0 5 9.5C5 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>', 15),
   cal: svg('<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/>', 15),
@@ -1311,6 +1313,13 @@ var SB = {
   refreshOnce: function(){
     if (!SB._refreshing) SB._refreshing = SB.restore().then(function(ok){ SB._refreshing = null; return ok; }, function(){ SB._refreshing = null; return false; });
     return SB._refreshing;
+  },
+  /* el ojito y el corazón de cada foto */
+  photoReact: function(pid, kind, on){
+    if (!SB.session || !/^p_/.test(pid || '')) return;
+    var id = pid.slice(2);
+    (on ? SB.rest('photo_reactions', 'POST', {photo_id: id, user_id: S.serverId, kind: kind}, '', 'resolution=ignore-duplicates,return=minimal')
+      : SB.rest('photo_reactions', 'DELETE', null, '?photo_id=eq.' + id + '&user_id=eq.' + S.serverId + '&kind=eq.' + kind, 'return=minimal')).catch(function(){});
   },
   rest: function(table, method, body, query, prefer, retried){
     var h = {'Content-Type': 'application/json', 'apikey': SUPABASE_KEY};
@@ -1897,8 +1906,9 @@ var SB = {
           SB.rest('photos', 'GET', null, '?event_id=eq.' + erow.id + '&order=created_at.asc'),
           SB.rest('messages', 'GET', null, '?event_id=eq.' + erow.id + '&order=created_at.asc'),
           SB.rest('songs', 'GET', null, '?event_id=eq.' + erow.id + '&order=created_at.asc'),
-          SB.rest('event_members', 'GET', null, '?event_id=eq.' + erow.id + '&select=user_id,rsvp')
-        ]).then(function(r3){ return {erow: erow, photoRows: r3[0].data || [], msgRows: r3[1].data || [], songRows: r3[2].data || [], memRows: r3[3].ok ? (r3[3].data || []) : null}; });
+          SB.rest('event_members', 'GET', null, '?event_id=eq.' + erow.id + '&select=user_id,rsvp'),
+          SB.rest('photos', 'GET', null, '?event_id=eq.' + erow.id + '&select=id,photo_reactions(user_id,kind)').catch(function(){ return {}; })
+        ]).then(function(r3){ return {erow: erow, photoRows: r3[0].data || [], msgRows: r3[1].data || [], songRows: r3[2].data || [], memRows: r3[3].ok ? (r3[3].data || []) : null, rxRows: r3[4].ok ? (r3[4].data || []) : null}; });
       }));
     }).then(function(bundles){
       /* averigua quién es quién (author_id/added_by son ids del servidor) para no mostrar
@@ -1909,6 +1919,7 @@ var SB = {
         b.msgRows.forEach(function(m){ if (m.author_id) ids[m.author_id] = 1; });
         b.songRows.forEach(function(s){ if (s.added_by) ids[s.added_by] = 1; });
         (b.memRows || []).forEach(function(m){ if (m.user_id) ids[m.user_id] = 1; });
+        (b.rxRows || []).forEach(function(p){ (p.photo_reactions || []).forEach(function(x){ ids[x.user_id] = 1; }); });
         if (b.erow.owner_id) ids[b.erow.owner_id] = 1;
       });
       return SB.resolveNames(Object.keys(ids)).then(function(names){
@@ -1918,11 +1929,14 @@ var SB = {
           /* las fotos que este teléfono ya tiene guardadas no se vuelven a descargar */
           var have = {}, was = S.events.filter(function(e){ return e.serverId === erow.id; })[0];
           if (was) was.photos.forEach(function(x){ if (x.data) have[x.id] = x; });
+          /* quién vio cada foto y a quién le gustó (si el servidor no respondió, se queda lo que ya había) */
+          var rx = {};
+          (b.rxRows || []).forEach(function(p){ var r = rx[p.id] = {likes: [], views: []}; (p.photo_reactions || []).forEach(function(x){ var n = names[x.user_id]; if (n) (x.kind === 'like' ? r.likes : r.views).push(n); }); });
           return Promise.all(b.photoRows.map(function(p){
-            var old = have['p_' + p.id];
-            if (old) return Promise.resolve(Object.assign(old, {by: names[p.author_id] || old.by, synced: true}));
+            var old = have['p_' + p.id], r = b.rxRows ? rx[p.id] || {likes: [], views: []} : null;
+            if (old) return Promise.resolve(Object.assign(old, {by: names[p.author_id] || old.by, synced: true}, r || {}));
             return SB.downloadPhoto(p.storage_path).then(function(data){
-              return {id: 'p_' + p.id, by: names[p.author_id] || 'Alguien', at: Date.parse(p.created_at) || Date.now(), data: data, synced: true};
+              return Object.assign({id: 'p_' + p.id, by: names[p.author_id] || 'Alguien', at: Date.parse(p.created_at) || Date.now(), data: data, synced: true}, r || {});
             }).catch(function(){ return null; });
           })).then(function(photos){
             /* quiénes van (y qué respondió cada uno), tal como está en el servidor */
@@ -2135,11 +2149,12 @@ function renderLb(){
   var i = -1; list.forEach(function(p, k){ if (p.id === ui.lb) i = k; });
   if (i < 0) { ui.lb = null; return renderLb(); }
   var p = list[i];
+  if (p.by !== S.me && (p.views || []).indexOf(S.me) < 0) { p.views = (p.views || []).concat(S.me); SB.photoReact(p.id, 'view', true); save(); }
   document.body.style.overflow = 'hidden';
   el.className = 'on';
   el.innerHTML = '<div class="lbtop"><button class="ib light" data-act="lb-close" aria-label="Cerrar">' + I.x + '</button><button class="lbwho" data-act="us-open" data-n="' + esc(p.by) + '">' + av(p.by, 28) + '<span>' + esc(p.by === S.me ? 'Tú' : p.by) + '</span><span class="dim">' + esc(fmtTime(p.at)) + '</span></button></div>' +
     '<div class="lbimg"><button class="nav l" data-act="lb-prev" aria-label="Foto anterior"' + (i === 0 ? ' disabled' : '') + '>' + I.back + '</button><img src="' + p.data + '" alt="Foto de ' + esc(p.by) + '"><button class="nav r" data-act="lb-next" aria-label="Foto siguiente"' + (i === list.length - 1 ? ' disabled' : '') + '>' + I.next + '</button></div>' +
-    likesLine(p) + '<div class="lbact">' + likeBtn(p) +
+    likesLine(p) + '<div class="lbact">' + viewsTag(p) + likeBtn(p) +
     (canDelPhoto(ev, p) ? '<button class="btn light lbdel" data-act="lb-del" aria-label="' + esc(T('Eliminar foto')) + '">' + I.trash + ' ' + (ui.armed === 'p' + p.id ? T('Toca otra vez para eliminar') : T('Eliminar')) + '</button>' : '') + '</div>';
 }
 
@@ -4866,6 +4881,11 @@ function likeBtn(p){
   var n = (p.likes || []).length, on = (p.likes || []).indexOf(S.me) >= 0;
   return '<button class="btn light heartb" data-act="lk-like" aria-pressed="' + on + '" aria-label="Me gusta">' + I.heart + ' ' + (n ? n : 'Me gusta') + '</button>';
 }
+/* cuántas personas (además de quien la subió) ya vieron la foto */
+function viewsTag(p){
+  var n = (p.views || []).filter(function(x){ return x !== p.by; }).length;
+  return '<span class="btn light lbviews" role="img" aria-label="' + esc(T(n === 1 ? '{n} persona la vio' : '{n} personas la vieron', {n: n})) + '">' + I.eye + ' ' + n + '</span>';
+}
 function likesLine(p){
   var l = p.likes || [];
   if (!l.length) return '';
@@ -5329,6 +5349,7 @@ function socialAct(a, t){
       p.likes = p.likes || [];
       i = p.likes.indexOf(S.me);
       if (i >= 0) p.likes.splice(i, 1); else p.likes.push(S.me);
+      SB.photoReact(p.id, 'like', i < 0);
       save(); renderLb(); render();
       break;
     case 'us-sim':
@@ -5350,7 +5371,7 @@ function socialAct(a, t){
 document.addEventListener('dblclick', function(e){
   if (!ui.lb || !e.target.closest || !e.target.closest('#lb .lbimg img')) return;
   var ev = cur(), p = ev && ev.photos.filter(function(x){ return x.id === ui.lb; })[0];
-  if (p) { p.likes = p.likes || []; if (p.likes.indexOf(S.me) < 0) { p.likes.push(S.me); save(); renderLb(); render(); toast('Te gusta esta foto'); } }
+  if (p) { p.likes = p.likes || []; if (p.likes.indexOf(S.me) < 0) { p.likes.push(S.me); SB.photoReact(p.id, 'like', true); save(); renderLb(); render(); toast('Te gusta esta foto'); } }
 });
 
 /* ---------- iniciar sesión: contraseña, Face ID / Touch ID, Apple y Google ---------- */
