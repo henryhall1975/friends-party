@@ -1,6 +1,6 @@
 // Manda un aviso push al teléfono que corresponda: iPhone por APNs (Apple), Android por FCM (Firebase).
 // Lo usan todas las funciones de avisos (send-push, send-join-push, send-chat-push, send-follow-push,
-// send-reminders, send-new-event-push). El tipo de teléfono está en device_tokens.platform.
+// send-reminders, send-new-event-push, send-photo-push). El tipo de teléfono está en device_tokens.platform.
 // Secretos necesarios: APNS_KEY_P8 (llave de Apple) y GOOGLE_SA_JSON (cuenta de servicio con permiso
 // "Firebase Cloud Messaging API Admin" en el proyecto friends-party-511920).
 
