@@ -2100,7 +2100,19 @@ function seedDemo(){
 }
 var cur = function(){ return S.events.filter(function(e){ return e.id === ui.eid; })[0]; };
 var isBlocked = function(n){ return !!n && (S.blocked || []).indexOf(n) >= 0; };
-var sorted = function(ev){ return ev.photos.filter(function(p){ return !isBlocked(p.by); }).sort(function(a, b){ return b.at - a.at; }); };
+/* las clases semanales (misma serie) comparten un solo álbum: se juntan las fotos de todas sus fechas */
+var serEvs = function(ev){ return ev && ev.seriesId ? S.events.filter(function(e){ return e.seriesId === ev.seriesId; }) : ev ? [ev] : []; };
+var allPhotos = function(ev){ var out = []; serEvs(ev).forEach(function(e){ out = out.concat(e.photos); }); return out; };
+var sorted = function(ev){ return allPhotos(ev).filter(function(p){ return !isBlocked(p.by); }).sort(function(a, b){ return b.at - a.at; }); };
+/* la fecha de la serie que tiene guardada esa foto */
+var photoEv = function(ev, id){ return serEvs(ev).filter(function(e){ return e.photos.some(function(p){ return p.id === id; }); })[0] || ev; };
+/* a qué fecha de la serie van las fotos nuevas: la última clase que ya empezó (o la próxima si todavía no hubo ninguna) */
+var albumEv = function(ev){
+  var es = serEvs(ev); if (es.length < 2) return ev;
+  var past = es.filter(function(e){ var n = daysUntil(e.date); return n !== null && n <= 0; }).sort(function(a, b){ return (b.date || '').localeCompare(a.date || ''); });
+  var next = es.filter(function(e){ var n = daysUntil(e.date); return n === null || n > 0; }).sort(function(a, b){ return (a.date || '').localeCompare(b.date || ''); });
+  return past[0] || next[0] || ev;
+};
 
 /* ---------- vistas ---------- */
 var app = $('#app');
@@ -2129,7 +2141,7 @@ function eventView(){
   if (isMoment(ev) && ui.tab === 'plan' && !isMineEv(ev)) bar = '';
   return '<header class="top"><div class="wrap"><div class="bar1"><button class="ib" data-act="back" aria-label="Volver a eventos">' + I.back + '</button><div class="tt"><div class="ttl" data-nt>' + evIco(ev.emoji) + ' ' + esc(ev.name) + '</div><div class="meta">' +
     (ev.place ? '<span>' + I.pin + esc(ev.place) + '</span>' : '') + (ev.date ? '<span>' + I.cal + esc(fmtDate(ev.date) + (ev.time ? ', ' + fmtHour(ev.time) : '')) + '</span>' : '') +
-    '</div></div></div><nav class="tabs" role="tablist">' + (mo ? tab('fotos', 'Fotos', ev.photos.length) + tab('chat', 'Chat', chatMsgs(ev).length || '') + tab('plan', 'Info', '') : tab('plan', 'Plan', '') + tab('fotos', 'Fotos', ev.photos.length) + tab('chat', 'Chat', chatMsgs(ev).length || '')) + '</nav></div></header>' +
+    '</div></div></div><nav class="tabs" role="tablist">' + (mo ? tab('fotos', 'Fotos', sorted(ev).length) + tab('chat', 'Chat', chatMsgs(ev).length || '') + tab('plan', 'Info', '') : tab('plan', 'Plan', '') + tab('fotos', 'Fotos', sorted(ev).length) + tab('chat', 'Chat', chatMsgs(ev).length || '')) + '</nav></div></header>' +
     '<main class="wrap">' + secMenu(mo ? 'Momentos' : 'Eventos') + body + '</main>' + bar;
 }
 function render(keep){
@@ -2342,7 +2354,7 @@ function act(a, t){
       if (list[i]) { ui.lb = list[i].id; renderLb(); }
       break;
     case 'lb-dl':
-      ev = cur(); list = ev.photos.filter(function(p){ return p.id === ui.lb; });
+      ev = cur(); list = sorted(ev).filter(function(p){ return p.id === ui.lb; });
       if (list[0]) downloadOne(ev, list[0]);
       break;
     case 'lb-share':
@@ -2353,6 +2365,7 @@ function act(a, t){
       if (ui.armed !== 'p' + ui.lb) { ui.armed = 'p' + ui.lb; renderLb(); return; }
       ev = cur(); list = sorted(ev); i = -1; list.forEach(function(p, k){ if (p.id === ui.lb) i = k; });
       var gone = ui.lb, gp = list[i];
+      ev = photoEv(ev, gone);
       ev.photos = ev.photos.filter(function(p){ return p.id !== gone; });
       ui.armed = null;
       ui.lb = (list[i + 1] || list[i - 1] || {}).id || null;
@@ -2361,7 +2374,7 @@ function act(a, t){
       break;
     case 'lb-more': ui.phOpt = ui.lb; ui.armed = null; ui.lb = null; renderLb(); ui.sheet = 'phopts'; renderSheet(); break;
     case 'lb-send':
-      ev = cur(); list = ev.photos.filter(function(p){ return p.id === ui.lb; });
+      ev = cur(); list = sorted(ev).filter(function(p){ return p.id === ui.lb; });
       if (list[0]) shareFiles(ev, [list[0]]);
       break;
     case 'dl-all': downloadAll(cur()); break;
@@ -4733,11 +4746,14 @@ function friendMomentView(){
     '<div style="height:40px"></div></main>';
 }
 function fotosView(){
-  var evs = S.events.slice().sort(function(a, b){ return lastPhotoAt(b) - lastPhotoAt(a) || b.created - a.created; });
+  var sSeen = {};
+  var evs = S.events.filter(function(ev){ if (!ev.seriesId) return true; if (sSeen[ev.seriesId]) return false; sSeen[ev.seriesId] = 1; return true; }).map(albumEv);
+  var ord = function(ev){ var t = 0; allPhotos(ev).forEach(function(p){ if (p.at > t) t = p.at; }); return t; };
+  evs.sort(function(a, b){ return ord(b) - ord(a) || b.created - a.created; });
   var total = 0; S.events.forEach(function(ev){ total += ev.photos.length; });
   var list = evs.length ? '<div class="list" style="padding-bottom:40px">' + evs.map(function(ev){
-    var n = ev.photos.length, seen = {}; ev.photos.forEach(function(p){ seen[p.by] = 1; });
-    var up = Object.keys(seen).length, last = ev.photos.slice().sort(function(a, b){ return b.at - a.at; })[0];
+    var ps = allPhotos(ev), n = ps.length, seen = {}; ps.forEach(function(p){ seen[p.by] = 1; });
+    var up = Object.keys(seen).length, last = ps.slice().sort(function(a, b){ return b.at - a.at; })[0];
     return '<div class="album"><button class="card" data-act="fo-open" data-id="' + ev.id + '">' + stack(ev) + '<div class="ct"><div class="t">' + esc(ev.name) + '</div>' +
       '<div class="s">' + (n ? n + (n === 1 ? ' foto' : ' fotos') + ' de ' + up + (up === 1 ? ' persona' : ' personas') : 'Sin fotos todavía') + '</div>' +
       (last ? '<div class="s">Última: ' + esc(last.by === S.me ? 'tú' : last.by) + ', ' + esc(new Date(last.at).toLocaleDateString(FPI.locale, {day: 'numeric', month: 'short'})) + '</div>' : '') +
@@ -4745,7 +4761,7 @@ function fotosView(){
       '<div class="abar"><button class="btn small primary" data-act="fo-upload" data-id="' + ev.id + '">' + I.image + ' Subir fotos</button><button class="btn small" data-act="fo-open" data-id="' + ev.id + '">Abrir álbum</button></div></div>';
   }).join('') + '</div>' : '<div class="empty"><p><strong>Todavía no tienes eventos.</strong></p><p class="muted">Crea uno y ahí subes las fotos.</p></div>';
   return '<header class="top"><div class="wrap"><div class="bar1"><button class="ib" data-act="back" aria-label="Volver al inicio">' + I.back + '</button><div class="tt"><div class="ttl">Fotos</div><div class="meta"><span>El álbum de cada evento</span></div></div></div></div></header>' +
-    '<main class="wrap">' + secMenu('Fotos') + '<p class="muted small" style="margin:0 0 12px">' + total + (total === 1 ? ' foto' : ' fotos') + ' en ' + S.events.length + (S.events.length === 1 ? ' álbum' : ' álbumes') + '. Entra a un evento para subir fotos: tu grupo las ve, las descarga y las comparte.</p>' + list + '</main>';
+    '<main class="wrap">' + secMenu('Fotos') + '<p class="muted small" style="margin:0 0 12px">' + total + (total === 1 ? ' foto' : ' fotos') + ' en ' + evs.length + (evs.length === 1 ? ' álbum' : ' álbumes') + '. Entra a un evento para subir fotos: tu grupo las ve, las descarga y las comparte.</p>' + list + '</main>';
 }
 
 function fotosAct(a, t){
@@ -4755,7 +4771,7 @@ function fotosAct(a, t){
     case 'fo-upload': ui.eid = t.dataset.id; $('#file').click(); break;
     case 'fo-select': ui.fsel = []; render(); break;
     case 'fo-cancel': ui.fsel = null; render(); break;
-    case 'fo-all': if (ev) { ui.fsel = ev.photos.map(function(p){ return p.id; }); render(); } break;
+    case 'fo-all': if (ev) { ui.fsel = sorted(ev).map(function(p){ return p.id; }); render(); } break;
     case 'fo-toggle':
       if (!ui.fsel) return;
       i = ui.fsel.indexOf(t.dataset.id);
@@ -4772,10 +4788,11 @@ function fotosAct(a, t){
       if (!list.length) { toast(T('Solo puedes eliminar tus propias fotos')); return; }
       if (ui.armed !== 'fsel') { ui.armed = 'fsel'; render(false); return; }
       var skip = selPhotos(ev).length - list.length, ids = list.map(function(p){ return p.id; });
-      ev.photos = ev.photos.filter(function(p){ return ids.indexOf(p.id) < 0; });
+      var owner = {}; list.forEach(function(p){ owner[p.id] = photoEv(ev, p.id); });
+      serEvs(ev).forEach(function(e){ e.photos = e.photos.filter(function(p){ return ids.indexOf(p.id) < 0; }); });
       ui.armed = null; ui.fsel = null; save(); render(false);
       toast(T('{n} fotos eliminadas', {n: list.length}) + (skip ? ' · ' + T('{n} no eran tuyas', {n: skip}) : ''));
-      list.forEach(function(p){ SB.deletePhoto(ev, p); });
+      list.forEach(function(p){ SB.deletePhoto(owner[p.id], p); });
       break;
   }
 }
@@ -5344,7 +5361,7 @@ function socialAct(a, t){
       ui.plist = {kind: a === 'pf-followers' ? 'followers' : 'following', who: n}; ui.sheet = 'people'; renderSheet();
       break;
     case 'lk-like':
-      ev = cur(); p = ev && ev.photos.filter(function(x){ return x.id === ui.lb; })[0];
+      ev = cur(); p = ev && sorted(ev).filter(function(x){ return x.id === ui.lb; })[0];
       if (!p) return;
       p.likes = p.likes || [];
       i = p.likes.indexOf(S.me);
@@ -5370,7 +5387,7 @@ function socialAct(a, t){
 
 document.addEventListener('dblclick', function(e){
   if (!ui.lb || !e.target.closest || !e.target.closest('#lb .lbimg img')) return;
-  var ev = cur(), p = ev && ev.photos.filter(function(x){ return x.id === ui.lb; })[0];
+  var ev = cur(), p = ev && sorted(ev).filter(function(x){ return x.id === ui.lb; })[0];
   if (p) { p.likes = p.likes || []; if (p.likes.indexOf(S.me) < 0) { p.likes.push(S.me); SB.photoReact(p.id, 'like', true); save(); renderLb(); render(); toast('Te gusta esta foto'); } }
 });
 
@@ -6174,7 +6191,7 @@ function photoOf(m, def){
   if (m.img) return {data: m.img};
   if (!m.photoId) return null;
   var e = m.evId ? S.events.filter(function(x){ return x.id === m.evId; })[0] : def;
-  var p = e && e.photos.filter(function(x){ return x.id === m.photoId; })[0];
+  var p = e && allPhotos(e).filter(function(x){ return x.id === m.photoId; })[0];
   return p ? {data: p.data, evId: e.id, id: p.id} : {gone: true};
 }
 function bubbles(msgs, def){
