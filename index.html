@@ -1299,6 +1299,9 @@ var SB = {
       if (res.ok && res.data && res.data.access_token) {
         SB.remember({access_token: res.data.access_token, refresh_token: res.data.refresh_token});
         if (res.data.user && res.data.user.id && S.serverId !== res.data.user.id) { S.serverId = res.data.user.id; save(); } /* por si quedó sin asignar (p.ej. tras un desbloqueo de candado) */
+        /* si el correo de la cuenta se corrigió en el servidor, el teléfono usa el nuevo para volver a entrar */
+        var srvMail = res.data.user && res.data.user.email;
+        if (srvMail && S.profile && !S.profile.provider && /@/.test(S.profile.email || '') && S.profile.email.toLowerCase() !== srvMail.toLowerCase()) { S.profile.email = srvMail; save(); }
         return true;
       }
       /* el servidor ya no reconoce la sesión guardada (no es falla de red): hay que volver a pedir la contraseña */
