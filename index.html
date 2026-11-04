@@ -820,6 +820,9 @@ body::after{content:"";position:fixed;left:0;right:0;top:0;height:env(safe-area-
 .grp.add{justify-items:center;align-content:center;color:var(--accent);border-style:dashed}
 .grppick{display:flex;flex-wrap:wrap;gap:6px}
 .grppick button{min-height:38px;padding:0 14px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font-weight:600;font-size:14px}
+.grppick .grp-add{border-style:dashed;color:#FF8AD0}
+.grnew{display:flex;gap:8px;margin-top:8px}
+.grnew .inp{flex:1;min-width:0}
 .grppick button.on{border-color:#FF8AD0;background:linear-gradient(160deg,rgba(255,79,163,.35),rgba(123,59,240,.35));box-shadow:0 0 12px rgba(255,90,200,.35)}
 .grsug{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 14px}
 .grsug .chip{padding:7px 13px;font-size:14px;color:var(--ink)}
@@ -972,7 +975,7 @@ var ICONS = [
   {e: '🏡', l: 'Reunión en casa', k: 'casa'}, {e: '⚽', l: 'Deportes', k: 'deportes'}, {e: '🎓', l: 'Graduación', k: 'graduacion'},
   {e: '💍', l: 'Boda / compromiso', k: 'boda'}, {e: '🎄', l: 'Navidad', k: 'navidad'}, {e: '🎆', l: 'Año Nuevo', k: 'anonuevo'},
   {e: '☕', l: 'Reunión / café', k: 'cafe'}, {e: '🎮', l: 'Gaming', k: 'gaming'}, {e: '🎬', l: 'Cine', k: 'cine'},
-  {e: '🥳', l: 'Otro', k: 'otro'}
+  {e: '🩺', l: 'Médico / clínica', k: 'medicina'}, {e: '🥳', l: 'Otro', k: 'otro'}
 ];
 /* portada de cada tipo de evento: covers/<clave>.jpg; si el archivo aún no existe, se usa el degradado con el ícono */
 var coverState = {};
@@ -1139,7 +1142,10 @@ var GR_SUG = {es: ['Zumba', 'Familia', 'Party', 'Colegas', 'Amigos del cole', 'E
 function grpPick(){
   var f = ui.form || {}, L = S.groups || [];
   if (!f.gid || !L.some(function(g){ return g.id === f.gid; })) f.gid = (L.some(function(g){ return g.id === S.lastGid; }) ? S.lastGid : S.serverGroupId) || (L[0] && L[0].id);
-  return '<div class="grppick">' + L.map(function(g){ return '<button type="button" class="' + (g.id === f.gid ? 'on' : '') + '" aria-pressed="' + (g.id === f.gid) + '" data-act="pick-grp" data-id="' + esc(g.id) + '" data-nt>' + esc(grpName(g)) + '</button>'; }).join('') + '</div>' +
+  /* "+ Nuevo grupo": se crea aquí mismo sin cerrar el formulario del evento (por ejemplo, para unos practicantes) */
+  var nw = f.grNew ? '<div class="grnew"><input id="f-grnew" class="inp" maxlength="30" autocomplete="off" placeholder="' + esc(T('Nombre del grupo')) + '"><button type="button" class="btn small primary" data-act="grp-new-ok"' + (f.grBusy ? ' disabled' : '') + '>' + T('Crear') + '</button></div>' : '';
+  return '<div class="grppick">' + L.map(function(g){ return '<button type="button" class="' + (g.id === f.gid ? 'on' : '') + '" aria-pressed="' + (g.id === f.gid) + '" data-act="pick-grp" data-id="' + esc(g.id) + '" data-nt>' + esc(grpName(g)) + '</button>'; }).join('') +
+    '<button type="button" class="grp-add" data-act="grp-new" aria-expanded="' + !!f.grNew + '">+ ' + T('Nuevo grupo') + '</button></div>' + nw +
     '<p class="muted small evs-visx">' + esc(T('Solo lo ven y reciben el aviso los del grupo {x}.', {x: grpName(L.filter(function(g){ return g.id === f.gid; })[0])})) + '</p>';
 }
 function repHtml(){
@@ -2278,8 +2284,27 @@ function act(a, t){
       if (btn) btn.setAttribute('aria-expanded', 'false');
       break;
     case 'pick-grp':
-      ui.form.gid = t.dataset.id;
+      ui.form.gid = t.dataset.id; ui.form.grNew = false;
       var gb = document.getElementById('f-grp'); if (gb) gb.innerHTML = grpPick();
+      break;
+    case 'grp-new':
+      ui.form.grNew = !ui.form.grNew;
+      var gb2 = document.getElementById('f-grp'); if (gb2) gb2.innerHTML = grpPick();
+      var gi2 = document.getElementById('f-grnew'); if (gi2) gi2.focus();
+      break;
+    case 'grp-new-ok':
+      var gnm = ((document.getElementById('f-grnew') || {}).value || '').trim();
+      if (!gnm) { toast('Ponle un nombre al grupo'); return; }
+      if (!S.session) { toast(T('Conéctate a internet para crear el grupo')); return; }
+      var gf = ui.form; gf.grBusy = true; t.disabled = true;
+      SB.createGroup(gnm).then(function(gid){
+        gf.grBusy = false;
+        if (!gid) { toast('No se pudo crear el grupo. Intenta de nuevo.'); t.disabled = false; return; }
+        gf.gid = gid; gf.grNew = false; S.lastGid = gid; save();
+        if (ui.form !== gf) return;
+        var gb3 = document.getElementById('f-grp'); if (gb3) gb3.innerHTML = grpPick();
+        toast(T('Grupo {x} creado', {x: gnm}));
+      });
       break;
     case 'multi-on':
       var mfe = $('#f-end'); if (mfe) ui.form.end = mfe.value;
@@ -3468,7 +3493,7 @@ function renderSheet(){
       /* clases o eventos que se repiten cada semana (solo al crear): se crea uno por cada fecha */
       (!mo && !ed ? row('<path d="M17 2l4 4-4 4"/><path d="M3 11V9a3 3 0 0 1 3-3h15"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a3 3 0 0 1-3 3H3"/>', '<div class="evs-ic"><span class="evs-lbl">' + T('Repetir') + '</span><div id="f-rep">' + repHtml() + '</div></div>') : '') +
       /* para qué grupo es el evento (solo lo ven y reciben el aviso los de ese grupo); aparece si tienes más de un grupo */
-      (!mo && !ed && (S.groups || []).length > 1 ? row('<circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5"/><circle cx="17" cy="9" r="2.6"/><path d="M15.5 14.2c2.4-.2 4.4 1.3 5 4.8"/>', '<div class="evs-ic"><span class="evs-lbl">' + T('Grupo') + '</span><div id="f-grp">' + grpPick() + '</div></div>') : '') +
+      (!mo && !ed && ((S.groups || []).length > 1 || S.session) ? row('<circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5"/><circle cx="17" cy="9" r="2.6"/><path d="M15.5 14.2c2.4-.2 4.4 1.3 5 4.8"/>', '<div class="evs-ic"><span class="evs-lbl">' + T('Grupo') + '</span><div id="f-grp">' + grpPick() + '</div></div>') : '') +
       row('<path d="M12 21s7-6.2 7-11.5A7 7 0 0 0 5 9.5C5 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>', '<div class="evs-pl"><label>' + (mo ? 'Ubicación' : 'Lugar') + '<input id="f-place" class="inp" placeholder="' + (mo ? 'Ciudad, playa, casa…' : 'Casa de José, restaurante, parque…') + '" maxlength="80" autocomplete="off" value="' + esc(ed ? ed.place : '') + '"></label><button type="button" class="evs-map" data-act="mp-open" aria-label="Elegir el lugar en el mapa">' + svg('<circle cx="12" cy="12" r="6.5"/><circle cx="12" cy="12" r="2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3"/>', 20) + '</button><div class="evs-geo" id="f-geo">' + mpChip() + '</div></div>') +
       row('<rect x="5" y="3.5" width="14" height="17" rx="2.5"/><path d="M9 9h6M9 12.5h6M9 16h3"/>', '<label>' + (mo ? 'Descripción (opcional)' : 'Detalles (opcional)') + '<input id="f-notes" class="inp" placeholder="' + (mo ? 'De qué se trata este momento' : 'Qué llevar, cómo llegar…') + '" maxlength="140" autocomplete="off" value="' + esc(ed ? ed.notes : '') + '"></label>') +
       row('<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M4 18l5-5 4 4 3-3 4 4"/>', '<div class="evs-ic"><span class="evs-lbl">Ícono</span><div class="evs-q"><div class="evs-qs" id="icon-quick">' + evQuick() + '</div>' +
