@@ -6726,7 +6726,8 @@ Promise.race([loadP, new Promise(function(r){ setTimeout(function(){ r(null); },
   /* chat: se revisa al volver a la app y, mientras hay un chat abierto, cada 6 segundos; si no, cada 30 */
   /* al volver a la app después de un rato, la sesión se renueva antes de pedir nada */
   document.addEventListener('visibilitychange', function(){ if (!document.hidden) { (S.session && S.session.refresh_token && Date.now() - (SB._lastRefresh || 0) > 30 * 60 * 1000 ? SB.refreshOnce() : Promise.resolve()).then(function(){ SB.pullChat(); SB.pullFresh(); }); } });
-  var chatTick = 0; setInterval(function(){ if (document.hidden) return; chatTick++; var open = (ui.view === 'event' && ui.tab === 'chat') || ui.view === 'gchat' || ui.view === 'chats'; if (open || chatTick % 5 === 0) SB.pullChat(); }, 6000);
+  var chatTick = 0; setInterval(function(){ if (document.hidden) return; chatTick++;
+    if (/^(event|fotos|home)$/.test(ui.view) && !ui.sheet && !ui.lb) SB.pullFresh(); /* fotos y personas nuevas sin tener que cerrar la app (máx. una vez por minuto) */ var open = (ui.view === 'event' && ui.tab === 'chat') || ui.view === 'gchat' || ui.view === 'chats'; if (open || chatTick % 5 === 0) SB.pullChat(); }, 6000);
   window.addEventListener('online', function(){ SB.retryConnect(); }); setInterval(function(){ if (!document.hidden) SB.retryConnect(); }, 20000);
   setTimeout(loadStickers, 4000); /* los stickers no hacen falta al abrir la app: se piden en segundo plano, sin competir con lo primero que se ve */
   try {
