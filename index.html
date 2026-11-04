@@ -2170,7 +2170,7 @@ function render(keep){
   var y = window.scrollY;
   app.innerHTML = ui.view === 'home' ? home() : ui.view === 'invites' ? invitesView() : ui.view === 'music' ? musicView() : ui.view === 'tienda' ? tiendaView() : ui.view === 'places' ? placesView() : ui.view === 'place' ? placeView() : ui.view === 'fotos' ? fotosView() : ui.view === 'momentos' ? momentosView() : ui.view === 'fmoment' ? friendMomentView() : ui.view === 'chats' ? chatsView() : ui.view === 'gchat' ? gchatView() : ui.view === 'profile' ? profileView() : ui.view === 'user' ? userView() : eventView();
   if (ui.view === 'event' && ui.tab === 'plan') evMapInit(cur());
-  if (ui.view === 'invites') { renderQrInto(groupCode()); SB.pullOtherGroups(); if (!ui.gPulled) { ui.gPulled = true; SB.pullMyGroups(); SB.pullPeople(); } }
+  if (ui.view === 'invites') { renderQrInto(groupCode()); SB.pullOtherGroups(); if (Date.now() - (ui.gPulled || 0) > 20000) { ui.gPulled = Date.now(); SB.pullMyGroups(); SB.pullPeople(); } } /* cada vez que entras (máx. cada 20 s), para ver a quien se acaba de unir */
   checkLevelUp();
   if (keep !== false) window.scrollTo(0, y);
   if (ui.stick) { ui.stick = false; window.scrollTo(0, document.documentElement.scrollHeight); }
